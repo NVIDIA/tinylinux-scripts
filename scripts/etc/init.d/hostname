@@ -1,0 +1,15 @@
+#!/sbin/rc
+
+SETDOMAIN="/usr/sbin/setdomainname"
+
+start()
+{
+    # Set host name
+    hostname "$HOSTNAME"
+
+    # Update hosts file
+    sed -i "s/tinylinux/$HOSTNAME/" /etc/hosts
+
+    # Set domain name
+    [ -z "$DOMAINNAME" -o ! -x "$SETDOMAIN" ] || "$SETDOMAIN" "$DOMAINNAME"
+}

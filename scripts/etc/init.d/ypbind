@@ -1,0 +1,27 @@
+#!/sbin/rc
+
+DEPENDS="net rpc"
+
+start()
+{
+    [ -d /var/yp ] || mkdir /var/yp
+    [ -e /var/yp/nicknames ] || ln -s /usr/share/ypbind/nicknames /var/yp/nicknames
+    start-stop-daemon --start --quiet --exec /usr/sbin/ypbind
+
+    local I
+    for I in `seq 10`; do
+        ypwhich >/dev/null 2>/dev/null && break
+        sleep "$I"
+    done
+    if ! ypwhich >/dev/null 2>/dev/null; then
+        echo -n " Unable to connect to NIS server" >&2
+        killall ypbind
+        return 1
+    fi
+}
+
+stop()
+{
+    start-stop-daemon --stop --quiet --exec /usr/sbin/ypbind
+    rm -f /var/yp/binding/*
+}

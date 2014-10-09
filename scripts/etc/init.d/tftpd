@@ -1,0 +1,11 @@
+#!/sbin/rc
+
+start()
+{
+    /sbin/start-stop-daemon --start --background --exec /usr/bin/udpsvd -- $TFTPD_OPTS
+}
+
+stop()
+{
+    /sbin/start-stop-daemon --stop --exec /usr/bin/udpsvd
+}

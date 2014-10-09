@@ -1,0 +1,40 @@
+#!/bin/sh
+
+for ARG in `cat /proc/cmdline`; do
+    case "$ARG" in
+        mods\=*) NFSMOUNT=`echo "$ARG" | cut -f 2- -d '='` ;;
+        runspace\=*) RUNSPACE=`echo "$ARG" | cut -f 2- -d '='` ;;
+    esac
+done
+
+# Extract mount point or fake auto-detect TegraSim
+if [ "$NFSMOUNT" ]; then
+    MOUNTPOINT=`echo "$NFSMOUNT" | cut -f 2- -d ':'`
+    MOUNTOPTS="nolock"
+else
+    echo "mods= parameter not found on the kernel command line"
+    echo "Assuming we are running on TegraSim"
+    NFSMOUNT="192.168.1.1:/"
+    MOUNTPOINT="/mnt/data"
+    RUNSPACE="mods"
+    MOUNTOPTS="udp,ro,vers=3,port=2049,mountport=2050,nolock,noacl,nordirplus"
+fi
+
+MODS_RUNSPACE="$MOUNTPOINT"
+[ "$RUNSPACE" ] && MODS_RUNSPACE="$MODS_RUNSPACE/$RUNSPACE"
+if mkdir -p "$MOUNTPOINT"; then
+    TRIES=10
+    while [ $TRIES -gt 0 ]; do
+        sleep 1
+        mount -t nfs -o "$MOUNTOPTS" "$NFSMOUNT" "$MOUNTPOINT" && break
+        TRIES=$(($TRIES-1))
+    done
+    if [ $TRIES -gt 0 ]; then
+        echo "export MODS_RUNSPACE=\"$MODS_RUNSPACE\"" >> /.bashrc
+        echo "export LD_LIBRARY_PATH=\"\$MODS_RUNSPACE\"" >> /.bashrc
+    else
+        echo "ERROR: Unable to mount $NFSMOUNT"
+    fi
+else
+    echo "ERROR: Unable to create directory $MOUNTPOINT"
+fi

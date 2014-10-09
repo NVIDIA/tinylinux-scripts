@@ -1,0 +1,254 @@
+#!/bin/sh
+
+__STATUSDIR="/var/rc/status"
+
+# Dummy implementation for scripts which don't need either of these
+start()
+{
+    /bin/true
+}
+stop()
+{
+    /bin/true
+}
+
+# Helper functions for network services
+reachable()
+{   
+    ping -c 1 -q "$1" 2>&1
+}
+wait_reachable()
+{
+    local I
+    for I in `seq $2`; do
+        reachable "$1" && return 0
+        sleep "$I"
+    done
+    return 1
+}
+
+# Get service status
+__getstatus()
+{
+    local __STATUS
+    __STATUS="stopped"
+    [ -f "$__STATUSDIR/$1" ] && __STATUS=`cat "$__STATUSDIR/$1"`
+    echo "$__STATUS"
+}
+
+# Start service dependencies
+__startdeps()
+{
+    [ "$DEPENDS" ] || return 0
+
+    local __DEP
+    local __STATUS
+
+    for __DEP in $DEPENDS; do
+        __STATUS=`__getstatus "$__DEP"`
+        if [ "$__STATUS" = "stopped" ]; then
+            "/etc/init.d/$__DEP" silentstart || return $?
+        fi
+    done
+}
+
+# Start service
+__startservice()
+{
+    local RC
+
+    __startdeps || return $?
+
+    if [ "$LOUDSERVICE" = "1" ]; then
+        start
+    else
+        echo -n "Starting $__SVCNAME..."
+        start > /dev/null
+    fi
+    RC=$?
+
+    if [ $RC -eq 0 ]; then
+        echo "$__SVCNAME" >> "$__STATUSDIR/.order"
+        echo "started" > "$__STATUSDIR/$__SVCNAME"
+    fi
+
+    if [ "$LOUDSERVICE" = "1" ]; then
+        [ $RC -eq 0 ] || echo "Service $__SVCNAME failed to start"
+    elif [ $RC -eq 0 ]; then
+        echo " OK"
+    else
+        echo " FAILED"
+    fi
+
+    return $RC
+}
+
+# Stop service
+__stopservice()
+{
+    local RC
+
+    echo -n "Stopping $__SVCNAME..."
+    stop > /dev/null
+    RC=$?
+
+    if [ $RC -eq 0 ]; then
+        sed -i "/^$__SVCNAME\$/d" "$__STATUSDIR/.order"
+        echo "stopped" > "$__STATUSDIR/$__SVCNAME"
+        echo " OK"
+    else
+        echo " FAILED"
+    fi
+
+    return $RC
+}
+
+# Find TinyLinux configuration files
+if [ -d "`/bin/tinydir`" ]; then
+    TINYLINUXDIR="`/bin/tinydir`"
+    export TINYLINUXDIR
+fi
+
+# Run a script
+__SVCNAME=`basename "$1"`
+if [ -x "/etc/init.d/$__SVCNAME" -a "$2" -a "$#" = 2 ]; then
+
+    # Load config file
+    __CFGFILE="/etc/conf.d/$__SVCNAME"
+    [ -f "$__CFGFILE" ] && . "$__CFGFILE"
+
+    # Load script file
+    DEPENDS=""
+    . "/etc/init.d/$__SVCNAME"
+
+    # Get current status
+    __STATUS=`__getstatus "$__SVCNAME"`
+
+    # Execute command
+    case "$2" in
+        start|silentstart)
+            if [ "$__STATUS" != "stopped" ]; then
+                [ "$2" = "silentstart" ] || echo "Service $__SVCNAME is already started"
+            else
+                __startservice
+            fi
+            ;;
+
+        stop)
+            if [ "$__STATUS" = "stopped" ]; then
+                echo "Service $__SVCNAME is already stopped"
+            else
+                __stopservice
+            fi
+            ;;
+
+        restart)
+            cp "$__STATUSDIR/.order" "$__STATUSDIR/.order_old"
+            if [ "$__STATUS" != "stopped" ]; then
+                __stopservice || exit $?
+            fi
+            __startservice || exit $?
+
+            # Restore previous service order if service has started successfuly
+            if grep -q "^$__SVCNAME\$" "$__STATUSDIR/.order_old"; then
+                mv "$__STATUSDIR/.order_old" "$__STATUSDIR/.order"
+            else
+                rm "$__STATUSDIR/.order_old"
+            fi
+            ;;
+
+        zap)
+            sed -i "/^$__SVCNAME\$/d" "$__STATUSDIR/.order"
+            echo "stopped" > "$__STATUSDIR/$__SVCNAME"
+            ;;
+
+        status)
+            echo "status: $__STATUS"
+            ;;
+    esac
+
+# Overall status
+elif [ "$1" = "status" ]; then
+    find /etc/init.d/ -type f | sort | while read __SVC; do
+        __SVCNAME=`basename "$__SVC"`
+        __STATUS=`__getstatus "$__SVCNAME"`
+        echo "$__SVCNAME: $__STATUS"
+    done
+
+# System init
+elif [ "$1" = "sysinit" ]; then
+
+    # Remount root as rw if necessary
+    mount -t proc none /proc
+    if grep -q " rootfs.*ro" /proc/mounts; then
+        echo "Remounting root read-write"
+        mount -o remount,rw rootfs /
+    fi
+
+    # Mount basic filesystems
+    mount -t sysfs none /sys
+    mount -t devtmpfs -o "mode=0755" udev /dev
+    [ -d /dev/pts ] || mkdir -m 0755 /dev/pts
+    mount -t devpts none /dev/pts
+
+    # Setup hotplug
+    touch /dev/mdev.seq
+    echo "/sbin/mdev" > /proc/sys/kernel/hotplug
+
+    # Coldplug devices (skip on Tegra)
+    if [ `uname -m` != armv7l ] && ! grep -q "nocoldplug" /proc/cmdline; then
+        ls /sys/bus/pci/devices/*/uevent /sys/bus/usb/devices/*/uevent /sys/block/*/uevent /sys/block/*/*/uevent | while read UEVENT; do
+            echo "add" > "$UEVENT"
+        done
+    fi
+
+# Boot services
+elif [ "$1" = "boot" ]; then
+
+    # Create status directory
+    [ -d "$__STATUSDIR" ] && rm -rf "$__STATUSDIR"
+    mkdir -p "$__STATUSDIR"
+
+    # Create run directory
+    [ -d /run ] || mkdir /run
+    [ -e /var/run ] || ln -s /run /var/run
+
+    # Remove stale files from before boot
+    rm -f /var/run/*
+
+    # Special treatment for net config (for pvsgolden profile)
+    [ -f "$TINYLINUXDIR/net" ] && tr -d '\r' < "$TINYLINUXDIR/net" > "/etc/conf.d/net"
+
+    # Copy configuration files
+    if [ -d "$TINYLINUXDIR/conf.d" ]; then
+        find "$TINYLINUXDIR/conf.d"/ -type f | tr "A-Z" "a-z" | while read __SVC; do
+            __SVCNAME=`basename "$__SVC"`
+            tr -d '\r' < "$__SVC" > "/etc/conf.d/$__SVCNAME"
+        done
+    fi
+
+    # Copy fstab
+    [ -f "$TINYLINUXDIR/fstab" ] && tr -d '\r' < "$TINYLINUXDIR/fstab" > /etc/fstab
+
+    # Mount debug fs if it is available
+    grep -q debugfs /proc/filesystems && [ -d /sys/kernel/debug ] && mount -t debugfs none /sys/kernel/debug
+
+    # Start boot services
+    cat "/etc/conf.d/boot" | while read __SVCNAME; do
+        if [ -f "/etc/init.d/$__SVCNAME" ]; then
+            "/etc/init.d/$__SVCNAME" silentstart
+        else
+            echo "Service $__SVCNAME not found"
+        fi
+    done
+
+# Shutdown
+elif [ "$1" = "shutdown" ]; then
+    tac < "$__STATUSDIR/.order" | while read __SVCNAME; do
+        "/etc/init.d/$__SVCNAME" stop
+    done
+    sync
+
+else
+    echo "Invalid command"
+fi

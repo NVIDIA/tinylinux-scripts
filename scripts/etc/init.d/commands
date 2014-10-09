@@ -1,0 +1,13 @@
+#!/sbin/rc
+
+LOUDSERVICE="1"
+
+start()
+{
+    # Execute commands from the command file
+    if [ -f "$TINYLINUXDIR/commands" ]; then
+        tr -d '\r' <"$TINYLINUXDIR/commands" >/commands
+        chmod a+x /commands
+        /commands
+    fi
+}

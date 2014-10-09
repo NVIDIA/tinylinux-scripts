@@ -1,0 +1,6 @@
+mount
+syslogd
+hostname
+net.lo
+bash
+mods

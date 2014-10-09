@@ -1,0 +1,13 @@
+#!/bin/sh
+
+MNTNV="/mnt/nv"
+SQUASHFS_BIN="tiny/squashfs.bin"
+[ -d "$MNTNV" ] || MNTNV=""
+if [ -f "/proc/cmdline" ]; then
+    for ARG in `cat /proc/cmdline`; do
+        case "$ARG" in
+            squash\=*) SQUASHFS_BIN=`echo "$ARG" | cut -f 2- -d '='` ;;
+        esac
+    done
+fi
+dirname "$MNTNV/$SQUASHFS_BIN"

@@ -1,0 +1,22 @@
+#!/bin/sh
+
+MNTNV="/mnt/nv"
+[ -d "$MNTNV" ] || MNTNV=""
+
+# Use directory name based on MAC address if running from the network
+if grep -qs nfsshare /proc/cmdline; then
+    . /etc/conf.d/net
+    MACADDR=`/sbin/ifconfig "$IFACE" | grep "HWaddr" | sed "s/.*HWaddr *// ; s/  *.*// ; s/://g" | tr "ABCDEF" "abcdef"`
+    if [ "$MACADDR" ]; then
+        echo "$MNTNV/machines/$MACADDR"
+    else
+        echo "$MNTNV/machines/unknown"
+    fi
+else
+    TINYDIR=`/bin/tinydir`
+    if [ -d "$TINYDIR/mods" ]; then
+        echo "$TINYDIR/mods"
+    else
+        echo "$MNTNV/mods"
+    fi
+fi

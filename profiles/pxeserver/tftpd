@@ -1,0 +1,5 @@
+TFTPD_PATH="/mnt/nv/client"
+TFTPD_IP="0.0.0.0"
+TFTPD_PORT="69"
+TFTPD_USER="root"
+TFTPD_OPTS="-u $TFTPD_USER -l dummy $TFTPD_IP $TFTPD_PORT tftpd $TFTPD_PATH"

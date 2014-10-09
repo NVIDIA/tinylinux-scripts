@@ -1,0 +1,33 @@
+#!/sbin/rc
+
+saveconfig()
+{
+    /usr/sbin/alsactl store -f /mnt/nv/tiny/asound.state
+    sync
+    return 0
+}
+
+readconfig()
+{
+    /usr/sbin/alsactl restore -f /mnt/nv/tiny/asound.state
+    return 0
+}
+
+start()
+{
+    # Create /dev/snd links just for the first sound device,
+    # that should be the one on the motherboard
+    if [ ! -d /dev/snd ]; then
+        mkdir /dev/snd
+        for FILE in controlC0 pcmC0D0c pcmC0D0p timer; do
+            [ -e /dev/$FILE ] && ln -s /dev/$FILE /dev/snd/$FILE
+        done
+    fi
+
+    readconfig
+}
+
+stop()
+{
+    saveconfig
+}

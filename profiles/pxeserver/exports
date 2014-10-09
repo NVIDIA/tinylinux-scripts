@@ -1,0 +1,1 @@
+/mnt/nv/client *(rw,no_root_squash,no_subtree_check)

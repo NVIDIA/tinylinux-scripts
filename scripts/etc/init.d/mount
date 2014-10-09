@@ -1,0 +1,65 @@
+#!/sbin/rc
+
+[ "$__SVCNAME" = "netmount" ] && DEPENDS="net rpc"
+
+readfstab()
+{
+    tr '\t' ' ' < /etc/fstab | \
+        tr -s ' ' | \
+        sed -e "/ *#.*/d ; /^ *$/d ; s/$/ - - -/" | \
+        cut -f 1-4 -d ' '
+}
+
+isapplicable()
+{
+    if [ "$1" = "nfs" ] || [ "$1" = "cifs" ]; then
+        [ "$__SVCNAME" = "netmount" ]
+    else
+        [ "$__SVCNAME" = "mount" ]
+    fi
+}
+
+start()
+{
+    [ -f /etc/fstab ] || return 0
+    readfstab | while read DRIVE MOUNTPOINT FS OPTIONS; do
+        [ "$OPTIONS" = "-" ] && continue
+        isapplicable "$FS" || continue
+        echo "$OPTIONS" | grep -q "noauto" && continue
+        [ -d "$MOUNTPOINT" ] || mkdir -p "$MOUNTPOINT" || continue
+        if [ "$__SVCNAME" = "netmount" ]; then
+            SERVER=`echo "$DRIVE" | cut -f 1 -d ':'`
+            if wait_reachable "$SERVER" 30; then
+                mount "$MOUNTPOINT"
+            else
+                echo "!! Share $DRIVE is not reachable - Skipping." >&2
+            fi
+        else
+            mount "$MOUNTPOINT"
+        fi
+    done
+}
+
+stop()
+{
+    [ -f /etc/fstab ] || return 0
+    readfstab | while read DRIVE MOUNTPOINT FS OPTIONS; do
+        [ "$OPTIONS" = "-" ] && continue
+        isapplicable "$FS" || continue
+        grep -q "^$DRIVE" /proc/mounts && umount "$MOUNTPOINT"
+    done
+    if [ "$__SVCNAME" = "mount" ] && [ -d /media ]; then
+        ls /media | while read DRIVE; do
+            grep -q "/media/$DRIVE" /proc/mounts || continue
+            if ! umount "/media/$DRIVE"; then
+                echo "!! Failed to unmount /media/$DRIVE, forcing" >&2
+                if ! umount -f "/media/$DRIVE"; then
+                    echo "!! Failed to forcibly unmount /media/$DRIVE" >&2
+                    umount -l "/media/$DRIVE"
+                    continue
+                fi
+            fi
+            rmdir "/media/$DRIVE"
+        done
+    fi
+}

@@ -1,0 +1,14 @@
+#!/sbin/rc
+
+DAEMON="/usr/sbin/automount"
+PIDFILE="/var/run/autofs.pid"
+
+start()
+{
+    start-stop-daemon --start --exec "$DAEMON" -- -p "$PIDFILE"
+}
+
+stop()
+{
+    start-stop-daemon --stop --quiet -R TERM/45 -p "$PIDFILE"
+}

@@ -1,0 +1,10 @@
+#!/sbin/rc
+
+start()
+{
+    # Insert MODS kernel module
+    test -c /dev/mods || modprobe mods
+
+    # Disable console blanking
+    #echo -e '\033[9;0]\033[14;0]' > /dev/console
+}

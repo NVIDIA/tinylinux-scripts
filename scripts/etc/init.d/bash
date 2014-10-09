@@ -1,0 +1,19 @@
+#!/sbin/rc
+
+start()
+{
+    # Prepare .bashrc
+    if [ ! -e /.bashrc ]; then
+        if [ -f "$TINYLINUXDIR/bashrc" ]; then
+            tr -d '\r' <"$TINYLINUXDIR/bashrc" >/.bashrc
+        else
+            ln -s /etc/bash/bashrc /.bashrc
+        fi
+    fi
+
+    # Create .bash_profile
+    [ -e /.bash_profile ] || echo "[[ -f ~/.bashrc ]] && . ~/.bashrc" >/.bash_profile
+
+    # Create lastlog to be able to handle login log
+    touch /var/log/lastlog
+}

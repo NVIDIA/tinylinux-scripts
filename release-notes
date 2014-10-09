@@ -1,0 +1,131 @@
+TinyLinux release history
+-------------------------------------------------------------------------------
+14.09.2
+ * Fixed shellshock vulnerability in bash
+-------------------------------------------------------------------------------
+14.09
+ * Updated kernel to 3.16.1
+ * Updated MODS kernel driver to 3.49
+ * Added support for service dependencies
+ * Remove stale /var/run/* files from previous boot
+ * Wait for host to be reachable in netmount
+ * Unmount removable drives on poweroff/reboot
+ * Added separate rpc resource, used by nfsd and ypbind
+ * Added libusb
+ * Improved partition detection
+ * Added missing gdbserver
+ * Added valgrind in tegra profile
+ * Added strace in full and tegra profiles
+ * Fixed /var/run symlink
+ * Added NIS and autofs support and lrzsz tools in Tegra profile
+ * Added dropbear patch for public key authentication for NIS users
+-------------------------------------------------------------------------------
+13.11
+ * Updated kernel to 3.12
+ * Updated MODS kernel driver to 3.36
+ * Updated bashrc so set PATH correctly for remote logins
+ * Compile Ethernet and storage drivers as modules
+ * Speed up obtaining lease from DHCP during NFS boot
+ * Added manufacturer's r8168 driver for certain Realtek Ethernet adapters
+ * Added numactl tool
+-------------------------------------------------------------------------------
+13.06
+ * Updated kernel to 3.9
+ * Removed mount.cifs. Use mount -t cifs instead
+ * Updated MODS kernel driver to 3.34
+ * Updated iasl in full profile to 20130117-r1
+-------------------------------------------------------------------------------
+12.08.1
+ * Improved ALSA support
+-------------------------------------------------------------------------------
+12.08
+ * Updated kernel to 3.5
+ * Updated MODS kernel driver to 3.30
+ * Fixed hangs when trying to mount extended partition introduced in 12.07
+ * Added mount.cifs command for mounting Windows shares
+ * Updated sd_mounts script to avoid attempting to automount partitions twice
+ * Added initial ALSA support for Intel chipsets in the full profile
+ * Fixed NFS daemon startup sequence
+-------------------------------------------------------------------------------
+12.07
+ * Downgraded kernel to 3.3 due to CIFS mounting bug in 3.4
+ * Added deletion of resolv.conf when restarting the net service
+ * Profile updates
+   - Enlarged raw partition in pvsgolden profile
+   - Added extra PERL packages to full profile, including threads
+   - Added info about DHCP and static IP in the net script
+-------------------------------------------------------------------------------
+12.06
+ * Upgraded kernel to 3.4
+ * Fixed kernel configuration to restore application performance,
+   the previous version had broken kernel configuration which significantly
+   reduced performance of running applications.
+ * Made full profile work like the default profile by removing
+   nvstdimage-specific scripts.
+ * Added ability to select MODS version based on installed primary GPU
+   in the runmods script.
+-------------------------------------------------------------------------------
+12.01
+ * Upgraded kernel to 3.2.1
+ * Enabled USB serial dongle drivers in the kernel
+ * Modified automount script to not add the sync option for non-removable media
+ * Added PERL module for JSON in the full profile
+ * Added curl in the full profile
+ * Added /sbin/updatetiny script to make updating easier
+-------------------------------------------------------------------------------
+11.12
+ * Downgraded kernel to 2.6.28 due to an RTC wakealarm regression.
+ * Enabled experimental USB3 support in the kernel.
+-------------------------------------------------------------------------------
+11.11
+ * Upgraded kernel to 3.1.1
+ * Updated MODS kernel driver to 3.23
+ * Added gdb to full profile
+ * Added mount and netmount services to support automatic fstab mounting
+ * Added threads support to Python
+-------------------------------------------------------------------------------
+11.06
+ * Profile updates
+   - Renamed nvstdimage profile to full
+   - Deleted emacs from full profile to significantly cut down image size
+   - Deleted defaultwperl and slt profiles
+ * Renamed /mnt/dos to /mnt/nv (stands for non-volatile)
+ * Added installtiny tool which allows installing TinyLinux onto another drive
+ * Downgraded kernel to 2.6.36
+ * Fixed stopping and restarting services, used to mess up shutdown list
+ * Added /etc/init.d/ntp-client service
+ * Added wtmp file for 'last' command when ssh is started
+ * Fixed network shutdown with static IP
+ * Added tinydir script for finding TinyLinux directory
+-------------------------------------------------------------------------------
+11.02
+ * Added new rc script system
+   - User can put cfg scripts in /mnt/dos/tiny/conf.d/ to override
+     /etc/conf.d/*
+   - /etc/conf.d/boot lists boot services
+   - New init scripts: bash, commands, hostname, mods, net, net.lo, sshd,
+     syslogd
+   - New scripts for pxeserver profile: dhcpd, nfsd, tftpd
+   - Network setup is now performed by /etc/init.d/net and not by commands
+     script (except in the SLT profile)
+   - /etc/init.d/syslogd is now run on boot in the default profile
+ * runmods script enhancements
+   - Fixed to always pull MODS only from the same directory as the script
+   - Added a check for available disk space
+   - Fixed filename for old MODS log to contain yyddhhmm instead of yyddmmss
+ * Added modsoutputdir script
+ * Added support for booting TinyLinux from NFS
+ * When booted from NFS the default profile will use MAC-specific directory
+   instead of /mnt/dos/mods
+ * Added pxeserver profile which is a server supporting PXE boot
+ * Upgraded kernel to 2.6.37
+   - Update kernel config for 2.6.37
+   - Reconfigured to pull all modules into the kernel, esp. net modules for
+     netboot
+   - Removed bad I2C driver which caused kernel panics on some systems
+ * Added /etc/hosts file
+ * Added GRUB4DOS to nvstdimage profile to replace linld097 to address issues
+   with booting
+ * Set nano as the default editor in most profiles
+ * Updated PVS client script
+-------------------------------------------------------------------------------

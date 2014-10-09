@@ -1,0 +1,12 @@
+#!/sbin/rc
+
+start()
+{
+    touch /var/log/wtmp
+    /usr/sbin/dropbear $DROPBEAR_OPTIONS 2>&1
+}
+
+stop()
+{
+    /sbin/start-stop-daemon --stop --exec /usr/sbin/dropbear
+}

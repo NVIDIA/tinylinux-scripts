@@ -1,0 +1,74 @@
+#!/bin/bash
+
+LOGFILE="/var/log/mounts"
+
+echo "$SUBSYSTEM $MDEV $ACTION $DEVTYPE" >> "$LOGFILE"
+
+shouldmount()
+{
+    # Detect partitions
+    if [ "$2" = "disk" ]; then
+        dd if="/dev/$1" bs=512 count=1 2>/dev/null | grep -q FAT || return 1
+    elif [ "$2" != "partition" ]; then
+        return 1
+    fi
+
+    # Skip boot partition
+    if [ -x /bin/tinydir ] && [ ! -f "`/bin/tinydir`/kernel" ]; then
+        if grep -q "2 /mnt/nv reiserfs" /proc/mounts; then
+            local INSTALL
+            INSTALL=`grep " /mnt/nv " /proc/mounts | cut -f 1 -d ' '`
+            INSTALL=${INSTALL#/dev/}
+            [ "$1" = "${INSTALL/2/1}" ] && return 2
+        fi
+    fi
+
+    return 0
+}
+
+isremovable()
+{
+    local FULLPATH
+    FULLPATH=`find /sys/devices/ -name "$1"`
+    local REMOVABLE
+    REMOVABLE="$FULLPATH/removable"
+    if [ ! -f "$REMOVABLE" ]; then
+        REMOVABLE="$FULLPATH/../removable"
+        # If we can't determine, treat is as removable
+        [ -f "$REMOVABLE" ] || return 1
+    fi
+    REMOVABLE=`cat "$REMOVABLE"`
+    [ "$REMOVABLE" != "0" ]
+}
+
+if [ "$ACTION" = "remove" ]; then
+    if mountpoint -q "/media/$MDEV"; then
+        echo "  unmounting /media/$MDEV" >> "$LOGFILE"
+        umount "/media/$MDEV"
+        rmdir "/media/$MDEV"
+    fi
+elif [ "$ACTION" = "add" ]; then
+    if ! grep -q "$MDEV\>" /proc/mounts; then
+        shouldmount "$MDEV" "$DEVTYPE"
+        case "$?" in
+        0)
+            echo "  mounting /media/$MDEV" >> "$LOGFILE"
+            mkdir -p "/media/$MDEV"
+            MOUNTOPT=""
+            isremovable "$MDEV" && MOUNTOPT="-o sync"
+            mount $MOUNTOPT "/dev/$MDEV" "/media/$MDEV" || (
+                rmdir "/media/$MDEV"
+                echo "  mount /media/$MDEV failed" >> "$LOGFILE"
+            )
+            ;;
+        2)
+            echo "  /dev/$MDEV is boot partition, skipping" >> "$LOGFILE"
+            ;;
+        *)
+            echo "  ignored /dev/$MDEV" >> "$LOGFILE"
+            ;;
+        esac
+    else
+        echo "  /dev/$MDEV already mounted, skipping" >> "$LOGFILE"
+    fi
+fi

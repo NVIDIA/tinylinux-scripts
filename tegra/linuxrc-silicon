@@ -1,0 +1,41 @@
+#!/tiny/busybox sh
+
+SQUASHFS_BIN="tiny/squash.bin"
+LOOP="dev/loop0"
+MNTSQUASH="mnt/squash"
+NEWROOT="/mnt/root"
+UUID="6cbfd9d7-fdea-487f-87fa-b521bfa4d71a"
+
+# Mount devfs and procfs
+/tiny/busybox mount -t devtmpfs none /dev
+/tiny/busybox mount -t proc none /proc
+
+# Locate partition
+PARTITION=`/tiny/busybox blkid | /tiny/busybox grep "$UUID" | /tiny/busybox cut -f 1 -d ':'`
+if test "$PARTITION"; then
+    echo "Found partition: $PARTITION"
+else
+    echo "Partition with UUID $UUID not found!"
+    echo "Existing partitions:"
+    /tiny/busybox blkid
+    exec /tiny/busybox sh
+fi
+
+# Mount partition
+/tiny/busybox mkdir -p "$NEWROOT"
+/tiny/busybox mount -o noatime "$PARTITION" "$NEWROOT"
+
+# Unmount devfs and procfs
+/tiny/busybox umount /dev /proc
+
+# Setup loop device
+/tiny/busybox losetup "$NEWROOT/$LOOP" "$NEWROOT/$SQUASHFS_BIN" || exec /tiny/busybox sh
+
+# Mount squashed filesystem
+/tiny/busybox mount -t squashfs -o ro "$NEWROOT/$LOOP" "$NEWROOT/$MNTSQUASH" || exec /tiny/busybox sh
+
+# Switch root to the non-volatile partition
+exec /tiny/busybox switch_root -c /dev/console "$NEWROOT" /sbin/init
+
+# Fallback - enter shell
+exec /tiny/busybox sh

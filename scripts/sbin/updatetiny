@@ -1,0 +1,32 @@
+#!/bin/bash
+
+die()
+{
+    echo "$@"
+    exit 1
+}
+
+[ -d /tmp/tiny ] && die "Directory /tmp/tiny in the way - unable to continue"
+[ $# -eq 1 ] || die "Usage: `basename $0` <TINYLINUXPACKAGE>.zip"
+[ -f "$1" ] || die "TinyLinux package \"$1\" not found"
+
+# Unpack tiny directory from the archive
+unzip -q "$1" "tiny/*" -d /tmp || exit $?
+[ -d /tmp/tiny ] || die "Directory \"tiny\" not found in package $1"
+
+# Replace old TinyLinux directory with the new one
+TINYPATH=`tinydir`
+TINYDIR=`basename "$TINYPATH"`
+[ -d "${TINYDIR}.new" ] && die "${TINYDIR}.new in the way - unable to continue"
+[ -d "${TINYDIR}.old" ] && die "${TINYDIR}.old in the way - unable to continue"
+cd -P "$TINYPATH" || exit $?
+cd .. || exit $?
+mv /tmp/tiny ./"${TINYDIR}.new" || exit $?
+mv "$TINYDIR" "${TINYDIR}.old" || exit $?
+mv "${TINYDIR}.new" "$TINYDIR" || exit $?
+sync
+rm -rf /tmp/tiny
+
+echo "Update successful!"
+echo
+echo "Old TinyLinux release has been moved to ${TINYPATH}.old"

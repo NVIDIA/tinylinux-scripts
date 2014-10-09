@@ -1,0 +1,28 @@
+
+# Network interface to use for networking
+# Overriden by kernel argument net=
+IFACE="eth0"
+
+# Static IP to assign in form of IP/NETMASK (e.g. 10.0.0.1/255.255.255.0)
+# Overriden by kernel argument staticip=
+# Leave empty for DHCP
+# For static IP, also set the other variables below
+STATICIP=""
+
+# Gateway to use with static IP
+# Overriden by kernel argument gateway=
+GATEWAY=""
+
+# Space-separated list of DNS servers to use with static IP
+# Overriden by kernel argument dns=
+DNS=""
+
+# DNS domain name to use with static IP
+# Overriden by kernel argument dnsdomain=
+DNSDOMAIN=""
+
+# Options for udhcpc
+UDHCPC_OPTIONS="-b"
+
+# If set to 1, udhcpc will not wait for lease before backgrounding
+BACKGROUND_UDHCPC="1"

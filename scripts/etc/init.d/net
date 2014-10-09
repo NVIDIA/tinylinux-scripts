@@ -1,0 +1,72 @@
+#!/sbin/rc
+
+# Process kernel arguments
+parse_opt()
+{
+    echo "$1" | cut -f 2- -d '='
+}
+for ARG in `cat /proc/cmdline`; do
+    #echo "Parsing option $ARG"
+    case "$ARG" in
+        net\=*) IFACE=`parse_opt "$ARG"` ;;
+        staticip\=*) STATICIP=`parse_opt "$ARG"` ;;
+        gateway\=*) GATEWAY=`parse_opt "$ARG"` ;;
+        dns\=*) DNS=`parse_opt "$ARG" | sed "s/,/ /g"` ;;
+        dnsdomain\=*) DNSDOMAIN=`parse_opt "$ARG"` ;;
+        nfsshare\=*) IFACE="none" ;; # DHCP already done
+    esac
+done
+
+start()
+{
+    # Bring up networking
+    if [ -d "/sys/class/net/$IFACE" ]; then
+        if [ "$STATICIP" ]; then
+            NETMASK=`echo "$STATICIP" | cut -f 2 -d '/'`
+            STATICIP=`echo "$STATICIP" | cut -f 1 -d '/'`
+            [ "$NETMASK" ] || STATICIP=""
+        fi
+        if [ "$STATICIP" ]; then
+            echo -n " static IP $STATICIP" >&2
+
+            # Set up IP
+            ifconfig "$IFACE" "$STATICIP" netmask "$NETMASK"
+            ifconfig "$IFACE" up
+
+            # Set up gateway
+            [ "$GATEWAY" ] && route add default gw "$GATEWAY"
+
+            # Set up DNS
+            if [ "$DNSDOMAIN" ]; then
+                [ -f /etc/resolv.conf ] && rm /etc/resolv.conf
+                touch /etc/resolv.conf
+                if [ "$DNSDOMAIN" ]; then
+                    echo "domain $DNSDOMAIN" >> /etc/resolv.conf
+                    echo "search $DNSDOMAIN" >> /etc/resolv.conf
+                fi
+                for DNSSERVER in $DNS; do
+                    echo "nameserver $DNSSERVER" >> /etc/resolv.conf
+                done
+            fi
+        else
+            echo -n " DHCP" >&2
+            [ -f /etc/resolv.conf ] && rm /etc/resolv.conf
+            ifconfig "$IFACE" up
+            if [ "$BACKGROUND_UDHCPC" = "1" ]; then
+                /sbin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS &
+            else
+                /sbin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS
+            fi
+        fi
+    fi
+}
+
+stop()
+{
+    # Bring down networking
+    if [ -d "/sys/class/net/$IFACE" ]; then
+        ifconfig "$IFACE" down
+        /sbin/start-stop-daemon --stop --exec /sbin/udhcpc
+        true
+    fi
+}

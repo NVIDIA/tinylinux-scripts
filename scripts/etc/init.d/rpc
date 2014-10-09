@@ -1,0 +1,19 @@
+#!/sbin/rc
+
+start()
+{
+    mkdir -p /var/lib/nfs/sm
+    mkdir -p /var/lib/nfs/sm.bak
+    touch /var/lib/nfs/etab
+    touch /var/lib/nfs/rmtab
+
+    /sbin/rpcbind || return $?
+    /usr/sbin/sm-notify || return $?
+    /sbin/rpc.statd --no-notify
+}
+
+stop()
+{
+    /sbin/start-stop-daemon --stop --oknodo --exec /sbin/rpc.statd
+    /sbin/start-stop-daemon --stop --oknodo --exec /sbin/rpcbind
+}

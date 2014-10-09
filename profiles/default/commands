@@ -1,0 +1,18 @@
+#!/bin/sh
+
+MODSDIR="`modsoutputdir`"
+
+# Run MODS if the runmods script exists
+if [ -x "${MODSDIR}/runmods" ]; then
+
+    # Go to directory where we will be running MODS and storing logs
+    OUTPUTDIR=`modsoutputdir || echo "$MODSDIR"`
+    [ -d "$OUTPUTDIR" ] || mkdir -p "$OUTPUTDIR" || exit $?
+    cd "${OUTPUTDIR}"
+
+    # Run MODS
+    ${MODSDIR}/runmods
+
+    # Make sure everything was saved to disk
+    sync
+fi

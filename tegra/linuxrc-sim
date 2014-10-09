@@ -1,0 +1,17 @@
+#!/tiny/busybox sh
+
+SQUASHFS_BIN="tiny/squash.bin"
+LOOP="/dev/loop0"
+MNTSQUASH="mnt/squash"
+
+# Setup loop device
+/tiny/busybox losetup "$LOOP" "$SQUASHFS_BIN" || exec /tiny/busybox sh
+
+# Mount squashed filesystem
+/tiny/busybox mount -t squashfs -o ro "$LOOP" "$MNTSQUASH" || exec /tiny/busybox sh
+
+# Switch to the new root filesystem
+exec /sbin/init
+
+# Backup plan: start shell
+exec /tiny/busybox sh

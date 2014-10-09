@@ -1,0 +1,142 @@
+#!/bin/sh
+
+CONSOLE="/dev/console"
+ROOTFS="/mnt/root"
+MNTNV="mnt/nv"
+MNTSQUASH="mnt/squash"
+SQUASHFS_BIN="tiny/squash.bin"
+NFSSHARE=""
+NET="eth0"
+COLDPLUG="1"
+
+# Clear input and output
+exec >${CONSOLE} <${CONSOLE} 2>&1
+
+# Mount basic filesystems
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs none /dev
+
+# Install busybox symbolic links
+/bin/busybox --install -s
+
+# Prevent kernel logs from being sent to the console
+dmesg -n 1
+
+# Setup hotplug
+# Use modprobe from busybox to avoid genkernel's modprobe sript
+# which does not process module aliases.
+echo '#!/bin/sh
+
+[ "$ACTION" = "add" ] && busybox modprobe "$MODALIAS"' > /tmp/hotplug
+chmod 755 /tmp/hotplug
+echo /tmp/hotplug > /proc/sys/kernel/hotplug
+
+# Allow overriding squash.bin location on the kernel command line
+parse_opt()
+{
+    echo "$1" | cut -f 2- -d '='
+}
+for ARG in `cat /proc/cmdline`; do
+    case "$ARG" in
+        squash\=*)   SQUASHFS_BIN=`parse_opt "$ARG"` ;;
+        partno\=*)   PARTNUMBER=`parse_opt "$ARG"` ;;
+        nfsshare\=*) NFSSHARE=`parse_opt "$ARG"` ;;
+        net\=*)      NET=`parse_opt "$ARG"` ;;
+        nocoldplug)  COLDPLUG="" ;;
+    esac
+done
+
+# Create root filesystem
+mkdir -p "${ROOTFS}"
+mount -t tmpfs none "${ROOTFS}"
+
+# Coldplug
+if [ "$COLDPLUG" = "1" ]; then
+    ls /sys/bus/pci/devices/*/uevent /sys/bus/usb/devices/*/uevent /sys/block/*/uevent /sys/block/*/*/uevent | while read UEVENT; do
+        echo "add" > "$UEVENT"
+    done
+fi
+
+# Mount non-volatile volume or NFS share
+mkdir -p "${ROOTFS}/${MNTNV}"
+WAITCOUNT=0
+TRIEDDEVS=""
+FOUNDDEV=""
+while true; do
+    if [ "$NFSSHARE" ]; then
+        if [ -e "/sys/class/net/$NET" ]; then
+            echo "Obtaining DHCP lease for $NET..."
+            FOUNDDEV="$NET"
+            ifconfig "$NET" up || exec /bin/sh
+            udhcpc -n -T 1 -t 60 -q -i "$NET" || exec /bin/sh
+            mount -t nfs -o nolock,rsize=1024,wsize=1024 "$NFSSHARE" "${ROOTFS}/${MNTNV}" || exec /bin/sh
+        fi
+    else
+        for DEVFILE in `find /dev/ -name "[sh]d[a-z]${PARTNUMBER}*" -o -name "sr${PARTNUMBER}*"`; do
+            if ! echo "$TRIEDDEVS" | grep -q "$DEVFILE"; then
+                if mount "$DEVFILE" "${ROOTFS}/${MNTNV}" 2>/dev/null; then
+                    TRIEDDEVS="$TRIEDDEVS $DEVFILE"
+                    if [ -f "${ROOTFS}/${MNTNV}/${SQUASHFS_BIN}" ]; then
+                        echo "Found root device ${DEVFILE}"
+                        FOUNDDEV="${DEVFILE}"
+                        break
+                    fi
+                    umount "${ROOTFS}/${MNTNV}" || exec /bin/sh
+                fi
+            fi
+        done
+    fi
+    [ "$FOUNDDEV" ] && break
+    if [ $WAITCOUNT -eq 0 ]; then
+        [ "$NFSSHARE" ] && echo "Ethernet device $NET not found. Waiting..."
+        [ -z "$NFSSHARE" ] && echo "Partition with root filesystem not found. Waiting..."
+    fi
+    [ $WAITCOUNT -gt 10 ] && ( echo "Giving up..." && exec /bin/sh )
+    WAITCOUNT=$(($WAITCOUNT+1))
+    sleep 1
+done
+
+# Mount squashed root filesystem
+mkdir "${ROOTFS}/${MNTSQUASH}"
+mount -t squashfs -o loop,ro "${ROOTFS}/${MNTNV}/${SQUASHFS_BIN}" "${ROOTFS}/${MNTSQUASH}"
+
+# Create legacy "dos" symlink
+( cd "${ROOTFS}/mnt" && ln -s nv dos )
+
+# Create symlinks to the squashed root filesystem
+cd "${ROOTFS}"
+ln -s "${MNTSQUASH}"/* .
+rm -f etc
+
+# Copy etc
+cp -a "${MNTSQUASH}"/etc .
+
+# Copy resolv.conf
+[ "$NFSSHARE" ] && [ -f "/etc/resolv.conf" ] && cp /etc/resolv.conf etc/
+
+# Create necessary directories
+mkdir dev
+mkdir proc
+mkdir sys
+mkdir tmp
+chmod 1777 tmp
+mkdir -p var/tmp
+chmod 1777 var/tmp
+mkdir var/log
+chmod 755 var/log
+
+# Create basic device nodes
+mknod dev/null c 1 3
+mknod dev/console c 5 1
+
+# Unmount filesystems
+umount /dev
+umount /proc
+umount /sys
+
+# Copy mtab
+sed "s/\/mnt\/root\//\// ; s/\/mnt\/root /\/ /" </etc/mtab >etc/mtab
+
+# Switch to the new root filesystem
+exec /sbin/switch_root -c /dev/console "${ROOTFS}" /sbin/init

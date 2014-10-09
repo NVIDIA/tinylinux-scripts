@@ -1,0 +1,10 @@
+mount
+syslogd
+hostname
+net.lo
+bash
+net
+nfsd
+tftpd
+dhcpd
+commands

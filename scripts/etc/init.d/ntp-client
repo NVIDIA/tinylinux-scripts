@@ -1,0 +1,20 @@
+#!/sbin/rc
+
+DEPENDS="net"
+
+startntp()
+{
+    ntpd -q -n -p "$1" 2>&1
+}
+
+start()
+{
+    if [ "$NTPSERVER" ]; then
+        export NTPSERVER
+        if wait_reachable "$NTPSERVER" 10; then
+            startntp "$NTPSERVER"
+        else
+            ( wait_reachable "$NTPSERVER" 60 && startntp "$NTPSERVER" ) &
+        fi
+    fi
+}

@@ -1,0 +1,11 @@
+#!/sbin/rc
+
+start()
+{
+    /sbin/syslogd
+}
+
+stop()
+{
+    /sbin/start-stop-daemon --stop --exec /sbin/syslogd
+}

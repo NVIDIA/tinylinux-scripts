@@ -1,0 +1,13 @@
+#!/sbin/rc
+
+start()
+{
+    # Configure lo interface
+    ifconfig lo 127.0.0.1
+}
+
+stop()
+{
+    # Remove lo interface
+    ifconfig lo down
+}

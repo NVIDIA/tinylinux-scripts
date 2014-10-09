@@ -1,0 +1,16 @@
+#!/sbin/rc
+
+DEPENDS="net rpc"
+
+start()
+{
+    grep -qs '^[[:space:]]*/' /etc/exports && /usr/sbin/exportfs -r 2>/dev/null
+    /usr/sbin/rpc.nfsd 8 || exit $?
+    /usr/sbin/rpc.mountd
+}
+
+stop()
+{
+    /sbin/start-stop-daemon --stop --oknodo --exec /usr/sbin/rpc.mountd
+    /usr/sbin/rpc.nfsd 0
+}

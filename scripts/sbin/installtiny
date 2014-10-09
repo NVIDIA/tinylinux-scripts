@@ -1,0 +1,129 @@
+#!/bin/bash
+
+die()
+{
+    echo "$@"
+    exit 1
+}
+
+[ $# -gt 0 ] || die "Usage: `basename $0` <DEVICE1> [DEVICE2 [...]]"
+
+# Check required tools
+[ -x /sbin/mkfs.ext2 ] || die "/sbin/mkfs.ext2 not found"
+[ -x /sbin/mkfs.reiser ] || die "/sbin/mkfs.reiser not found"
+[ -x /sbin/fdisk ] || die "/sbin/fdisk not found"
+[ -x /sbin/extlinux ] || die "/sbin/extlinux not found"
+[ -f /usr/share/syslinux/mbr.bin ] || die "mbr.bin not found"
+
+# Find TinyLinux directory
+TINY="`tinydir`"
+[ -d "$TINY" ] || die "TinyLinux directory not found"
+MODSDIR="`modsoutputdir`"
+
+IBLK=1
+while [ $IBLK -le $# ]; do
+    BLKDEV=`eval "echo "'$'"$IBLK"`
+    BLKDEV="${BLKDEV#/dev/}"
+    [ -e "/sys/class/block/$BLKDEV" ] || die "/dev/$BLKDEV device does not exist!"
+    cut -f 1 -d ' ' < /proc/mounts | grep -q "$BLKDEV" && \
+        die "/dev/$BLKDEV device is already mounted!"
+    IBLK=$(($IBLK+1))
+done
+
+install_tiny()
+{
+    local BLKDEV
+    local DEV
+
+    BLKDEV="$1"
+
+    # Install master boot record and existing clear partition table
+    dd if=/dev/zero of="$BLKDEV" bs=512 count=1 || exit $?
+    cat /usr/share/syslinux/mbr.bin > "$BLKDEV" || exit $?
+    sync
+
+    # Create partitions
+    echo -en "np118np2  a1pw" | sed "s/./&\n/g" | /sbin/fdisk "$BLKDEV" || exit $?
+    sync
+    find /sys/devices/ -name uevent -exec sh -c "echo add > '{}'" \;
+    sleep 4
+    grep "^$BLKDEV" < /proc/mounts | cut -f 1 -d ' ' | while read DEV; do
+        umount "$DEV" || exit $?
+    done
+    /sbin/mkfs.ext2 -L "Boot" "${BLKDEV}1" || exit $?
+    /sbin/mkfs.reiser -l "TinyLinux" "${BLKDEV}2" || exit $?
+    sync
+
+    # Initialize boot partition
+    local BOOTDIR
+    BOOTDIR="`mktemp -d -t`"
+    mount "${BLKDEV}1" "$BOOTDIR" || exit $?
+    mkdir "$BOOTDIR/tiny" || exit $?
+    if [ -f "$TINY/kernel" -a -f "$TINY/initrd" ]; then
+        cp "$TINY"/{kernel,initrd} "$BOOTDIR/tiny"/ || exit $?
+    else
+        local BOOTSRCDEV
+        BOOTSRCDEV=`grep " /mnt/nv " /proc/mounts | cut -f 1 -d ' '`
+        BOOTSRCDEV="${BOOTSRCDEV%2}"
+        BOOTSRCDEV="${BOOTSRCDEV}1"
+        [ -b "$BOOTSRCDEV" ] || die "Boot device $BOOTSRCDEV not found"
+        local BOOTSRCDIR
+        BOOTSRCDIR="`mktemp -d -t`"
+        mount "$BOOTSRCDEV" "$BOOTSRCDIR" || exit $?
+        [ -f "$BOOTSRCDIR/tiny/kernel" -a "$BOOTSRCDIR/tiny/initrd" ] || die "Boot device $BOOTSRCDEV does not contain the kernel"
+        cp "$BOOTSRCDIR"/tiny/{kernel,initrd} "$BOOTDIR/tiny"/ || exit $?
+        sync
+        umount "$BOOTSRCDIR" || exit $?
+        rmdir "$BOOTSRCDIR" || exit $?
+    fi
+    mkdir "$BOOTDIR/extlinux" || exit $?
+    echo "default /tiny/kernel initrd=/tiny/initrd" > "$BOOTDIR"/extlinux/extlinux.conf
+    /sbin/extlinux --install "$BOOTDIR/extlinux" || exit $?
+    sync
+    umount "${BLKDEV}1" || exit $?
+    rmdir "$BOOTDIR" || exit $?
+
+    # Install TinyLinux into ReiserFS partition
+    local INSTALLDIR
+    INSTALLDIR="`mktemp -d -t`"
+    mount "${BLKDEV}2" "$INSTALLDIR" || exit $?
+    mkdir "$INSTALLDIR/tiny" || exit $?
+    tar cp -C "$TINY"/ --exclude kernel --exclude initrd ./ | tar xp -C "$INSTALLDIR/tiny"/ || exit $?
+    if [ -d "$MODSDIR" ]; then
+        mkdir "$INSTALLDIR/mods" || exit $?
+        tar cp -C "$MODSDIR"/ ./ | tar xp -C "$INSTALLDIR/mods"/ || exit $?
+    fi
+
+    # Fix permissions
+    if [ -f "$TINY/kernel" -a -f "$TINY/initrd" ]; then
+        local FILE
+        find "$INSTALLDIR"/ -type f | while read FILE; do
+            if head -n 1 "$FILE" | grep -q "^#\!"; then
+                chmod 755 "$FILE"
+            else
+                chmod 644 "$FILE"
+            fi
+        done
+    fi
+
+    # Unmount the ReiserFS partition
+    sync
+    umount "${BLKDEV}2" || exit $?
+}
+
+install_wrap()
+{
+    local STATUS
+    echo "Installing TinyLinux on $1"
+    install_tiny "$1" 2<&1 | sed "s/^/${1//\//\\/}: /" | tee -a "/var/log/install"
+    STATUS=${PIPESTATUS[0]}
+    [ $STATUS -eq 0 ] || exit $STATUS
+    echo "TinyLinux installed successfuly on $1"
+}
+
+while [ $# -gt 0 ]; do
+    install_wrap "/dev/${1#/dev/}" &
+    shift
+done
+
+wait
