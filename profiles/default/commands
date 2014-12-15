@@ -2,6 +2,8 @@
 
 MODSDIR="`modsoutputdir`"
 
+[ -x "${MODSDIR}/runmods" ] || MODSDIR="/mnt/nv"
+
 # Run MODS if the runmods script exists
 if [ -x "${MODSDIR}/runmods" ]; then
 

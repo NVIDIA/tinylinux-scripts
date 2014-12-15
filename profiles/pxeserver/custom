@@ -13,7 +13,7 @@ install_into /etc exports
 
 # Install PXE configuration
 [ -d "$INSTALL/client/pxelinux.cfg" ] || mkdir -p "$INSTALL/client/pxelinux.cfg" || exit $?
-cp /usr/share/syslinux/pxelinux.0 "$INSTALL/client"/ || exit $?
+cp /usr/share/syslinux/{pxelinux.0,ldlinux.c32} "$INSTALL/client"/ || exit $?
 echo "default tiny/kernel initrd=tiny/initrd nfsshare=10.0.0.1:/mnt/nv/client" > "$INSTALL/client/pxelinux.cfg/default" || exit $?
 
 # Install libblkid/libuuid required by nfs-utils

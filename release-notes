@@ -1,5 +1,10 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+14.12
+ * Updated kernel to 3.17.5
+ * Updated MODS kernel driver to 3.56
+ * Fixed running MODS from commands script in PXE boot environment
+-------------------------------------------------------------------------------
 14.09.2
  * Fixed shellshock vulnerability in bash
 -------------------------------------------------------------------------------
