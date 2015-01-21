@@ -308,6 +308,8 @@ prepare_portage()
             echo "=sys-devel/crossdev-20140729 ~*"
             echo "=dev-lang/perl-5.16.3 ~*"
             echo "=sys-devel/patch-2.7.1-r3 ~*"
+            echo "=sys-boot/syslinux-6.03 ~*"
+            echo "=sys-boot/gnu-efi-3.0u ~*"
         ) > $KEYWORDS
     fi
     echo "sys-fs/squashfs-tools xz" >> /etc/portage/package.use/tinylinux
@@ -821,9 +823,13 @@ prepare_installation()
     [ "$INSTALLEXISTED" = "1" ] && return 0
 
     if [[ -z "$TEGRABUILD" ]]; then
-        [ -d "$INSTALL/syslinux" ] || mkdir -p "$INSTALL/syslinux" || exit $?
+        [[ -d "$INSTALL/syslinux" ]] || mkdir -p "$INSTALL/syslinux" || exit $?
         echo "default /tiny/kernel initrd=/tiny/initrd" > "$INSTALL/syslinux/syslinux.cfg"
         cp /usr/share/syslinux/syslinux.exe "$INSTALL"/ || exit $?
+
+        [[ -d "$INSTALL/EFI/syslinux" ]] || mkdir -p "$INSTALL/EFI/syslinux" || exit $?
+        cp /usr/share/syslinux/efi64/* "$INSTALL/EFI/syslinux"/ || exit $?
+        cp "$INSTALL/syslinux/syslinux.cfg" "$INSTALL/EFI/syslinux"/ || exit $?
     fi
 
     local COMMANDSFILE
@@ -973,7 +979,7 @@ make_squashfs()
     # Create directory for installable libraries
     if [[ "$TEGRABUILD" ]]; then
         [[ -d "$INSTALL/tiny/lib" ]] || mkdir -p "$INSTALL/tiny/lib" || exit $?
-        for LIB in libnv{os,rm,rm_graphics,dc}.so; do
+        for LIB in libnv{os,rm,rm_graphics,rm_gpu,dc}.so; do
             rm -rf "$NEWROOT/lib/$LIB" || exit $?
             ln -s "/tiny/lib/$LIB" "$NEWROOT/lib/$LIB" || exit $?
         done
