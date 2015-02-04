@@ -305,7 +305,7 @@ prepare_portage()
             echo "sys-kernel/git-sources ~*"
             echo "net-misc/r8168 ~*"
             echo "net-misc/ipsvd ~*"
-            echo "=sys-devel/crossdev-20140729 ~*"
+            echo "=sys-devel/crossdev-20141030 ~*"
             echo "=dev-lang/perl-5.16.3 ~*"
             echo "=sys-devel/patch-2.7.1-r3 ~*"
             echo "=sys-boot/syslinux-6.03 ~*"
@@ -335,11 +335,12 @@ prepare_portage()
         for PKG in sys-apps/busybox-1.21.0 \
                    dev-libs/libtommath-0.42.0-r1 \
                    net-fs/autofs-5.0.8-r1 \
-                   net-nds/ypbind-1.37.1 \
+                   net-nds/ypbind-1.37.2 \
                    net-nds/yp-tools-2.12-r1 \
                    net-nds/portmap-6.0 \
                    net-dialup/lrzsz-0.12.20-r3 \
-                   dev-util/valgrind-3.10.0 \
+                   dev-util/valgrind-3.10.1 \
+                   cross-aarch64-unknown-linux-gnu/gcc-4.9.2 \
                    ; do
             echo "=${PKG} **" >> /etc/portage/package.accept_keywords/tegra
         done
@@ -358,7 +359,7 @@ prepare_portage()
     echo ">net-misc/dropbear-2013.62" >> /etc/portage/package.mask/tinylinux
 
     # Fix valgrind build
-    local EBUILD=/usr/portage/dev-util/valgrind/valgrind-3.10.0.ebuild
+    local EBUILD=/usr/portage/dev-util/valgrind/valgrind-3.10.1.ebuild
     if [[ -f $EBUILD && $TEGRABUILD ]] && ! grep -q "valgrind-arm64.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/tegra/valgrind-arm64.patch" /usr/portage/dev-util/valgrind/files/ || exit $?
@@ -442,6 +443,9 @@ install_tegra_toolchain()
     # Hack for gcc or crossdev bug
     grep -q "USE.*cxx" "$MAKECONF" || sed -i "/USE/s/\"$/ cxx\"/" "$MAKECONF" || exit $?
 
+    # Hack for crossdev awk script bug
+    sed -i "/cross_init$/ s:cross_init:MAIN_REPO_PATH=/usr/portage ; cross_init:" /usr/bin/emerge-wrapper || exit $?
+
     # Build cross toolchain
     grep -q "PORTDIR_OVERLAY" "$MAKECONF" || echo "PORTDIR_OVERLAY=\"/usr/local/portage\"" >> "$MAKECONF" || exit $?
     sed -i "s/ -march=i.86//" "$MAKECONF" || exit $?
@@ -473,6 +477,9 @@ install_tegra_toolchain()
         rmdir "$CFGROOT/usr/lib" || exit $?
         ln -s lib64 "$CFGROOT/usr/lib" || exit $?
     fi
+
+    # WAR for Cortex-A53 errata 835769
+    ! istegra64 || sed -i "/CFLAGS=/s/\"$/ -mfix-cortex-a53-835769\"/" "$CFGROOT/$MAKECONF" || exit $?
 
     # Setup split glibc symbols for valgrind and remote debugging
     mkdir -p "$PORTAGECFG/package.env" || exit $?
@@ -668,6 +675,7 @@ build_newroot()
     if istegra64; then
         # Fix glibc-created /lib dir - make /lib a symlink to lib64
         rm "$NEWROOT"/lib/ld-linux-aarch64.so.1 || exit $?
+        rm -rf "$NEWROOT"/lib/gentoo || exit $?
         rmdir "$NEWROOT"/lib || exit $?
         ln -s lib64 "$NEWROOT"/lib || exit $?
     fi

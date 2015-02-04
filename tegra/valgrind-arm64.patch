@@ -10,15 +10,13 @@
  ML_(blksys_complete):   .quad 3b
 --- VEX/priv/guest_arm64_toIR.c.orig
 +++ VEX/priv/guest_arm64_toIR.c
-@@ -5552,6 +5552,11 @@
-       DIP("dsb ish\n");
-       return True;
+@@ -6779,7 +6779,8 @@
     }
-+   if (INSN(31,0) == 0xD5033F9F) {
-+      stmt(IRStmt_MBE(Imbe_Fence));
-+      DIP("dsb sy\n");
-+      return True;
-+   }
  
     /* -------------------- NOP -------------------- */
-    if (INSN(31,0) == 0xD503201F) {
+-   if (INSN(31,0) == 0xD503201F) {
++   if (INSN(31,0) == 0xD503201F
++       || INSN(31,0) == 0xD503203F) {
+       DIP("nop\n");
+       return True;
+    }
