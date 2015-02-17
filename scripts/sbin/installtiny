@@ -1,12 +1,14 @@
 #!/bin/bash
 
+set -e
+
 die()
 {
     echo "$@"
     exit 1
 }
 
-[ $# -gt 0 ] || die "Usage: `basename $0` <DEVICE1> [DEVICE2 [...]]"
+[[ $# -gt 0 ]] || die "Usage: `basename $0` <DEVICE1> [DEVICE2 [...]]"
 
 # Check required tools
 [ -x /sbin/mkfs.ext2 ] || die "/sbin/mkfs.ext2 not found"
@@ -17,11 +19,11 @@ die()
 
 # Find TinyLinux directory
 TINY="`tinydir`"
-[ -d "$TINY" ] || die "TinyLinux directory not found"
+[[ -d "$TINY" ]] || die "TinyLinux directory not found"
 MODSDIR="`modsoutputdir`"
 
 IBLK=1
-while [ $IBLK -le $# ]; do
+while [[ $IBLK -le $# ]]; do
     BLKDEV=`eval "echo "'$'"$IBLK"`
     BLKDEV="${BLKDEV#/dev/}"
     [ -e "/sys/class/block/$BLKDEV" ] || die "/dev/$BLKDEV device does not exist!"
@@ -29,6 +31,18 @@ while [ $IBLK -le $# ]; do
         die "/dev/$BLKDEV device is already mounted!"
     IBLK=$(($IBLK+1))
 done
+
+UMOUNT_DEV1=""
+UMOUNT_DEV2=""
+
+umount_on_exit()
+{
+    sync
+    [[ -z $UMOUNT_DEV1 ]] || umount "$UMOUNT_DEV1" || echo "Umount failed - device $UMOUNT_DEV1 may be still mounted!"
+    [[ -z $UMOUNT_DEV2 ]] || umount "$UMOUNT_DEV2" || echo "Umount failed - device $UMOUNT_DEV2 may be still mounted!"
+}
+
+trap umount_on_exit EXIT
 
 install_tiny()
 {
@@ -38,29 +52,30 @@ install_tiny()
     BLKDEV="$1"
 
     # Install master boot record and existing clear partition table
-    dd if=/dev/zero of="$BLKDEV" bs=512 count=1 || exit $?
-    cat /usr/share/syslinux/mbr.bin > "$BLKDEV" || exit $?
+    dd if=/dev/zero of="$BLKDEV" bs=512 count=1
+    cat /usr/share/syslinux/mbr.bin > "$BLKDEV"
     sync
 
     # Create partitions
-    echo -en "np118np2  a1pw" | sed "s/./&\n/g" | /sbin/fdisk "$BLKDEV" || exit $?
+    echo -en "np118np2  a1pw" | sed "s/./&\n/g" | /sbin/fdisk "$BLKDEV"
     sync
     find /sys/devices/ -name uevent -exec sh -c "echo add > '{}'" \;
     sleep 4
     grep "^$BLKDEV" < /proc/mounts | cut -f 1 -d ' ' | while read DEV; do
-        umount "$DEV" || exit $?
+        umount "$DEV"
     done
-    /sbin/mkfs.ext2 -L "Boot" "${BLKDEV}1" || exit $?
-    /sbin/mkfs.reiser -l "TinyLinux" "${BLKDEV}2" || exit $?
+    /sbin/mkfs.ext2 -L "Boot" "${BLKDEV}1"
+    /sbin/mkfs.reiser -l "TinyLinux" "${BLKDEV}2"
     sync
 
     # Initialize boot partition
     local BOOTDIR
     BOOTDIR="`mktemp -d -t`"
-    mount "${BLKDEV}1" "$BOOTDIR" || exit $?
-    mkdir "$BOOTDIR/tiny" || exit $?
-    if [ -f "$TINY/kernel" -a -f "$TINY/initrd" ]; then
-        cp "$TINY"/{kernel,initrd} "$BOOTDIR/tiny"/ || exit $?
+    mount "${BLKDEV}1" "$BOOTDIR"
+    UMOUNT_DEV1="${BLKDEV}1"
+    mkdir "$BOOTDIR/tiny"
+    if [[ -f "$TINY/kernel" && -f "$TINY/initrd" ]]; then
+        cp "$TINY"/{kernel,initrd} "$BOOTDIR/tiny"/
     else
         local BOOTSRCDEV
         BOOTSRCDEV=`grep " /mnt/nv " /proc/mounts | cut -f 1 -d ' '`
@@ -69,33 +84,37 @@ install_tiny()
         [ -b "$BOOTSRCDEV" ] || die "Boot device $BOOTSRCDEV not found"
         local BOOTSRCDIR
         BOOTSRCDIR="`mktemp -d -t`"
-        mount "$BOOTSRCDEV" "$BOOTSRCDIR" || exit $?
-        [ -f "$BOOTSRCDIR/tiny/kernel" -a "$BOOTSRCDIR/tiny/initrd" ] || die "Boot device $BOOTSRCDEV does not contain the kernel"
-        cp "$BOOTSRCDIR"/tiny/{kernel,initrd} "$BOOTDIR/tiny"/ || exit $?
+        mount "$BOOTSRCDEV" "$BOOTSRCDIR"
+        UMOUNT_DEV2="$BOOTSRCDEV"
+        [[ -f "$BOOTSRCDIR/tiny/kernel" && -f "$BOOTSRCDIR/tiny/initrd" ]] || die "Boot device $BOOTSRCDEV does not contain the kernel"
+        cp "$BOOTSRCDIR"/tiny/{kernel,initrd} "$BOOTDIR/tiny"/
+        UMOUNT_DEV2=""
         sync
-        umount "$BOOTSRCDIR" || exit $?
-        rmdir "$BOOTSRCDIR" || exit $?
+        umount "$BOOTSRCDIR"
+        rmdir "$BOOTSRCDIR"
     fi
-    mkdir "$BOOTDIR/extlinux" || exit $?
+    mkdir "$BOOTDIR/extlinux"
     echo "default /tiny/kernel initrd=/tiny/initrd" > "$BOOTDIR"/extlinux/extlinux.conf
-    /sbin/extlinux --install "$BOOTDIR/extlinux" || exit $?
+    /sbin/extlinux --install "$BOOTDIR/extlinux"
+    UMOUNT_DEV1=""
     sync
-    umount "${BLKDEV}1" || exit $?
-    rmdir "$BOOTDIR" || exit $?
+    umount "${BLKDEV}1"
+    rmdir "$BOOTDIR"
 
     # Install TinyLinux into ReiserFS partition
     local INSTALLDIR
     INSTALLDIR="`mktemp -d -t`"
-    mount "${BLKDEV}2" "$INSTALLDIR" || exit $?
-    mkdir "$INSTALLDIR/tiny" || exit $?
-    tar cp -C "$TINY"/ --exclude kernel --exclude initrd ./ | tar xp -C "$INSTALLDIR/tiny"/ || exit $?
-    if [ -d "$MODSDIR" ]; then
-        mkdir "$INSTALLDIR/mods" || exit $?
-        tar cp -C "$MODSDIR"/ ./ | tar xp -C "$INSTALLDIR/mods"/ || exit $?
+    mount "${BLKDEV}2" "$INSTALLDIR"
+    UMOUNT_DEV1="${BLKDEV}2"
+    mkdir "$INSTALLDIR/tiny"
+    tar cp -C "$TINY"/ --exclude kernel --exclude initrd ./ | tar xp -C "$INSTALLDIR/tiny"/
+    if [[ -d "$MODSDIR" ]]; then
+        mkdir "$INSTALLDIR/mods"
+        tar cp -C "$MODSDIR"/ ./ | tar xp -C "$INSTALLDIR/mods"/
     fi
 
     # Fix permissions
-    if [ -f "$TINY/kernel" -a -f "$TINY/initrd" ]; then
+    if [[ -f "$TINY/kernel" && -f "$TINY/initrd" ]]; then
         local FILE
         find "$INSTALLDIR"/ -type f | while read FILE; do
             if head -n 1 "$FILE" | grep -q "^#\!"; then
@@ -107,8 +126,9 @@ install_tiny()
     fi
 
     # Unmount the ReiserFS partition
+    UMOUNT_DEV1=""
     sync
-    umount "${BLKDEV}2" || exit $?
+    umount "${BLKDEV}2"
 }
 
 install_wrap()
@@ -117,11 +137,11 @@ install_wrap()
     echo "Installing TinyLinux on $1"
     install_tiny "$1" 2<&1 | sed "s/^/${1//\//\\/}: /" | tee -a "/var/log/install"
     STATUS=${PIPESTATUS[0]}
-    [ $STATUS -eq 0 ] || exit $STATUS
+    [[ $STATUS -eq 0 ]] || exit $STATUS
     echo "TinyLinux installed successfuly on $1"
 }
 
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
     install_wrap "/dev/${1#/dev/}" &
     shift
 done

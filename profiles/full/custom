@@ -1,7 +1,7 @@
 install_into tiny/conf.d boot
 install_package =python-2.7* "threads xml" "--nodeps --usepkg --buildpkg"
-USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads
-install_package perl "ithreads" "--usepkg --buildpkg"
+USE=ithreads emerge --quiet --usepkg --buildpkg =perl-5.20* # Enable ithreads
+install_package =perl-5.20* "ithreads" "--usepkg --buildpkg"
 install_package iasl "" "--usepkg --buildpkg"
 install_package pmtools "" "--usepkg --buildpkg"
 install_package sys-devel/gdb "" "--usepkg --buildpkg"
@@ -22,11 +22,11 @@ install_package perl-core/Time-HiRes "" "--usepkg --buildpkg"
 
 install_package net-misc/curl "" "--usepkg --buildpkg"
 remove_gentoo_services pydoc-2.7
-[ -f "$NEWROOT/usr/bin/python-wrapper" ] || (
+[[ -f "$NEWROOT/usr/bin/python-wrapper" ]] || (
     cd "$NEWROOT/usr/bin"
     ln -s python2 python-wrapper
 )
-[ -f "$NEWROOT/usr/bin/emacs" ] || (
+[[ -f "$NEWROOT/usr/bin/emacs" ]] || (
     cd "$NEWROOT/usr/bin"
     ln -s emacs-* emacs
 )

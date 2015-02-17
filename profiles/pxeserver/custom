@@ -12,12 +12,12 @@ install_into tiny/conf.d boot net tftpd
 install_into /etc exports
 
 # Install PXE configuration
-[ -d "$INSTALL/client/pxelinux.cfg" ] || mkdir -p "$INSTALL/client/pxelinux.cfg" || exit $?
-cp /usr/share/syslinux/{pxelinux.0,ldlinux.c32} "$INSTALL/client"/ || exit $?
-echo "default tiny/kernel initrd=tiny/initrd nfsshare=10.0.0.1:/mnt/nv/client" > "$INSTALL/client/pxelinux.cfg/default" || exit $?
+mkdir -p "$INSTALL/client/pxelinux.cfg"
+cp /usr/share/syslinux/{pxelinux.0,ldlinux.c32} "$INSTALL/client"/
+echo "default tiny/kernel initrd=tiny/initrd nfsshare=10.0.0.1:/mnt/nv/client" > "$INSTALL/client/pxelinux.cfg/default"
 
 # Install libblkid/libuuid required by nfs-utils
-cp -d /lib/libblkid.so* /lib/libuuid.so* "$NEWROOT/lib"/ || exit $?
+cp -d /lib/libblkid.so* /lib/libuuid.so* "$NEWROOT/lib"/
 
 # Remove MODS directory
-[ -d "$INSTALL/mods" ] && rm -rf "$INSTALL/mods"
+rm -rf "$INSTALL/mods"

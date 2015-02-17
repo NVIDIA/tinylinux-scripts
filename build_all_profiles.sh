@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
@@ -8,13 +8,12 @@ die()
     exit 1
 }
 
-[ `id -u` -eq 0 ] || die "This script must be run with root privileges"
+[[ `id -u` -eq 0 ]] || die "This script must be run with root privileges"
 
-VERSION="$1"
-[ "$VERSION" ] || VERSION=`date "+%y.%m"`
+VERSION="${1:-$(date "+%y.%m")}"
 echo "Creating version $VERSION"
 
-[ -d "$VERSION" ] && die "Directory $VERSION in the way"
+[[ -d "$VERSION" ]] && die "Directory $VERSION in the way"
 mkdir "$VERSION"
 
 ls "`dirname $0`/profiles" | while read PROFILE; do

@@ -12,7 +12,7 @@ sed -i "/TZ/s/UTC/PST8PDT/" "$NEWROOT/etc/bash/bashrc"
 install_into /etc/conf.d boot hostname
 rm -f "$NEWROOT/etc/autofs/auto.master"
 
-[ -d "$INSTALL/mods" ] && rm -f "$INSTALL/mods"/{runmods,args,pkgname}
+[[ -d "$INSTALL/mods" ]] && rm -f "$INSTALL/mods"/{runmods,args,pkgname}
 
 echo "mods 0:30 660" >> "$NEWROOT/etc/mdev.conf"
 sed -i "/MODALIAS/s/:0/:30/" "$NEWROOT/etc/mdev.conf"
