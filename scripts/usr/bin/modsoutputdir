@@ -8,6 +8,7 @@ if grep -qs nfsshare /proc/cmdline; then
     . /etc/conf.d/net
     MACADDR=`/sbin/ifconfig "$IFACE" | grep "HWaddr" | sed "s/.*HWaddr *// ; s/  *.*// ; s/://g" | tr "ABCDEF" "abcdef"`
     if [ "$MACADDR" ]; then
+        [ -d "$MNTNV/machines/$MACADDR" ] || mkdir -p "$MNTNV/machines/$MACADDR" 2> /dev/null
         echo "$MNTNV/machines/$MACADDR"
     else
         echo "$MNTNV/machines/unknown"
