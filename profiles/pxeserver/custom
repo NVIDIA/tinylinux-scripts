@@ -2,7 +2,7 @@
 TINYDIR="tinysrv"
 
 # Install ipsvd
-install_package ipsvd "" "--usepkg --buildpkg"
+install_package ipsvd
 
 # Install additional config files
 install_into tiny udhcpd.conf

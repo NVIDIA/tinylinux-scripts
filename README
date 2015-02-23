@@ -1,0 +1,308 @@
+
+Introduction
+============
+
+NVIDIA TinyLinux is a minimal Linux distribution, based on Gentoo Linux.  It is
+characterized by:
+* Small footprint
+* Fast boot time
+* Can boot from FAT or FAT32 - interoperable with other Operating Systems
+* Can boot over NFS (supports PXE boot)
+
+NVIDIA TinyLinux provides a simple environment for diagnostic software.
+
+
+Profiles
+========
+
+The following profiles are available, each of them packaged individually:
+* default   - the smallest version of NVIDIA TinyLinux
+* full      - contains additional tools - Python, PERL, pmtools
+* pxeserver - only suitable for hosting a PXE server
+
+
+Installation
+============
+
+From Windows - UEFI boot
+------------------------
+
+1. Format the target drive with GPT (GUID partition table) and add a FAT32
+   partition.  For USB drives, this can be done with
+   [Rufus](http://rufus.akeo.ie).
+
+   - When formatting a drive with Rufus, select `GPT partition scheme for UEFI
+     computer` and leave the `Create a bootable disk` option unchecked.  Also
+     choose FAT32 file system type.
+
+2. Unpack the contents of the chosen profile package (e.g. full.zip) directly
+   to the root directory of the formatted drive.
+
+   - For example, right click on the zip file in Explorer, choose
+     "Extract all..." and enter drive letter (e.g. e:) as the destination.
+
+3. When booting NVIDIA TinyLinux, make sure the "Secure boot" option is
+   disabled in UEFI setup.
+
+From Windows - legacy boot (SBIOS)
+----------------------------------
+
+1. Format the target drive using FAT32 filesystem.
+
+   - For USB sticks, right click the drive icon and choose "Format...".
+   - For non-removable drives (such as SATA), go to Control Panel ->
+     Administrative Tools -> Computer Management -> Storage -> Disk Management
+     and crete a partition smaller than 32GB (which is the maximum size for
+     FAT32), then format it.
+
+2. Unpack the contents of the chosen profile package (e.g. full.zip) directly
+   to the root directory of the formatted drive.
+
+   - For example, right click on the zip file in Explorer, choose
+     "Extract all..." and enter drive letter (e.g. e:) as the destination.
+
+3. Open command prompt with *Administrator privileges*.
+
+   - On Windows XP, go to Start -> Run... and type `cmd<ENTER>`
+   - On Windows Vista, Windows 7 and later, click on the Start button, then in
+     a small box in the lower-left corner type `cmd<CTRL+SHIFT+ENTER>`.
+     It is important to press ENTER when holding both CTRL and SHIFT.
+     It will ask you to confirm, click Yes. CTRL+SHIFT+ENTER runs the cmd shell
+     in Administrative mode.
+
+4. Go to the target drive by typing drive letter of the target drive and
+   pressing ENTER (e.g. `e:<ENTER>`).
+
+5. Install the boot loader.  The below example assumes that e: is the target
+   drive.  Make sure to use the proper drive letter!  For non-removable drives,
+   also add the -f switch.
+
+        E:\> syslinux -m -a e:
+
+From Linux - GRUB
+-----------------
+
+If you have an existing Linux installation and want to add NVIDIA TinyLinux as
+a boot option, edit GRUB config file (typically `menu.lst`) and add the
+following section:
+
+    title TinyLinux
+    root (hd0,0)
+    kernel /tiny/kernel
+    initrd /tiny/initrd
+
+Replace `(hd0,0)` with the hard drive and partition numbers corresponding to
+the partition where you unpack the NVIDIA TinyLinux package.
+
+It is recommended to unpack NVIDIA TinyLinux into its own partition.
+
+It is also recommended to have only one copy of NVIDIA TinyLinux in the system,
+otherwise the boot script may become confused and problems with booting will
+occur.
+
+From NVIDIA TinyLinux - legacy boot (SBIOS)
+-------------------------------------------
+
+After determining the location of the target drive, run:
+
+    umount /media/sdx*
+    installtiny /dev/sdx
+
+Replace /dev/sdx with the actual drive where you want to install
+NVIDIA TinyLinux.
+
+The new partition created this way is only accessible from Linux.
+
+
+Disk contents
+=============
+
+Directory              | Description
+-----------------------|-------------------------------------------------------
+/ldlinux.sys           | Bootloader file used for legacy boot (SBIOS).
+/syslinux.exe          | Bootloader installer for Windows.
+/syslinux/syslinux.cfg | Syslinux bootloader configuration file.
+/EFI/BOOT/bootx64.efi  | Bootloader file used by UEFI boot.
+/EFI/BOOT/ldlinux.e64  | Bootloader file used by UEFI boot.
+/tiny/kernel           | Compressed Linux kernel image.
+/tiny/initrd           | Compressed initial ramdisk.
+/tiny/squash.bin       | Compressed Linux filesystem.
+/tiny/commands         | Editable script, executed on startup.
+/mods/runmods          | Script for running NVIDIA MODS.
+/mods/pkgname          | Script containing MODS package to use.
+/mods/args             | Script with default MODS arguments.
+
+
+Filesystem structure after boot
+===============================
+
+The following table outlines the most notable directories visible after booting
+NVIDIA TinyLinux.
+
+Directory            | Description
+---------------------|---------------------------------------------------------
+/                    | The root filesystem is in a ramdisk (tmpfs).
+/mnt/nv              | Mount point of the boot disk, non-volatile.
+/mnt/squash          | Mount point of the compressed Linux filesystem.
+/media               | This is where all other partitions are automounted.
+/bin /lib /sbin /usr | Symbolic links to the compressed Linux filesystem.
+/etc                 | Runtime configuration.  Copied from /mnt/squash.
+/commands            | The commands script, copied from /mnt/nv/tiny/.
+
+
+Configuration
+=============
+
+Editing configuration files
+---------------------------
+
+There are two editors available in NVIDIA TinyLinux:
+* nano - a simple editor, with usage familiar to most users.
+* vi - a simplified version of the vi editor, which comes with busybox.
+
+Bootloader
+----------
+
+The syslinux bootloader configuration resides in /syslinux/syslinux.cfg file.
+Further settings can be added in it on a single line and will be passed
+directly to the kernel and can later be recognized by boot scripts.
+
+The following options are currently used by the boot scripts:
+
+* /tiny/kernel - this is the first option.  It specifices the location of the
+  Linux kernel.  If the kernel is stored elsewhere, this path has to be
+  adjusted.
+
+* initrd=/tiny/initrd - this is the location of the initial ramdisk.
+  Typically, the initial ramdisk is stored in the same directory as the kernel.
+  This option must always be specified and it is interpreted by the Linux
+  kernel itself.
+
+* squash=tiny/squash.bin - this optional parameter specifies the location of
+  the compressed filesystem containing all the programs and libraries.  This
+  parameter is optional, but it can be adjusted if the squash.bin file is moved
+  to a different directory or renamed.  The boot script, which resides inside
+  the initial ramdisk, will use this parameter to automatically find the
+  NVIDIA TinyLinux installation.
+
+* partno=0 - this optional parameter tells the NVIDIA TinyLinux boot script to
+  look for squash.bin only on the given partition number.  If this parameter is
+  not specified, the NVIDIA TinyLinux boot script will try to mount every
+  partition it can find in search of squash.bin, until it finds it.  If this
+  causes problems during boot, or if the booting is slow, it is recommended to
+  set the `partno` parameter to the number of the partition to restrict the
+  search.
+
+* nfsshare=1.2.3.4:/path - setting this optional parameter will make the boot
+  script mount an NFS share and attempt to boot NVIDIA TinyLinux from that
+  share.  The share must contain the squash.bin file (exact location can be
+  adjusted with the `squash` parameter).  This allows NVIDIA TinyLinux to boot
+  over NFS.
+
+* net=eth0 - this optional parameter allows overriding the Ethernet device
+  used for mounting NFS share for booting over NFS.  By default, the boot
+  script will only attempt to obtain IP from DHCP on eth0.
+
+* nocoldplug - this optional parameter will disable coldplugging.  Coldplugging
+  is used to automount all fixed drives on the system in the /media directory.
+  If there are partitions on the system which cause problems when mounting,
+  coldplugging can be disabled with this parameter.
+
+Services
+--------
+
+There are multiple services available in NVIDIA TinyLinux.  The configuration
+files for each service live in `/etc/conf.d` directory.  Because this directory
+is located in the ramdisk, any modifications to it will be lost on reboot.
+
+To preserve service configuration across reboots, create `/mnt/nv/tiny/conf.d`
+directory and copy the relevant configuration files there.
+
+There is also a special configuration file `/etc/conf.d/boot`, which specifies
+the boot order of services.  If more services need to be started at boot, they
+need to be listed there.
+
+An example how to preserve the `/etc/conf.d/boot` file across reboots:
+
+    mkdir -p /mnt/nv/tiny/conf.d
+    cp /etc/conf.d/boot /mnt/nv/tiny/conf.d/
+
+On boot, the entire `/etc` directory is copied from `/mnt/squash/etc`, which is
+located in the read-only compressed Linux filesystem.  Any additional
+configuration files are copied from `/mnt/nv/tiny/conf.d` over the initial
+copy.
+
+Networking
+----------
+
+To set up networking, perform the following steps:
+
+1. Configure networking in `/etc/conf.d/net`
+
+2. If configuration should persist across reboots, copy it to
+   `/mnt/nv/tiny/conf.d`:
+
+        cp /etc/conf.d/net /mnt/nv/tiny/conf.d/
+
+3. If networking needs to be started on boot, add the `net` service to the
+   boot order file:
+
+        echo net >> /mnt/nv/tiny/conf.d/boot
+
+4. Start networking:
+
+        /etc/init.d/net start
+
+The networking configuration file `/etc/conf.d/net` contains the following
+settings:
+
+* net=eth0 - specifies which Ethernet interface should be configured.
+
+* staticip=192.168.0.1/255.255.255.0 - IP and netmask for static IP.  If it is
+  not specified (empty), DHCP is used.
+
+* gateway=192.168.0.1 - default gateway (esp. useful with static IP).
+
+* dns=192.168.0.154,1.2.3.4 - list of DNS servers (comma-separated).
+
+* dnsdomain=somedomain.com - the DNS search domain.
+
+SSH daemon
+----------
+
+To set up the SSH daemon, perform the following steps:
+
+1. Set up user password.  By default, NVIDIA TinyLinux only has one user -
+   root.  The root user does not have a password set, so it is not possible
+   to log in as root.  Either create a local user, or set the root user's
+   password, for example:
+
+        passwd root
+
+2. If the SSH daemon needs to be started on boot, add the `sshd` service to the
+   boot order file:
+
+        echo sshd >> /mnt/nv/tiny/conf.d/boot
+
+3. Start the SSH daemon service:
+
+        /etc/init.d/sshd start
+
+Running random scripts on boot
+------------------------------
+
+The commands script, which resides in the tiny folder, is normally run on boot,
+unless it is disabled in the boot order file.
+
+The commands script is editable on Windows.  The DOS-style line endings in this
+file are automatically converted to UNIX-style before the script is run.
+
+Further commands can be added to this script when it is necessary to further
+customize boot.
+
+The commands boot service, which runs the commands script, does not hook into
+a tty, therefore it is not possible to run interactive scripts which require
+user input from keyboard in the commands script.
+
+
+vim:ft=markdown

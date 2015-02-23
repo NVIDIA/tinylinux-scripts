@@ -579,7 +579,7 @@ target_emerge()
 
 install_package()
 {
-    USE="$2" target_emerge --quiet $3 "$1"
+    USE="$2" target_emerge --quiet --usepkg --buildpkg $3 "$1"
 }
 
 list_package_files()
@@ -609,7 +609,7 @@ install_syslinux()
     DESTDIR="/tmp/syslinux"
 
     SAVEROOT="$NEWROOT"
-    NEWROOT="$DESTDIR" target_emerge --quiet --nodeps syslinux
+    NEWROOT="$DESTDIR" target_emerge --quiet --nodeps --usepkg --buildpkg syslinux
     NEWROOT="$SAVEROOT"
 
     cp -p "$DESTDIR/sbin/extlinux" "$NEWROOT/sbin/extlinux"
@@ -617,6 +617,8 @@ install_syslinux()
 
     mkdir -p "$NEWROOT/usr/share/syslinux"
     cp /usr/share/syslinux/mbr.bin "$NEWROOT/usr/share/syslinux"/
+    cp /usr/share/syslinux/gptmbr.bin "$NEWROOT/usr/share/syslinux"/
+    cp -r /usr/share/syslinux/efi64 "$NEWROOT/usr/share/syslinux"/
 }
 
 remove_gentoo_services()
@@ -681,7 +683,7 @@ build_newroot()
     ln -s /tiny/valgrind "$NEWUSRLIB/valgrind"
 
     # Install basic system packages
-    install_package sys-libs/glibc "" "--usepkg --buildpkg"
+    install_package sys-libs/glibc
     if istegra64; then
         # Fix glibc-created /lib dir - make /lib a symlink to lib64
         rm "$NEWROOT"/lib/ld-linux-aarch64.so.1
@@ -690,23 +692,28 @@ build_newroot()
         ln -s lib64 "$NEWROOT"/lib
     fi
     ROOT="$NEWROOT" eselect news read > /dev/null
-    install_package ncurses "" "--usepkg --buildpkg"
+    install_package ncurses
     propagate_ncurses
-    install_package pciutils "" "--usepkg --buildpkg"
+    install_package pciutils
     rm -f "$NEWROOT/usr/share/misc"/*.gz # Remove compressed version of hwids
-    install_package busybox "make-symlinks mdev nfs savedconfig" "--usepkg --buildpkg"
-    install_package dropbear "multicall" "--usepkg --buildpkg"
-    install_package nano "" "--usepkg --buildpkg"
-    install_package sys-libs/readline "" "--usepkg --buildpkg"
+    install_package busybox "make-symlinks mdev nfs savedconfig"
+    rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
+    install_package dropbear "multicall"
+    install_package nano
+    install_package sys-libs/readline
     if [[ $TEGRABUILD ]]; then
         ( cd "$NEWROOT" && list_package_files "sys-libs/readline" | \
             grep "^usr/lib\|^lib\|^usr/include" | \
             xargs tar c | tar x -C "/usr/$TEGRAABI/" )
     fi
-    install_package bash "readline net" "--usepkg --buildpkg"
+    install_package bash "readline net"
+
+    if [[ -z $TEGRABUILD ]]; then
+        install_package efibootmgr
+    fi
 
     # Cross-installation of libtirpc is broken, do it manually
-    install_package net-libs/libtirpc "" "--usepkg --buildpkg"
+    install_package net-libs/libtirpc
     if [[ $TEGRABUILD ]]; then
         local CFGROOT="/usr/$TEGRAABI"
         local LIB=lib
@@ -725,14 +732,14 @@ build_newroot()
     fi
 
     # Install NFS utils
-    install_package rpcbind "" "--usepkg --buildpkg"
-    install_package nfs-utils "" "--usepkg --buildpkg --nodeps"
+    install_package rpcbind
+    install_package nfs-utils "" "--nodeps"
     remove_gentoo_services nfs nfsmount rpcbind rpc.statd
 
     # Additional x86-specific packages
     if [[ -z $TEGRABUILD ]]; then
-        install_package libusb-compat "" "--usepkg --buildpkg"
-        install_package numactl "" "--usepkg --buildpkg"
+        install_package libusb-compat
+        install_package numactl
     fi
 
     # Add symlink to /bin/env in /usr/bin/env where most apps expect it
@@ -844,14 +851,17 @@ prepare_installation()
         echo "default /tiny/kernel initrd=/tiny/initrd" > "$INSTALL/syslinux/syslinux.cfg"
         cp /usr/share/syslinux/syslinux.exe "$INSTALL"/
 
-        mkdir -p "$INSTALL/EFI/syslinux"
-        cp /usr/share/syslinux/efi64/* "$INSTALL/EFI/syslinux"/
-        cp "$INSTALL/syslinux/syslinux.cfg" "$INSTALL/EFI/syslinux"/
+        local EFI_BOOT="$INSTALL/EFI/BOOT"
+        mkdir -p "$EFI_BOOT"
+        cp /usr/share/syslinux/efi64/syslinux.efi "$EFI_BOOT/bootx64.efi"
+        cp /usr/share/syslinux/efi64/ldlinux.e64  "$EFI_BOOT"/
     fi
 
     local COMMANDSFILE
     COMMANDSFILE="$BUILDSCRIPTS/profiles/$PROFILE/commands"
     [[ ! -f $COMMANDSFILE ]] || cp "$COMMANDSFILE" "$INSTALL/tiny/commands"
+
+    cp "$BUILDSCRIPTS"/README "$INSTALL"/
 }
 
 install_mods()
@@ -1328,7 +1338,7 @@ check_env                   # Sanity check.
 prepare_portage             # Configure portage (make.conf, use flags, keywords, unmask packages, etc.).
 run_interactive             # [Optional] Enter interactive mode if -i was specified.
 emerge_basic_packages       # Build additional packages in buildroot.
-install_tegra_toolchain     # [Tegra only] Install cross toolchain and download the kernel sources.
+install_tegra_toolchain     # [Tegra only] Install cross toolchain
 compile_kernel              # Compile kernel. Can be forced with -k.
 build_newroot               # Build newroot, which is the actual TinyLinux. Can be forced with -r.
 prepare_installation        # Prepare /buildroot/install directory. Copy kernel, etc.

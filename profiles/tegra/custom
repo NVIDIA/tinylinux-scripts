@@ -1,12 +1,12 @@
 sed -i "/^tty.*getty/d" "$NEWROOT"/etc/inittab
 sed -i "/getty/s/38400/115200/ ; /getty/s/tty1/ttyS0/" "$NEWROOT"/etc/inittab
 
-install_package sys-devel/gdb "client server" "--usepkg --buildpkg"
-install_package dev-util/valgrind "" "--usepkg --buildpkg"
-install_package dev-util/strace "aio" "--usepkg --buildpkg"
-install_package net-fs/autofs "" "--usepkg --buildpkg --nodeps"
-install_package net-nds/ypbind "" "--usepkg --buildpkg"
-install_package net-dialup/lrzsz "" "--usepkg --buildpkg"
+install_package sys-devel/gdb "client server"
+install_package dev-util/valgrind
+install_package dev-util/strace "aio"
+install_package net-fs/autofs "" "--nodeps"
+install_package net-nds/ypbind
+install_package net-dialup/lrzsz
 
 sed -i "/TZ/s/UTC/PST8PDT/" "$NEWROOT/etc/bash/bashrc"
 install_into /etc/conf.d boot hostname
