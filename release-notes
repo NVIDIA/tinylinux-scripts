@@ -1,5 +1,11 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+15.02
+ * Updated kernel to 3.19.0
+ * Updated MODS kernel driver to 3.58
+ * Added support for UEFI boot
+ * Updated PERL to version 5.20 in the full profile
+-------------------------------------------------------------------------------
 14.12
  * Updated kernel to 3.17.5
  * Updated MODS kernel driver to 3.56
