@@ -1007,10 +1007,6 @@ make_squashfs()
     # Create directory for installable libraries
     if [[ $TEGRABUILD ]]; then
         mkdir -p "$INSTALL/tiny/lib"
-        for LIB in libnv{os,rm,rm_graphics,rm_gpu,dc}.so; do
-            rm -rf "$NEWROOT/lib/$LIB"
-            ln -s "/tiny/lib/$LIB" "$NEWROOT/lib/$LIB"
-        done
     fi
 
     # Make the modules and firmware replaceable on Tegra
