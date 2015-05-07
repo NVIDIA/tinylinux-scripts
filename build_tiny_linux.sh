@@ -682,14 +682,17 @@ build_newroot()
     ln -s /tiny/debug    "$NEWUSRLIB/debug"
     ln -s /tiny/valgrind "$NEWUSRLIB/valgrind"
 
+    # Prepare lib directory for 64-bit builds
+    if istegra64 || [[ -z $TEGRABUILD ]]; then
+        mkdir -p "$NEWROOT"/lib64
+        ln -s lib64 "$NEWROOT"/lib
+    fi
+
     # Install basic system packages
     install_package sys-libs/glibc
-    if istegra64; then
-        # Fix glibc-created /lib dir - make /lib a symlink to lib64
-        rm "$NEWROOT"/lib/ld-linux-aarch64.so.1
-        rm -rf "$NEWROOT"/lib/gentoo
-        rmdir "$NEWROOT"/lib
-        ln -s lib64 "$NEWROOT"/lib
+    rm -rf "$NEWROOT"/lib/gentoo # Remove Gentoo scripts
+    if istegra64 || [[ -z $TEGRABUILD ]]; then
+        rm -rf "$NEWROOT"/lib32 # Remove 32-bit glibc in 64-bit builds
     fi
     ROOT="$NEWROOT" eselect news read > /dev/null
     install_package ncurses
