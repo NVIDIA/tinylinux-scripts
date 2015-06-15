@@ -335,8 +335,8 @@ prepare_portage()
     # Mask newer busybox due to problems with less
     echo ">sys-apps/busybox-1.21.0" >> /etc/portage/package.mask/tinylinux
 
-    # gdb-7.7.1 is broken on ARM
-    echo "=sys-devel/gdb-7.7.1" >> /etc/portage/package.mask/tegra
+    # Broken strace build
+    echo "=dev-util/strace-4.10" >> /etc/portage/package.mask/tegra
 
     # Enable some packages on 64-bit ARM (temporary, until enabled in Gentoo)
     if [[ $TEGRABUILD ]]; then
@@ -683,7 +683,7 @@ build_newroot()
     ln -s /tiny/valgrind "$NEWUSRLIB/valgrind"
 
     # Prepare lib directory for 64-bit builds
-    if istegra64 || [[ -z $TEGRABUILD ]]; then
+    if [[ -z $TEGRABUILD ]]; then
         mkdir -p "$NEWROOT"/lib64
         ln -s lib64 "$NEWROOT"/lib
     fi
@@ -693,6 +693,10 @@ build_newroot()
     rm -rf "$NEWROOT"/lib/gentoo # Remove Gentoo scripts
     if istegra64 || [[ -z $TEGRABUILD ]]; then
         rm -rf "$NEWROOT"/lib32 # Remove 32-bit glibc in 64-bit builds
+    fi
+    if istegra64; then
+        rm -rf "$NEWROOT/lib"
+        ln -s lib64 "$NEWROOT/lib"
     fi
     ROOT="$NEWROOT" eselect news read > /dev/null
     install_package ncurses

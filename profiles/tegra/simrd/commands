@@ -20,21 +20,23 @@ else
     MOUNTOPTS="udp,ro,vers=3,port=2049,mountport=2050,nolock,noacl,nordirplus"
 fi
 
-MODS_RUNSPACE="$MOUNTPOINT"
-[ "$RUNSPACE" ] && MODS_RUNSPACE="$MODS_RUNSPACE/$RUNSPACE"
-if mkdir -p "$MOUNTPOINT"; then
-    TRIES=10
-    while [ $TRIES -gt 0 ]; do
-        sleep 1
-        mount -t nfs -o "$MOUNTOPTS" "$NFSMOUNT" "$MOUNTPOINT" && break
-        TRIES=$(($TRIES-1))
-    done
-    if [ $TRIES -gt 0 ]; then
-        echo "export MODS_RUNSPACE=\"$MODS_RUNSPACE\"" >> /.bashrc
-        echo "export LD_LIBRARY_PATH=\"\$MODS_RUNSPACE\"" >> /.bashrc
+if ! echo "$MOUNTPOINT" | grep -q "^xxxx"; then
+    MODS_RUNSPACE="$MOUNTPOINT"
+    [ "$RUNSPACE" ] && MODS_RUNSPACE="$MODS_RUNSPACE/$RUNSPACE"
+    if mkdir -p "$MOUNTPOINT"; then
+        TRIES=10
+        while [ $TRIES -gt 0 ]; do
+            sleep 1
+            mount -t nfs -o "$MOUNTOPTS" "$NFSMOUNT" "$MOUNTPOINT" && break
+            TRIES=$(($TRIES-1))
+        done
+        if [ $TRIES -gt 0 ]; then
+            echo "export MODS_RUNSPACE=\"$MODS_RUNSPACE\"" >> /.bashrc
+            echo "export LD_LIBRARY_PATH=\"\$MODS_RUNSPACE\"" >> /.bashrc
+        else
+            echo "ERROR: Unable to mount $NFSMOUNT"
+        fi
     else
-        echo "ERROR: Unable to mount $NFSMOUNT"
+        echo "ERROR: Unable to create directory $MOUNTPOINT"
     fi
-else
-    echo "ERROR: Unable to create directory $MOUNTPOINT"
 fi

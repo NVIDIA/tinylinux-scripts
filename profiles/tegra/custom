@@ -7,6 +7,7 @@ install_package dev-util/strace "aio"
 install_package net-fs/autofs "" "--nodeps"
 install_package net-nds/ypbind
 install_package net-dialup/lrzsz
+install_package net-libs/libpcap ipv6
 
 sed -i "/TZ/s/UTC/PST8PDT/" "$NEWROOT/etc/bash/bashrc"
 install_into /etc/conf.d boot hostname
