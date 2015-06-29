@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# See /etc/LICENSE file for details.
+
 # Rename old mods.log
 if [ -f "mods.log" ]; then
     DATE=`stat -c %y mods.log | sed "s/[-:]/ /g ; s/\..*//" | cut -d ' ' -f 2,3,4,5 | tr -d ' '`

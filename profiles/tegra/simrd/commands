@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# See /etc/LICENSE file for details.
+
 for ARG in `cat /proc/cmdline`; do
     case "$ARG" in
         mods\=*) NFSMOUNT=`echo "$ARG" | cut -f 2- -d '='` ;;

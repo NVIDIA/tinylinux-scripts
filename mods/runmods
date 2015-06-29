@@ -1,5 +1,8 @@
 #! /bin/sh
 
+# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# See /etc/LICENSE file for details.
+
 latest_minor_mods()
 {
     local MAJOR

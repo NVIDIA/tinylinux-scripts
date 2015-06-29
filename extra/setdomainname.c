@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+ * See LICENSE file for details.
+ */
+
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>

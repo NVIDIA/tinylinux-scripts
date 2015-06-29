@@ -1,5 +1,8 @@
 #!/tiny/busybox sh
 
+# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# See /etc/LICENSE file for details.
+
 SQUASHFS_BIN="tiny/squash.bin"
 LOOP="/dev/loop0"
 MNTSQUASH="mnt/squash"

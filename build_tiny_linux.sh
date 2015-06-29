@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# See LICENSE file for details.
+
 set -e
 
 MIRROR="http://gentoo.cites.uiuc.edu/pub/gentoo/"
@@ -1043,7 +1046,7 @@ make_squashfs()
     ) > "$NEWROOT/etc/release"
 
     # Copy release notes
-    cp "$BUILDSCRIPTS"/release-notes "$NEWROOT"/etc/release-notes
+    cp "$BUILDSCRIPTS"/{release-notes,LICENSE} "$NEWROOT"/etc/
 
     # Make squashfs
     boldecho "Compressing squashfs"
