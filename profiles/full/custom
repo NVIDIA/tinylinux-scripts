@@ -14,13 +14,12 @@ remove_gentoo_services alsasound
 
 # PERL modules
 mkdir -p /etc/portage/package.unmask
-echo "perl-core/threads-shared **" >> /etc/portage/package.keywords/full
-echo "perl-core/threads-shared"    >> /etc/portage/package.unmask/full
-echo "perl-core/Time-HiRes **"     >> /etc/portage/package.keywords/full
+echo "perl-core/Thread-Semaphore **" >> /etc/portage/package.keywords/full
+echo "perl-core/Time-HiRes **"       >> /etc/portage/package.keywords/full
 install_package dev-perl/JSON
 install_package dev-perl/Getopt-Long-Descriptive
 install_package perl-core/File-Path
-install_package perl-core/threads-shared
+install_package perl-core/Thread-Semaphore
 install_package perl-core/Time-HiRes
 install_package perl-cleaner "" "--unmerge"
 
