@@ -1,5 +1,11 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+15.07
+ * Updated kernel to 4.1.2
+ * Updated MODS kernel driver to 3.63
+ * Bumped max number of CPUs to 256
+ * Added vim to full profile
+-------------------------------------------------------------------------------
 15.02
  * Updated kernel to 3.19.0
  * Updated MODS kernel driver to 3.58
