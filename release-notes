@@ -1,5 +1,8 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+15.07.1
+ * Enabled NVM express support in the kernel
+-------------------------------------------------------------------------------
 15.07
  * Updated kernel to 4.1.2
  * Updated MODS kernel driver to 3.63

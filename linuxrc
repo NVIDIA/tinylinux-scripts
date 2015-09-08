@@ -76,7 +76,10 @@ while true; do
             mount -t nfs -o nolock,rsize=1024,wsize=1024 "$NFSSHARE" "${ROOTFS}/${MNTNV}" || exec /bin/sh
         fi
     else
-        for DEVFILE in `find /dev/ -name "[sh]d[a-z]${PARTNUMBER}*" -o -name "sr${PARTNUMBER}*"`; do
+        [ -z "$PARTNUMBER" ] || P_PARTNUMBER="p$PARTNUMBER"
+        for DEVFILE in `find /dev/ -name "[sh]d[a-z]${PARTNUMBER}*" \
+                                -o -name "sr${PARTNUMBER}*"         \
+                                -o -name "nvme*n*${P_PARTNUMBER}*"`; do
             if ! echo "$TRIEDDEVS" | grep -q "$DEVFILE"; then
                 if mount "$DEVFILE" "${ROOTFS}/${MNTNV}" 2>/dev/null; then
                     TRIEDDEVS="$TRIEDDEVS $DEVFILE"
