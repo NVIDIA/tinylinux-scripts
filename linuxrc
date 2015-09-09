@@ -80,7 +80,7 @@ while true; do
         for DEVFILE in `find /dev/ -name "[sh]d[a-z]${PARTNUMBER}*" \
                                 -o -name "sr${PARTNUMBER}*"         \
                                 -o -name "nvme*n*${P_PARTNUMBER}*"`; do
-            if ! echo "$TRIEDDEVS" | grep -q "$DEVFILE"; then
+            if ! echo "$TRIEDDEVS" | grep -q "$DEVFILE\>"; then
                 if mount "$DEVFILE" "${ROOTFS}/${MNTNV}" 2>/dev/null; then
                     TRIEDDEVS="$TRIEDDEVS $DEVFILE"
                     if [ -f "${ROOTFS}/${MNTNV}/${SQUASHFS_BIN}" ]; then
