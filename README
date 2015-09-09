@@ -128,9 +128,6 @@ Directory              | Description
 /tiny/initrd           | Compressed initial ramdisk.
 /tiny/squash.bin       | Compressed Linux filesystem.
 /tiny/commands         | Editable script, executed on startup.
-/mods/runmods          | Script for running NVIDIA MODS.
-/mods/pkgname          | Script containing MODS package to use.
-/mods/args             | Script with default MODS arguments.
 
 
 Filesystem structure after boot

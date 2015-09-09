@@ -1,3 +1,6 @@
+# Install general packages
+source "$BUILDSCRIPTS/profiles/default/custom"
+
 # Override tiny directory for the server to avoid clashes with client directory
 TINYDIR="tinysrv"
 
@@ -19,5 +22,5 @@ echo "default tiny/kernel initrd=tiny/initrd nfsshare=10.0.0.1:/mnt/nv/client" >
 # Install libblkid/libuuid required by nfs-utils
 cp -d /lib/libblkid.so* /lib/libuuid.so* "$NEWROOT/lib"/
 
-# Remove MODS directory
-rm -rf "$INSTALL/mods"
+# Remove home directory
+rm -rf "$INSTALL/home"

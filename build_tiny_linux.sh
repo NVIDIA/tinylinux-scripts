@@ -709,14 +709,6 @@ build_newroot()
     install_package busybox "make-symlinks mdev nfs savedconfig"
     rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
     install_package dropbear "multicall"
-    install_package nano
-    install_package sys-libs/readline
-    if [[ $TEGRABUILD ]]; then
-        ( cd "$NEWROOT" && list_package_files "sys-libs/readline" | \
-            grep "^usr/lib\|^lib\|^usr/include" | \
-            xargs tar c | tar x -C "/usr/$TEGRAABI/" )
-    fi
-    install_package bash "readline net"
 
     if [[ -z $TEGRABUILD ]]; then
         install_package efibootmgr
@@ -848,6 +840,7 @@ prepare_installation()
     local INSTALLEXISTED
     [[ -d $INSTALL ]] && INSTALLEXISTED=1
 
+    mkdir -p "$INSTALL/home"
     mkdir -p "$INSTALL/tiny"
     if [[ ! -f $INSTALL/tiny/kernel && -z $TEGRABUILD ]] ; then
         cp /boot/kernel-genkernel-* "$INSTALL/tiny/kernel"
@@ -876,20 +869,14 @@ prepare_installation()
 
 install_mods()
 {
-    if [[ $TEGRABUILD ]]; then
-        mkdir -p "$INSTALL/mods"
-        return 0
-    fi
+    [[ $TEGRABUILD ]] && return 0
 
     local TMPMODS
     local DRVPKG
 
-    # Skip if there is no MODS or driver package
-    DRVPKG="$BUILDSCRIPTS/mods.tgz"
-    if [[ ! -f $DRVPKG ]]; then
-        DRVPKG="$BUILDSCRIPTS/mods/driver.tgz"
-        [[ -f $DRVPKG ]] || return 0
-    fi
+    # Skip if there is no driver package
+    DRVPKG="$BUILDSCRIPTS/mods/driver.tgz"
+    [[ -f $DRVPKG ]] || return 0
 
     # Install MODS kernel driver
     if [ ! -f /lib/modules/*/extra/mods.ko ]; then
@@ -908,22 +895,6 @@ install_mods()
 
         # Force regeneration of squashfs
         rm -f "$INSTALL/$SQUASHFS"
-    fi
-
-    # Copy MODS args file
-    mkdir -p "$INSTALL/mods"
-    local FILE
-    for FILE in args pkgname runmods; do
-        [[ -f $INSTALL/mods/$FILE ]] || cp "$BUILDSCRIPTS/mods/$FILE" "$INSTALL/mods/$FILE"
-    done
-
-    # Skip further installation if only driver package was available, but no MODS package
-    [[ -f $BUILDSCRIPTS/mods.tgz ]] || return 0
-
-    # Install MODS
-    if [[ ! -f $INSTALL/mods/mods.tgz ]]; then
-        boldecho "Copying MODS"
-        cp "$BUILDSCRIPTS/mods.tgz" "$INSTALL/mods"/
     fi
 }
 

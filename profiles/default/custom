@@ -1,0 +1,8 @@
+install_package nano
+install_package sys-libs/readline
+if [[ $TEGRABUILD ]]; then
+    ( cd "$NEWROOT" && list_package_files "sys-libs/readline" | \
+        grep "^usr/lib\|^lib\|^usr/include" | \
+        xargs tar c | tar x -C "/usr/$TEGRAABI/" )
+fi
+install_package bash "readline net"

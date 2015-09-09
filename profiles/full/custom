@@ -1,3 +1,7 @@
+# Install general packages
+source "$BUILDSCRIPTS/profiles/default/custom"
+
+# Install additional packages
 install_into tiny/conf.d boot
 install_package =python-2.7* "threads xml" "--nodeps"
 USE=ithreads emerge --quiet --usepkg --buildpkg =perl-5.20* # Enable ithreads
@@ -24,6 +28,8 @@ install_package perl-core/Time-HiRes
 install_package perl-cleaner "" "--unmerge"
 
 install_package net-misc/curl
+
+# Tidy up
 remove_gentoo_services pydoc-2.7
 [[ -f "$NEWROOT/usr/bin/python-wrapper" ]] || (
     cd "$NEWROOT/usr/bin"

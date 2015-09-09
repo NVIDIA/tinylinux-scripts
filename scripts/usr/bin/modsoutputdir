@@ -18,9 +18,15 @@ if grep -qs nfsshare /proc/cmdline; then
     fi
 else
     TINYDIR=`/bin/tinydir`
-    if [ -d "$TINYDIR/mods" ]; then
+    if [ -d "$TINYDIR/home" ]; then
+        echo "$TINYDIR/home"
+    elif [ -d "$MNTNV/home" ]; then
+        echo "$MNTNV/home"
+    elif [ -d "$TINYDIR/mods" ]; then
         echo "$TINYDIR/mods"
-    else
+    elif [ -d "$MNTNV/mods" ]; then
         echo "$MNTNV/mods"
+    else
+        echo "$MNTNV/home"
     fi
 fi

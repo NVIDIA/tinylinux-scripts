@@ -23,7 +23,6 @@ die()
 # Find TinyLinux directory
 TINY="`tinydir`"
 [[ -d "$TINY" ]] || die "TinyLinux directory not found"
-MODSDIR="`modsoutputdir`"
 
 IBLK=1
 while [[ $IBLK -le $# ]]; do
@@ -111,10 +110,7 @@ install_tiny()
     UMOUNT_DEV1="${BLKDEV}2"
     mkdir "$INSTALLDIR/tiny"
     tar cp -C "$TINY"/ --exclude kernel --exclude initrd ./ | tar xp -C "$INSTALLDIR/tiny"/
-    if [[ -d "$MODSDIR" ]]; then
-        mkdir "$INSTALLDIR/mods"
-        tar cp -C "$MODSDIR"/ ./ | tar xp -C "$INSTALLDIR/mods"/
-    fi
+    mkdir -p "$INSTALLDIR/home"
 
     # Fix permissions
     if [[ -f "$TINY/kernel" && -f "$TINY/initrd" ]]; then
