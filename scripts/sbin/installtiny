@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -11,7 +11,7 @@ die()
     exit 1
 }
 
-[[ $# -gt 0 ]] || die "Usage: `basename $0` <DEVICE1> [DEVICE2 [...]]"
+[ $# -gt 0 ] || die "Usage: `basename $0` <DEVICE1> [DEVICE2 [...]]"
 
 # Check required tools
 [ -x /sbin/mkfs.ext2 ] || die "/sbin/mkfs.ext2 not found"
@@ -22,10 +22,10 @@ die()
 
 # Find TinyLinux directory
 TINY="`tinydir`"
-[[ -d "$TINY" ]] || die "TinyLinux directory not found"
+[ -d "$TINY" ] || die "TinyLinux directory not found"
 
 IBLK=1
-while [[ $IBLK -le $# ]]; do
+while [ $IBLK -le $# ]; do
     BLKDEV=`eval "echo "'$'"$IBLK"`
     BLKDEV="${BLKDEV#/dev/}"
     [ -e "/sys/class/block/$BLKDEV" ] || die "/dev/$BLKDEV device does not exist!"
@@ -40,8 +40,8 @@ UMOUNT_DEV2=""
 umount_on_exit()
 {
     sync
-    [[ -z $UMOUNT_DEV1 ]] || umount "$UMOUNT_DEV1" || echo "Umount failed - device $UMOUNT_DEV1 may be still mounted!"
-    [[ -z $UMOUNT_DEV2 ]] || umount "$UMOUNT_DEV2" || echo "Umount failed - device $UMOUNT_DEV2 may be still mounted!"
+    [ -z $UMOUNT_DEV1 ] || umount "$UMOUNT_DEV1" || echo "Umount failed - device $UMOUNT_DEV1 may be still mounted!"
+    [ -z $UMOUNT_DEV2 ] || umount "$UMOUNT_DEV2" || echo "Umount failed - device $UMOUNT_DEV2 may be still mounted!"
 }
 
 trap umount_on_exit EXIT
@@ -76,7 +76,7 @@ install_tiny()
     mount "${BLKDEV}1" "$BOOTDIR"
     UMOUNT_DEV1="${BLKDEV}1"
     mkdir "$BOOTDIR/tiny"
-    if [[ -f "$TINY/kernel" && -f "$TINY/initrd" ]]; then
+    if [ -f "$TINY/kernel" -a -f "$TINY/initrd" ]; then
         cp "$TINY"/{kernel,initrd} "$BOOTDIR/tiny"/
     else
         local BOOTSRCDEV
@@ -88,7 +88,7 @@ install_tiny()
         BOOTSRCDIR="`mktemp -d -t`"
         mount "$BOOTSRCDEV" "$BOOTSRCDIR"
         UMOUNT_DEV2="$BOOTSRCDEV"
-        [[ -f "$BOOTSRCDIR/tiny/kernel" && -f "$BOOTSRCDIR/tiny/initrd" ]] || die "Boot device $BOOTSRCDEV does not contain the kernel"
+        [ -f "$BOOTSRCDIR/tiny/kernel" -a -f "$BOOTSRCDIR/tiny/initrd" ] || die "Boot device $BOOTSRCDEV does not contain the kernel"
         cp "$BOOTSRCDIR"/tiny/{kernel,initrd} "$BOOTDIR/tiny"/
         UMOUNT_DEV2=""
         sync
@@ -113,7 +113,7 @@ install_tiny()
     mkdir -p "$INSTALLDIR/home"
 
     # Fix permissions
-    if [[ -f "$TINY/kernel" && -f "$TINY/initrd" ]]; then
+    if [ -f "$TINY/kernel" -a -f "$TINY/initrd" ]; then
         local FILE
         find "$INSTALLDIR"/ -type f | while read FILE; do
             if head -n 1 "$FILE" | grep -q "^#\!"; then
@@ -136,11 +136,11 @@ install_wrap()
     echo "Installing TinyLinux on $1"
     install_tiny "$1" 2<&1 | sed "s/^/${1//\//\\/}: /" | tee -a "/var/log/install"
     STATUS=${PIPESTATUS[0]}
-    [[ $STATUS -eq 0 ]] || exit $STATUS
+    [ $STATUS -eq 0 ] || exit $STATUS
     echo "TinyLinux installed successfuly on $1"
 }
 
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
     install_wrap "/dev/${1#/dev/}" &
     shift
 done

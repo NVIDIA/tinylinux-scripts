@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -11,19 +11,19 @@ die()
     exit 1
 }
 
-[[ -d /tmp/tiny ]] && die "Directory /tmp/tiny in the way - unable to continue"
-[[ $# -eq 1 ]] || die "Usage: `basename $0` <TINYLINUXPACKAGE>.zip"
-[[ -f "$1" ]] || die "TinyLinux package \"$1\" not found"
+[ -d /tmp/tiny ] && die "Directory /tmp/tiny in the way - unable to continue"
+[ $# -eq 1 ] || die "Usage: `basename $0` <TINYLINUXPACKAGE>.zip"
+[ -f "$1" ] || die "TinyLinux package \"$1\" not found"
 
 # Unpack tiny directory from the archive
 unzip -q "$1" "tiny/*" -d /tmp
-[[ -d /tmp/tiny ]] || die "Directory \"tiny\" not found in package $1"
+[ -d /tmp/tiny ] || die "Directory \"tiny\" not found in package $1"
 
 # Replace old TinyLinux directory with the new one
 TINYPATH=`tinydir`
 TINYDIR=`basename "$TINYPATH"`
-[[ -d "${TINYDIR}.new" ]] && die "${TINYDIR}.new in the way - unable to continue"
-[[ -d "${TINYDIR}.old" ]] && die "${TINYDIR}.old in the way - unable to continue"
+[ -d "${TINYDIR}.new" ] && die "${TINYDIR}.new in the way - unable to continue"
+[ -d "${TINYDIR}.old" ] && die "${TINYDIR}.old in the way - unable to continue"
 cd -P "$TINYPATH"
 cd ..
 mv /tmp/tiny ./"${TINYDIR}.new"
