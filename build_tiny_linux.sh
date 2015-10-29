@@ -318,7 +318,7 @@ prepare_portage()
             echo "sys-kernel/git-sources ~*"
             echo "net-misc/r8168 ~*"
             echo "net-misc/ipsvd ~*"
-            echo "=sys-devel/crossdev-20141030 ~*"
+            echo "sys-apps/hwids ~*"
             echo "=dev-lang/perl-5.16.3 ~*"
             echo "=sys-devel/patch-2.7.1-r3 ~*"
             echo "=sys-boot/syslinux-6.03 ~*"
@@ -329,14 +329,11 @@ prepare_portage()
     echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
 
-    # Broken nano dependency
-    echo "=app-editors/nano-2.3.3" >> /etc/portage/package.mask/tinylinux
+    # Only use the version of ncurses used by MODS
+    echo ">=sys-libs/ncurses-6.0" >> /etc/portage/package.mask/tinylinux
 
     # Enable the latest iasl tool
     echo "sys-power/iasl ~*" >> $KEYWORDS
-
-    # Mask newer busybox due to problems with less
-    echo ">sys-apps/busybox-1.21.0" >> /etc/portage/package.mask/tinylinux
 
     # Broken strace build
     echo "=dev-util/strace-4.10" >> /etc/portage/package.mask/tegra
@@ -345,15 +342,15 @@ prepare_portage()
     if [[ $TEGRABUILD ]]; then
         mkdir -p /etc/portage/package.accept_keywords
         local PKG
-        for PKG in sys-apps/busybox-1.21.0 \
-                   dev-libs/libtommath-0.42.0-r1 \
+        for PKG in dev-libs/libtommath-0.42.0-r1 \
                    net-fs/autofs-5.0.8-r1 \
                    net-nds/ypbind-1.37.2 \
                    net-nds/yp-tools-2.12-r1 \
                    net-nds/portmap-6.0 \
                    net-dialup/lrzsz-0.12.20-r3 \
-                   dev-util/valgrind-3.10.1 \
-                   cross-aarch64-unknown-linux-gnu/gcc-4.9.2 \
+                   dev-util/valgrind-3.11.0 \
+                   net-libs/libpcap-1.7.4 \
+                   net-wireless/bluez-5.35 \
                    ; do
             echo "=${PKG} **" >> /etc/portage/package.accept_keywords/tegra
         done
@@ -362,27 +359,17 @@ prepare_portage()
         echo "=cross-aarch64-unknown-linux-gnu/binutils-2.24* ~*" >> $KEYWORDS
 
         # Stick to the kernel we're officially using
-        local KERNELVER="3.10"
-        echo ">=cross-aarch64-unknown-linux-gnu/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
-        echo ">=cross-armv7a-softfp-linux-gnueabi/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
+        local KERNELVER="3.18"
+        echo ">cross-aarch64-unknown-linux-gnu/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
+        echo ">cross-armv7a-softfp-linux-gnueabi/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
     fi
 
     # Lock on to dropbear version which we have a fix for
-    echo "=net-misc/dropbear-2013.62 ~*" >> $KEYWORDS
-    echo ">net-misc/dropbear-2013.62" >> /etc/portage/package.mask/tinylinux
-
-    # Fix valgrind build
-    local EBUILD=/usr/portage/dev-util/valgrind/valgrind-3.10.1.ebuild
-    if [[ -f $EBUILD && $TEGRABUILD ]] && ! grep -q "valgrind-arm64.patch" "$EBUILD"; then
-        boldecho "Patching $EBUILD"
-        cp "$BUILDSCRIPTS/tegra/valgrind-arm64.patch" /usr/portage/dev-util/valgrind/files/
-        sed -i "/epatch.*glibc/ a\
-epatch \"\${FILESDIR}\"/valgrind-arm64.patch" "$EBUILD"
-        ebuild "$EBUILD" digest
-    fi
+    echo "=net-misc/dropbear-2015.68 ~*" >> $KEYWORDS
+    echo ">net-misc/dropbear-2015.68" >> /etc/portage/package.mask/tinylinux
 
     # Install dropbear patch for pubkey authentication
-    local EBUILD=/usr/portage/net-misc/dropbear/dropbear-2013.62.ebuild
+    local EBUILD=/usr/portage/net-misc/dropbear/dropbear-2015.68.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "pubkey\.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/dropbear-pubkey.patch" /usr/portage/net-misc/dropbear/files/
@@ -485,6 +472,12 @@ install_tegra_toolchain()
     local PROFILE=13.0
     ln -s "/usr/portage/profiles/default/linux/$PROFILE_ARCH/$PROFILE" "$PORTAGECFG/make.profile"
 
+    # Try to install as many stable packages as possible
+    if grep -q "ACCEPT_KEYWORDS.*~$PROFILE_ARCH" "$CFGROOT/$MAKECONF"; then
+        boldecho "Fixing ACCEPT_KEYWORDS: removing ~$PROFILE_ARCH"
+        sed -i "s/~$PROFILE_ARCH//" "$CFGROOT/$MAKECONF"
+    fi
+
     # Fix lib directory (make a symlink to lib64)
     if istegra64 && [[ `ls "$CFGROOT/usr/lib" | wc -l` = 0 ]]; then
         rmdir "$CFGROOT/usr/lib"
@@ -572,7 +565,6 @@ compile_kernel()
 
 target_emerge()
 {
-    local EMERGE
     if [[ $TEGRABUILD ]]; then
         ROOT="$NEWROOT" "$TEGRAABI-emerge" "$@"
     else
@@ -612,10 +604,13 @@ install_syslinux()
     DESTDIR="/tmp/syslinux"
 
     SAVEROOT="$NEWROOT"
-    NEWROOT="$DESTDIR" target_emerge --quiet --nodeps --usepkg --buildpkg syslinux
+    NEWROOT="$DESTDIR" target_emerge --quiet --nodeps --usepkg --buildpkg syslinux mtools
     NEWROOT="$SAVEROOT"
 
-    cp -p "$DESTDIR/sbin/extlinux" "$NEWROOT/sbin/extlinux"
+    cp -p "$DESTDIR/sbin/extlinux" "$NEWROOT/usr/sbin/extlinux"
+    for FILE in syslinux mcopy mattrib; do
+        cp -p "$DESTDIR/usr/bin/$FILE" "$NEWROOT/usr/bin/$FILE"
+    done
     rm -rf "$DESTDIR"
 
     mkdir -p "$NEWROOT/usr/share/syslinux"
@@ -665,14 +660,16 @@ build_newroot()
     fi
 
     # Restore busybox config file
-    local BUSYBOXCFG="$BUILDSCRIPTS/busybox-1.21.0"
+    local BUSYBOXCFG="$BUILDSCRIPTS/busybox-config"
     local HOSTBUSYBOXCFGDIR=/etc/portage/savedconfig/sys-apps
-    [[ $TEGRABUILD ]] && HOSTBUSYBOXCFGDIR="/usr/$TEGRAABI/$HOSTBUSYBOXCFGDIR"
-    mkdir -p "$HOSTBUSYBOXCFGDIR"
-    cp "$BUSYBOXCFG" "$HOSTBUSYBOXCFGDIR"
     local TARGETBUSYBOXCFGDIR="$NEWROOT/etc/portage/savedconfig/sys-apps"
-    mkdir -p "$TARGETBUSYBOXCFGDIR"
-    cp "$BUSYBOXCFG" "$TARGETBUSYBOXCFGDIR"
+    local BUSYBOX_VER
+    ls /usr/portage/sys-apps/busybox/*ebuild | sed "s:.*/:: ; s:\.ebuild::" | while read BUSYBOX_VER; do
+        mkdir -p "$HOSTBUSYBOXCFGDIR"
+        cp "$BUSYBOXCFG" "$HOSTBUSYBOXCFGDIR/$BUSYBOX_VER"
+        mkdir -p "$TARGETBUSYBOXCFGDIR"
+        cp "$BUSYBOXCFG" "$TARGETBUSYBOXCFGDIR/$BUSYBOX_VER"
+    done
 
     # Setup directories for valgrind and for debug symbols
     local NEWUSRLIB="$NEWROOT/usr/lib"
@@ -726,6 +723,7 @@ build_newroot()
                     /$LIB/libtirpc.so.1.0.10 \
                     /usr/$LIB/pkgconfig/libtirpc.pc; do
             rm -rf "$CFGROOT/$ITEM"
+            mkdir -p "$(dirname "$CFGROOT/$ITEM")"
             cp -r "$NEWROOT/$ITEM" "$CFGROOT/$ITEM"
         done
         rm -f "$CFGROOT/$LIB/libtirpc.so.1"
@@ -1322,7 +1320,7 @@ prepare_installation        # Prepare /buildroot/install directory. Copy kernel,
 install_mods                # Install MODS kernel driver.
 install_extra_packages      # Install additional profile-specific packages. Runs the custom script.
 make_squashfs               # Create squashfs.bin from newroot. Can be forced with -q.
-compile_busybox             # Compile busybox for startup.
+compile_busybox             # [Tegra only] Compile busybox for startup.
 make_tegra_image            # [Tegra only] Create initial ramdisk for Tegra.
 compress_final_package      # [Not for Tegra] Build the zip package.
 deploy                      # [Not for Tegra] Install on a USB stick

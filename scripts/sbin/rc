@@ -192,14 +192,15 @@ elif [ "$1" = "sysinit" ]; then
     mount -t sysfs none /sys
     mount -t devtmpfs -o "mode=0755" udev /dev
     [ -d /dev/pts ] || mkdir -m 0755 /dev/pts
-    mount -t devpts none /dev/pts
+    [ -d /dev/shm ] || mkdir -m 1777 /dev/shm
+    mount -t devpts -o "mode=0620,gid=5" devpts /dev/pts
 
     # Setup hotplug
     touch /dev/mdev.seq
     echo "/sbin/mdev" > /proc/sys/kernel/hotplug
 
-    # Coldplug devices (skip on Tegra)
-    if [ `uname -m` != armv7l ] && ! grep -q "nocoldplug" /proc/cmdline; then
+    # Coldplug devices
+    if ! grep -q "nocoldplug" /proc/cmdline; then
         ls /sys/bus/pci/devices/*/uevent /sys/bus/usb/devices/*/uevent /sys/block/*/uevent /sys/block/*/*/uevent | while read UEVENT; do
             echo "add" > "$UEVENT"
         done

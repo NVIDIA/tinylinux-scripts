@@ -14,15 +14,25 @@ UUID="6cbfd9d7-fdea-487f-87fa-b521bfa4d71a"
 /tiny/busybox mount -t proc none /proc
 
 # Locate partition
-PARTITION=`/tiny/busybox blkid | /tiny/busybox grep "$UUID" | /tiny/busybox cut -f 1 -d ':'`
-if test "$PARTITION"; then
-    echo "Found partition: $PARTITION"
-else
-    echo "Partition with UUID $UUID not found!"
-    echo "Existing partitions:"
-    /tiny/busybox blkid
-    exec /tiny/busybox sh
-fi
+find_partition()
+{
+    /tiny/busybox blkid | /tiny/busybox grep "$UUID" | /tiny/busybox cut -f 1 -d ':'
+}
+PARTITION=`find_partition`
+WAITCOUNT=0
+while ! test "$PARTITION"; do
+    [ $WAITCOUNT -eq 0 ] && echo "Partition with root filesystem not found. Waiting..."
+    if [ $WAITCOUNT -ge 10 ]; then
+        echo "Partition with UUID $UUID not found!"
+        echo "Existing partitions:"
+        /tiny/busybox blkid
+        exec /tiny/busybox sh
+    fi
+    /tiny/busybox sleep 1
+    PARTITION=`find_partition`
+    WAITCOUNT=$(($WAITCOUNT+1))
+done
+echo "Found partition: $PARTITION"
 
 # Mount partition
 /tiny/busybox mkdir -p "$NEWROOT"

@@ -9,7 +9,7 @@ install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn p
 install_package perl "ithreads"
 install_package iasl
 install_package pmtools
-install_package sys-devel/gdb
+install_package sys-devel/gdb "client server"
 install_package dev-util/strace "aio"
 install_package vim-core minimal
 install_package vim minimal --nodeps
@@ -34,8 +34,4 @@ remove_gentoo_services pydoc-2.7
 [[ -f "$NEWROOT/usr/bin/python-wrapper" ]] || (
     cd "$NEWROOT/usr/bin"
     ln -s python2 python-wrapper
-)
-[[ -f "$NEWROOT/usr/bin/emacs" ]] || (
-    cd "$NEWROOT/usr/bin"
-    ln -s emacs-* emacs
 )

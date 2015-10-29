@@ -3,7 +3,7 @@ source "$BUILDSCRIPTS/profiles/default/custom"
 
 # Terminal on Tegra only goes to serial
 sed -i "/^tty.*getty/d" "$NEWROOT"/etc/inittab
-sed -i "/getty/s/38400/115200/ ; /getty/s/tty1/ttyS0/" "$NEWROOT"/etc/inittab
+sed -i "/getty/s/38400/115200/ ; /getty/s/tty1/ttyS0/ ; /getty/s/-n/-L -n/" "$NEWROOT"/etc/inittab
 
 # Additional packages
 install_package sys-devel/gdb "client server"
@@ -13,6 +13,16 @@ install_package net-fs/autofs "" "--nodeps"
 install_package net-nds/ypbind
 install_package net-dialup/lrzsz
 install_package net-libs/libpcap ipv6
+
+# bluez with its dependencies
+if istegra64; then # glib fails to cross compile for armv7
+    NEWROOT=/ install_package docbook-xml-dtd:4.4           # Host dependency for building dbus
+    NEWROOT=/ install_package app-text/xmlto                # Host dependency for building dbus
+    NEWROOT="/usr/$TEGRAABI" install_package dev-libs/glib  # Host dependency for bluez
+    NEWROOT="/usr/$TEGRAABI" install_package sys-apps/dbus  # Host dependency for bluez
+    install_package dev-libs/glib                           # Needed for bluez
+    install_package net-wireless/bluez "" "--nodeps"        # Avoid pulling dbus
+fi
 
 # Set timezone
 sed -i "/TZ/s/UTC/PST8PDT/" "$NEWROOT/etc/bash/bashrc"

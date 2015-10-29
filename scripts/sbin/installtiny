@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -14,10 +14,9 @@ die()
 [ $# -gt 0 ] || die "Usage: `basename $0` <DEVICE1> [DEVICE2 [...]]"
 
 # Check required tools
-[ -x /sbin/mkfs.ext2 ] || die "/sbin/mkfs.ext2 not found"
-[ -x /sbin/mkfs.reiser ] || die "/sbin/mkfs.reiser not found"
-[ -x /sbin/fdisk ] || die "/sbin/fdisk not found"
-[ -x /sbin/extlinux ] || die "/sbin/extlinux not found"
+[ -x /sbin/mkfs.vfat   ] || die "/sbin/mkfs.vfat not found"
+[ -x /sbin/fdisk       ] || die "/sbin/fdisk not found"
+[ -x /usr/bin/syslinux ] || die "/usr/bin/syslinux not found"
 [ -f /usr/share/syslinux/mbr.bin ] || die "mbr.bin not found"
 
 # Find TinyLinux directory
@@ -35,13 +34,11 @@ while [ $IBLK -le $# ]; do
 done
 
 UMOUNT_DEV1=""
-UMOUNT_DEV2=""
 
 umount_on_exit()
 {
     sync
     [ -z $UMOUNT_DEV1 ] || umount "$UMOUNT_DEV1" || echo "Umount failed - device $UMOUNT_DEV1 may be still mounted!"
-    [ -z $UMOUNT_DEV2 ] || umount "$UMOUNT_DEV2" || echo "Umount failed - device $UMOUNT_DEV2 may be still mounted!"
 }
 
 trap umount_on_exit EXIT
@@ -59,75 +56,35 @@ install_tiny()
     sync
 
     # Create partitions
-    echo -en "np118np2  a1pw" | sed "s/./&\n/g" | /sbin/fdisk "$BLKDEV"
+    echo -en "np118a1pw" | sed "s/./&\n/g" | /sbin/fdisk "$BLKDEV"
     sync
     find /sys/devices/ -name uevent -exec sh -c "echo add > '{}'" \;
     sleep 4
     grep "^$BLKDEV" < /proc/mounts | cut -f 1 -d ' ' | while read DEV; do
         umount "$DEV"
     done
-    /sbin/mkfs.ext2 -L "Boot" "${BLKDEV}1"
-    /sbin/mkfs.reiser -l "TinyLinux" "${BLKDEV}2"
+    /sbin/mkfs.vfat -n "TinyLinux" "${BLKDEV}1"
     sync
 
-    # Initialize boot partition
-    local BOOTDIR
-    BOOTDIR="`mktemp -d -t`"
-    mount "${BLKDEV}1" "$BOOTDIR"
+    # Install TinyLinux
+    local INSTALLDIR
+    INSTALLDIR="`mktemp -d -t`"
+    mount "${BLKDEV}1" "$INSTALLDIR"
     UMOUNT_DEV1="${BLKDEV}1"
-    mkdir "$BOOTDIR/tiny"
-    if [ -f "$TINY/kernel" -a -f "$TINY/initrd" ]; then
-        cp "$TINY"/{kernel,initrd} "$BOOTDIR/tiny"/
-    else
-        local BOOTSRCDEV
-        BOOTSRCDEV=`grep " /mnt/nv " /proc/mounts | cut -f 1 -d ' '`
-        BOOTSRCDEV="${BOOTSRCDEV%2}"
-        BOOTSRCDEV="${BOOTSRCDEV}1"
-        [ -b "$BOOTSRCDEV" ] || die "Boot device $BOOTSRCDEV not found"
-        local BOOTSRCDIR
-        BOOTSRCDIR="`mktemp -d -t`"
-        mount "$BOOTSRCDEV" "$BOOTSRCDIR"
-        UMOUNT_DEV2="$BOOTSRCDEV"
-        [ -f "$BOOTSRCDIR/tiny/kernel" -a -f "$BOOTSRCDIR/tiny/initrd" ] || die "Boot device $BOOTSRCDEV does not contain the kernel"
-        cp "$BOOTSRCDIR"/tiny/{kernel,initrd} "$BOOTDIR/tiny"/
-        UMOUNT_DEV2=""
-        sync
-        umount "$BOOTSRCDIR"
-        rmdir "$BOOTSRCDIR"
-    fi
-    mkdir "$BOOTDIR/extlinux"
-    echo "default /tiny/kernel initrd=/tiny/initrd" > "$BOOTDIR"/extlinux/extlinux.conf
-    /sbin/extlinux --install "$BOOTDIR/extlinux"
+    mkdir -p "$INSTALLDIR/home"
+    cp -r "$TINY" "$INSTALLDIR/tiny"
+    [ -f /mnt/nv/README       ] && cp /mnt/nv/README       "$INSTALLDIR"
+    [ -f /mnt/nv/syslinux.exe ] && cp /mnt/nv/syslinux.exe "$INSTALLDIR"
+    [ -d /mnt/nv/EFI          ] && cp -r /mnt/nv/EFI       "$INSTALLDIR"
+
+    # Make it bootable
+    mkdir -p "$INSTALLDIR/syslinux"
+    echo "default /tiny/kernel initrd=/tiny/initrd" > "$INSTALLDIR"/syslinux/syslinux.cfg
+    /usr/bin/syslinux --install "${BLKDEV}1"
     UMOUNT_DEV1=""
     sync
     umount "${BLKDEV}1"
-    rmdir "$BOOTDIR"
-
-    # Install TinyLinux into ReiserFS partition
-    local INSTALLDIR
-    INSTALLDIR="`mktemp -d -t`"
-    mount "${BLKDEV}2" "$INSTALLDIR"
-    UMOUNT_DEV1="${BLKDEV}2"
-    mkdir "$INSTALLDIR/tiny"
-    tar cp -C "$TINY"/ --exclude kernel --exclude initrd ./ | tar xp -C "$INSTALLDIR/tiny"/
-    mkdir -p "$INSTALLDIR/home"
-
-    # Fix permissions
-    if [ -f "$TINY/kernel" -a -f "$TINY/initrd" ]; then
-        local FILE
-        find "$INSTALLDIR"/ -type f | while read FILE; do
-            if head -n 1 "$FILE" | grep -q "^#\!"; then
-                chmod 755 "$FILE"
-            else
-                chmod 644 "$FILE"
-            fi
-        done
-    fi
-
-    # Unmount the ReiserFS partition
-    UMOUNT_DEV1=""
-    sync
-    umount "${BLKDEV}2"
+    rmdir "$INSTALLDIR"
 }
 
 install_wrap()
