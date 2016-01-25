@@ -351,6 +351,7 @@ prepare_portage()
                    dev-util/valgrind-3.11.0 \
                    net-libs/libpcap-1.7.4 \
                    net-wireless/bluez-5.35 \
+                   net-wireless/rfkill-0.5 \
                    ; do
             echo "=${PKG} **" >> /etc/portage/package.accept_keywords/tegra
         done
@@ -373,7 +374,16 @@ prepare_portage()
     if [[ -f $EBUILD ]] && ! grep -q "pubkey\.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/dropbear-pubkey.patch" /usr/portage/net-misc/dropbear/files/
-        sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-pubkey.patch\nepatch/" "$EBUILD"
+        sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-pubkey.patch\n\tepatch/" "$EBUILD"
+        ebuild "$EBUILD" digest
+    fi
+
+    # Install yp-tools patch which fixes a compilation issue
+    local EBUILD=/usr/portage/net-nds/yp-tools/yp-tools-2.12-r1.ebuild
+    if [[ -f $EBUILD ]] && ! grep -q "src_prepare" "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        cp "$BUILDSCRIPTS/yp-tools-build.patch" /usr/portage/net-nds/yp-tools/files/
+        sed -i "0,/src_configure/ s//src_prepare() {\n\tepatch \"\${FILESDIR}\"\/\${PN}-build.patch\n}\n\nsrc_configure/" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
