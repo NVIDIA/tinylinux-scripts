@@ -15,6 +15,7 @@ install_package vim-core minimal
 install_package vim minimal --nodeps
 install_package alsa-utils "ncurses libsamplerate"
 remove_gentoo_services alsasound
+install_package vbetool
 
 # PERL modules
 mkdir -p /etc/portage/package.unmask
