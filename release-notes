@@ -1,6 +1,11 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
- * Added bluez in tegra profile
+16.02
+ * Updated kernel to 4.4.1
+ * Updated MODS kernel driver to 3.66
+ * Added vbetool in the full profile
+ * Enabled suspend to RAM in kernel config
+ * Added bluez and rfkill in tegra profile
  * Fixed serial console setup in tegra profile
  * Fixed installtiny script, install to a single FAT32 partition only
  * Renamed /mods to /home and removed runmods script
