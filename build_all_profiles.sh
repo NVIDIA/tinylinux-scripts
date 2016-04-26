@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2016, NVIDIA CORPORATION.  All rights reserved.
 # See LICENSE file for details.
 
 set -e
@@ -25,6 +25,9 @@ ls "`dirname $0`/profiles" | while read PROFILE; do
     mv "buildroot/$PROFILE.zip" "$VERSION"
     sed "s/$/\r/" < "buildroot/newroot/etc/release" > "$VERSION/$PROFILE.txt"
 done
+
+`dirname $0`/build_mods_driver.sh prepare
+mv build_mods_driver.tar.bz2 "$VERSION"/
 
 echo
 echo "All done!"
