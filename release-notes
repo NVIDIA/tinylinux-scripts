@@ -1,5 +1,7 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Added /mnt/nv/tiny/conf for storing persistent configuration
+-------------------------------------------------------------------------------
 16.02
  * Updated kernel to 4.4.1
  * Updated MODS kernel driver to 3.66

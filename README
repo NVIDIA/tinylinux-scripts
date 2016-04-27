@@ -128,6 +128,7 @@ Directory              | Description
 /tiny/initrd           | Compressed initial ramdisk.
 /tiny/squash.bin       | Compressed Linux filesystem.
 /tiny/commands         | Editable script, executed on startup.
+/tiny/conf             | Persistent system configuration directory.
 
 
 Filesystem structure after boot
@@ -212,8 +213,9 @@ There are multiple services available in NVIDIA TinyLinux.  The configuration
 files for each service live in `/etc/conf.d` directory.  Because this directory
 is located in the ramdisk, any modifications to it will be lost on reboot.
 
-To preserve service configuration across reboots, create `/mnt/nv/tiny/conf.d`
-directory and copy the relevant configuration files there.
+To preserve service configuration across reboots, copy the relevant
+configuration files from `/etc/conf.d` and `/etc` to `/mnt/nv/tiny/conf`
+directory.
 
 There is also a special configuration file `/etc/conf.d/boot`, which specifies
 the boot order of services.  If more services need to be started at boot, they
@@ -221,13 +223,13 @@ need to be listed there.
 
 An example how to preserve the `/etc/conf.d/boot` file across reboots:
 
-    mkdir -p /mnt/nv/tiny/conf.d
-    cp /etc/conf.d/boot /mnt/nv/tiny/conf.d/
+    cp /etc/conf.d/boot /mnt/nv/tiny/conf/
 
-On boot, the entire `/etc` directory is copied from `/mnt/squash/etc`, which is
-located in the read-only compressed Linux filesystem.  Any additional
-configuration files are copied from `/mnt/nv/tiny/conf.d` over the initial
-copy.
+On boot, the entire `/etc` directory is copied by the service manager
+`/sbin/rc` from `/mnt/squash/etc`, which is located in the read-only compressed
+Linux filesystem.  Symbolic links are created for any additional configuration
+files in `/mnt/nv/tiny/conf` instead of the initial copies from
+`/mnt/squash/etc`.
 
 Networking
 ----------
@@ -237,14 +239,15 @@ To set up networking, perform the following steps:
 1. Configure networking in `/etc/conf.d/net`
 
 2. If configuration should persist across reboots, copy it to
-   `/mnt/nv/tiny/conf.d`:
+   `/mnt/nv/tiny/conf`:
 
-        cp /etc/conf.d/net /mnt/nv/tiny/conf.d/
+        cp /etc/conf.d/net /mnt/nv/tiny/conf/
 
 3. If networking needs to be started on boot, add the `net` service to the
    boot order file:
 
-        echo net >> /mnt/nv/tiny/conf.d/boot
+        cp -n /etc/conf.d/boot /mnt/nv/tiny/conf/
+        echo net >> /mnt/nv/tiny/conf/boot
 
 4. Start networking:
 
@@ -279,9 +282,14 @@ To set up the SSH daemon, perform the following steps:
 2. If the SSH daemon needs to be started on boot, add the `sshd` service to the
    boot order file:
 
-        echo sshd >> /mnt/nv/tiny/conf.d/boot
+        cp -n /etc/conf.d/boot /mnt/nv/tiny/conf/
+        echo sshd >> /mnt/nv/tiny/conf/boot
 
-3. Start the SSH daemon service:
+3. Preserve user's password acroos reboots:
+
+        cp /etc/passwd /mnt/nv/tiny/conf/
+
+4. Start the SSH daemon service:
 
         /etc/init.d/sshd start
 
@@ -294,8 +302,7 @@ unless it is disabled in the boot order file.
 The commands script is editable on Windows.  The DOS-style line endings in this
 file are automatically converted to UNIX-style before the script is run.
 
-Further commands can be added to this script when it is necessary to further
-customize boot.
+Further commands can be added to this script when needed.
 
 The commands boot service, which runs the commands script, does not hook into
 a tty, therefore it is not possible to run interactive scripts which require

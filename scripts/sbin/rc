@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2016, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 __STATUSDIR="/var/rc/status"
@@ -104,6 +104,27 @@ __stopservice()
     fi
 
     return $RC
+}
+
+# Symlink files from conf dir (shallow)
+__make_conf_symlinks()
+{
+    local FILE
+    local SRC
+    local DEST
+
+    find "$1/" -maxdepth 1 -type f | while read FILE; do
+        FILE=`basename "$FILE"`
+        SRC="$TINYLINUXDIR/conf/$FILE"
+        DEST="$1/$FILE"
+        if [ -f "$SRC" ]; then
+            echo "Linking $SRC to $DEST"
+            tr -d '\r' < "$SRC" > /tmp/_doseol
+            cat /tmp/_doseol > "$SRC"
+            rm -f "$DEST"
+            ln -s "$SRC" "$DEST"
+        fi
+    done
 }
 
 # Find TinyLinux configuration files
@@ -220,19 +241,12 @@ elif [ "$1" = "boot" ]; then
     # Remove stale files from before boot
     rm -f /var/run/*
 
-    # Special treatment for net config (for pvsgolden profile)
-    [ -f "$TINYLINUXDIR/net" ] && tr -d '\r' < "$TINYLINUXDIR/net" > "/etc/conf.d/net"
+    # Create persistent configuration directory if it does not exist
+    mkdir -p "$TINYLINUXDIR/conf"
 
-    # Copy configuration files
-    if [ -d "$TINYLINUXDIR/conf.d" ]; then
-        find "$TINYLINUXDIR/conf.d"/ -type f | tr "A-Z" "a-z" | while read __SVC; do
-            __SVCNAME=`basename "$__SVC"`
-            tr -d '\r' < "$__SVC" > "/etc/conf.d/$__SVCNAME"
-        done
-    fi
-
-    # Copy fstab
-    [ -f "$TINYLINUXDIR/fstab" ] && tr -d '\r' < "$TINYLINUXDIR/fstab" > /etc/fstab
+    # Symlink configuration files
+    __make_conf_symlinks /etc/conf.d
+    __make_conf_symlinks /etc
 
     # Mount debug fs if it is available
     grep -q debugfs /proc/filesystems && [ -d /sys/kernel/debug ] && mount -t debugfs none /sys/kernel/debug
