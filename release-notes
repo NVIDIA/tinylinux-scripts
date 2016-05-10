@@ -1,5 +1,6 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Enabled EFIVARS_FS in the kernel
  * Added /mnt/nv/tiny/conf for storing persistent configuration
 -------------------------------------------------------------------------------
 16.02
