@@ -717,10 +717,6 @@ build_newroot()
     rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
     install_package dropbear "multicall"
 
-    if [[ -z $TEGRABUILD ]]; then
-        install_package efibootmgr
-    fi
-
     # Cross-installation of libtirpc is broken, do it manually
     install_package net-libs/libtirpc
     if [[ $TEGRABUILD ]]; then
@@ -750,6 +746,8 @@ build_newroot()
     if [[ -z $TEGRABUILD ]]; then
         install_package libusb-compat
         install_package numactl
+        install_package efibootmgr
+        install_package ntfs3g "external-fuse xattr"
     fi
 
     # Add symlink to /bin/env in /usr/bin/env where most apps expect it
