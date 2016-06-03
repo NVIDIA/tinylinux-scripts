@@ -30,6 +30,9 @@ type lbzip2 >/dev/null 2>&1 && COMPRESS="-I lbzip2"
 
 if [[ $1 = prepare ]]; then
     [[ -d buildroot ]] || die "Error: Directory buildroot not found!"
+    rm -f buildroot/boot/kernel-genkernel-*
+    ( cd buildroot/usr/src/linux && make clean )
+
     rm -rf build_mods_driver
     mkdir build_mods_driver
 
@@ -37,7 +40,7 @@ if [[ $1 = prepare ]]; then
     [[ -f $SCRIPT ]] || SCRIPT=$(type "$0" | sed "s/.* is //")
     cp "$SCRIPT" build_mods_driver
 
-    tar cpf build_mods_driver/buildroot.tar.bz2 $COMPRESS --exclude=newroot --exclude=usr/portage --exclude=install --exclude=boot --exclude=var/db/pkg buildroot
+    tar cpf build_mods_driver/buildroot.tar.bz2 $COMPRESS --exclude=newroot --exclude=usr/portage --exclude=install --exclude=boot --exclude=var/db/pkg --exclude=usr/lib64/python2.7 buildroot
 
     tar cf build_mods_driver.tar.bz2 $COMPRESS build_mods_driver
     rm -rf build_mods_driver
@@ -76,6 +79,8 @@ cat > _work/buildroot/driver/build.sh <<-EOF
 	
 	set -e
 	
+	cd /usr/src/linux
+	make modules_prepare
 	cd /driver/driver
 	make -C /usr/src/linux M=/driver/driver modules
 EOF
