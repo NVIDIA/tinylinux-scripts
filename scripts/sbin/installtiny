@@ -56,7 +56,7 @@ install_tiny()
     sync
 
     # Create partitions
-    echo -en "np118a1pw" | sed "s/./&\n/g" | /sbin/fdisk "$BLKDEV"
+    echo -en "np11 a1pw" | sed "s/./&\n/g" | /sbin/fdisk "$BLKDEV"
     sync
     find /sys/devices/ -name uevent -exec sh -c "echo add > '{}'" \;
     sleep 4
