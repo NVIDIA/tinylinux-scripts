@@ -1,5 +1,7 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+16.06
+ * Updated kernel to 4.6.1
  * Enabled EFIVARS_FS in the kernel
  * Added /mnt/nv/tiny/conf for storing persistent configuration
  * Added ntfs-3g for improved NTFS support
