@@ -366,11 +366,11 @@ prepare_portage()
     fi
 
     # Lock on to dropbear version which we have a fix for
-    echo "=net-misc/dropbear-2015.68 ~*" >> $KEYWORDS
-    echo ">net-misc/dropbear-2015.68" >> /etc/portage/package.mask/tinylinux
+    echo "=net-misc/dropbear-2016.73 ~*" >> $KEYWORDS
+    echo ">net-misc/dropbear-2016.73" >> /etc/portage/package.mask/tinylinux
 
     # Install dropbear patch for pubkey authentication
-    local EBUILD=/usr/portage/net-misc/dropbear/dropbear-2015.68.ebuild
+    local EBUILD=/usr/portage/net-misc/dropbear/dropbear-2016.73.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "pubkey\.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/dropbear-pubkey.patch" /usr/portage/net-misc/dropbear/files/
