@@ -26,6 +26,9 @@ install_package dev-perl/Getopt-Long-Descriptive
 install_package perl-core/File-Path
 install_package perl-core/Thread-Semaphore
 install_package perl-core/Time-HiRes
+install_package dev-perl/Text-Iconv
+install_package dev-perl/Spreadsheet-ParseExcel
+install_package dev-perl/Archive-Zip
 install_package perl-cleaner "" "--unmerge"
 
 install_package net-misc/curl
