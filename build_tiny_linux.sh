@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2016, NVIDIA CORPORATION.  All rights reserved.
 # See LICENSE file for details.
 
 set -e
@@ -247,6 +247,9 @@ copy_scripts()
     cp -r "$SCRIPTSDIR"/scripts  "$BUILDROOT/$BUILDSCRIPTS"
     cp -r "$SCRIPTSDIR"/extra    "$BUILDROOT/$BUILDSCRIPTS"
     [[ -z $TEGRABUILD ]] || cp -r "$SCRIPTSDIR"/tegra "$BUILDROOT/$BUILDSCRIPTS"
+
+    # Update TinyLinux version printed on boot
+    sed -i "/Booting/s/TinyLinux/TinyLinux $VERSION/" "$BUILDROOT/$BUILDSCRIPTS/linuxrc"
 }
 
 exit_chroot()
@@ -857,7 +860,7 @@ prepare_installation()
 
     if [[ -z $TEGRABUILD ]]; then
         mkdir -p "$INSTALL/syslinux"
-        echo "default /tiny/kernel initrd=/tiny/initrd" > "$INSTALL/syslinux/syslinux.cfg"
+        echo "default /tiny/kernel initrd=/tiny/initrd quiet" > "$INSTALL/syslinux/syslinux.cfg"
         cp /usr/share/syslinux/syslinux.exe "$INSTALL"/
 
         local EFI_BOOT="$INSTALL/EFI/BOOT"
@@ -1257,7 +1260,7 @@ compress_final_package()
         mv "$INSTALL/tiny" "$INSTALL/$TINYDIR"
         if [[ -f $INSTALL/syslinux/syslinux.cfg ]]; then
             SAVEDSYSLINUXCFG=`cat "$INSTALL/syslinux/syslinux.cfg"`
-            echo "default /$TINYDIR/kernel initrd=/$TINYDIR/initrd squash=$TINYDIR/squash.bin" > "$INSTALL/syslinux/syslinux.cfg"
+            echo "default /$TINYDIR/kernel initrd=/$TINYDIR/initrd squash=$TINYDIR/squash.bin quiet" > "$INSTALL/syslinux/syslinux.cfg"
         fi
     fi
     ( cd "$SRCDIR" && zip -9 -r -q "/$FINALPACKAGE" * )

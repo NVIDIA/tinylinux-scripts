@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2016, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 CONSOLE="/dev/console"
@@ -14,6 +14,9 @@ COLDPLUG="1"
 
 # Clear input and output
 exec >${CONSOLE} <${CONSOLE} 2>&1
+
+# Display startup info
+echo -e "\033[1mBooting TinyLinux\033[0m"
 
 # Mount basic filesystems
 mount -t proc none /proc
@@ -107,13 +110,13 @@ done
 mkdir "${ROOTFS}/${MNTSQUASH}"
 mount -t squashfs -o loop,ro "${ROOTFS}/${MNTNV}/${SQUASHFS_BIN}" "${ROOTFS}/${MNTSQUASH}"
 
-# Create legacy "dos" symlink
-( cd "${ROOTFS}/mnt" && ln -s nv dos )
-
 # Create symlinks to the squashed root filesystem
 cd "${ROOTFS}"
 ln -s "${MNTSQUASH}"/* .
 rm -f etc
+
+# Create symlink to home dir
+ln -s "${MNTNV}/home" home
 
 # Copy etc
 cp -a "${MNTSQUASH}"/etc .

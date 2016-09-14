@@ -143,8 +143,9 @@ Directory            | Description
 /mnt/nv              | Mount point of the boot disk, non-volatile.
 /mnt/squash          | Mount point of the compressed Linux filesystem.
 /media               | This is where all other partitions are automounted.
+/home                | Symbolic link to /mnt/nv/home.
 /bin /lib /sbin /usr | Symbolic links to the compressed Linux filesystem.
-/etc                 | Runtime configuration.  Copied from /mnt/squash.
+/etc                 | Runtime configuration.  Copied from /mnt/squash/etc.
 /commands            | The commands script, copied from /mnt/nv/tiny/.
 
 
@@ -307,6 +308,14 @@ Further commands can be added to this script when needed.
 The commands boot service, which runs the commands script, does not hook into
 a tty, therefore it is not possible to run interactive scripts which require
 user input from keyboard in the commands script.
+
+
+Troubleshooting
+===============
+
+When trying to diagnose boot issues, edit `syslinux/syslinux.cfg` file which
+resides in the main directory of the installation drive, and remove the `quiet`
+option.  This will enable printing of all kernel messages during boot.
 
 
 vim:ft=markdown
