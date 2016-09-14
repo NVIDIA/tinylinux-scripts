@@ -1,10 +1,18 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Added additional PERL packages in full profile
+ * Removed legacy /mnt/dos symlink, use /mnt/nv instead
+ * Added printing TinyLinux version on boot
+ * Added /home -> /mnt/nv/home symlink
+ * Changed initial dir after boot to /home instead of /mnt/nv/home
+ * Added quiet option to default syslinux bootloader configuration
+-------------------------------------------------------------------------------
 16.06
  * Updated kernel to 4.6.1
  * Enabled EFIVARS_FS in the kernel
  * Added /mnt/nv/tiny/conf for storing persistent configuration
  * Added ntfs-3g for improved NTFS support
+ * Fixed partition size selection in installtiny script
 -------------------------------------------------------------------------------
 16.02
  * Updated kernel to 4.4.1
