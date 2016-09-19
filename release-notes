@@ -1,11 +1,15 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
- * Added additional PERL packages in full profile
+ * Updated MOS kernel driver to 3.67
  * Removed legacy /mnt/dos symlink, use /mnt/nv instead
- * Added printing TinyLinux version on boot
  * Added /home -> /mnt/nv/home symlink
  * Changed initial dir after boot to /home instead of /mnt/nv/home
+ * Added TinyLinux version print on boot
  * Added quiet option to default syslinux bootloader configuration
+ * Removed a 1s sleep when boot drive cannot be found
+ * Added boot time printing for kernel, init and services
+ * Added enable and disable commands to rc
+ * Added additional PERL packages in full profile
 -------------------------------------------------------------------------------
 16.06
  * Updated kernel to 4.6.1
