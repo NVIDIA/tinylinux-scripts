@@ -55,12 +55,30 @@ __startdeps()
     done
 }
 
+# Get system uptime, in milliseconds
+uptime_ms()
+{
+    awk '{print $1*1000}' /proc/uptime
+}
+
+# Convert time to seconds
+time_in_s()
+{
+    local TIME
+    TIME=$(($1/100))
+    echo "$(($TIME/10)).$(($TIME%10))"
+}
+
 # Start service
 __startservice()
 {
     local RC
+    local START_TIME
+    local TIME
 
     __startdeps || return $?
+
+    START_TIME=$(uptime_ms)
 
     if [ "$LOUDSERVICE" = "1" ]; then
         start
@@ -75,12 +93,14 @@ __startservice()
         echo "started" > "$__STATUSDIR/$__SVCNAME"
     fi
 
+    TIME="[$(time_in_s $(($(uptime_ms) - $START_TIME)))s]"
+
     if [ "$LOUDSERVICE" = "1" ]; then
         [ $RC -eq 0 ] || echo "Service $__SVCNAME failed to start"
     elif [ $RC -eq 0 ]; then
-        echo " OK"
+        echo " OK $TIME"
     else
-        echo " FAILED"
+        echo -e " \033[1;31mFAILED\033[0m $TIME"
     fi
 
     return $RC
@@ -100,7 +120,7 @@ __stopservice()
         echo "stopped" > "$__STATUSDIR/$__SVCNAME"
         echo " OK"
     else
-        echo " FAILED"
+        echo -e " \033[1;31mFAILED\033[0m"
     fi
 
     return $RC
@@ -199,6 +219,65 @@ elif [ "$1" = "status" ]; then
         echo "$__SVCNAME: $__STATUS"
     done
 
+# Enable services
+elif [ "$1" = "enable" ]; then
+
+    shift
+    while [ $# -gt 0 ]; do
+
+        # Check if such service exists
+        if [ ! -f "/etc/init.d/$1" ]; then
+            echo "Service $1 not found!"
+            exit 1
+        fi
+
+        # Attempt to start the service
+        /etc/init.d/$1 start || exit $?
+
+        # Prepare boot list
+        if echo "$TINYLINUXDIR" | grep -q "/mnt/nv"; then
+            mkdir -p "$TINYLINUXDIR/conf"
+            if [ ! -f "$TINYLINUXDIR/conf/boot" ]; then
+                cp /etc/conf.d/boot "$TINYLINUXDIR/conf"/
+                rm /etc/conf.d/boot
+                ln -s "$TINYLINUXDIR/conf/boot" /etc/conf.d/boot
+            fi
+            if [ ! -f "$TINYLINUXDIR/conf/$1" -a -f "/etc/conf.d/$1" ]; then
+                cp "/etc/conf.d/$1" "$TINYLINUXDIR/conf"/
+                rm "/etc/conf.d/$1"
+                ln -s "$TINYLINUXDIR/conf/$1" "/etc/conf.d/$1"
+            fi
+        fi
+
+        # Add service to boot list
+        echo "$1" >> /etc/conf.d/boot
+
+        # Next service
+        shift
+    done
+
+# Disable services
+elif [ "$1" = "disable" ]; then
+
+    shift
+    while [ $# -gt 0 ]; do
+
+        # Check if such service exists
+        if [ ! -f "/etc/init.d/$1" ]; then
+            echo "Service $1 not found!"
+            exit 1
+        fi
+
+        # Attempt to stop the service
+        /etc/init.d/$1 stop
+
+        # Remove service from boot list
+        sed -i "/^$1$/d" /etc/conf.d/boot
+
+        # Next service
+        shift
+    done
+
 # System init
 elif [ "$1" = "sysinit" ]; then
 
@@ -230,6 +309,9 @@ elif [ "$1" = "sysinit" ]; then
 # Boot services
 elif [ "$1" = "boot" ]; then
 
+    # Measure time
+    START_TIME=$(uptime_ms)
+
     # Create status directory
     [ -d "$__STATUSDIR" ] && rm -rf "$__STATUSDIR"
     mkdir -p "$__STATUSDIR"
@@ -242,7 +324,7 @@ elif [ "$1" = "boot" ]; then
     rm -f /var/run/*
 
     # Create persistent configuration directory if it does not exist
-    mkdir -p "$TINYLINUXDIR/conf"
+    echo "$TINYLINUXDIR" | grep -q "/mnt/nv" && mkdir -p "$TINYLINUXDIR/conf"
 
     # Symlink configuration files
     __make_conf_symlinks /etc/conf.d
@@ -259,6 +341,13 @@ elif [ "$1" = "boot" ]; then
             echo "Service $__SVCNAME not found"
         fi
     done
+
+    # Display boot time statistics
+    TOTAL_BOOT_TIME=$(uptime_ms)
+    KERNEL_BOOT_TIME=$(cat /var/log/kernel_boot_time)
+    INIT_TIME=$(($START_TIME - $KERNEL_BOOT_TIME))
+    SERVICES_BOOT_TIME=$(($TOTAL_BOOT_TIME - $START_TIME))
+    echo "[kernel $(time_in_s $KERNEL_BOOT_TIME)s, init $(time_in_s $INIT_TIME)s, services $(time_in_s $SERVICES_BOOT_TIME)s, total $(time_in_s $TOTAL_BOOT_TIME)s]"
 
 # Shutdown
 elif [ "$1" = "shutdown" ]; then

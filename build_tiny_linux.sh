@@ -249,7 +249,7 @@ copy_scripts()
     [[ -z $TEGRABUILD ]] || cp -r "$SCRIPTSDIR"/tegra "$BUILDROOT/$BUILDSCRIPTS"
 
     # Update TinyLinux version printed on boot
-    sed -i "/Booting/s/TinyLinux/TinyLinux $VERSION/" "$BUILDROOT/$BUILDSCRIPTS/linuxrc"
+    sed -i "/VERSION=/s/TINYLINUX_VERSION/$VERSION/" "$BUILDROOT/$BUILDSCRIPTS/linuxrc"
 }
 
 exit_chroot()

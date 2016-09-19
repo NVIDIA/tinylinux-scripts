@@ -3,6 +3,7 @@
 # Copyright (c) 2009-2016, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
+VERSION="TINYLINUX_VERSION"
 CONSOLE="/dev/console"
 ROOTFS="/mnt/root"
 MNTNV="mnt/nv"
@@ -16,7 +17,7 @@ COLDPLUG="1"
 exec >${CONSOLE} <${CONSOLE} 2>&1
 
 # Display startup info
-echo -e "\033[1mBooting TinyLinux\033[0m"
+echo -e "\033[1mBooting TinyLinux $VERSION\033[0m"
 
 # Mount basic filesystems
 mount -t proc none /proc
@@ -25,6 +26,9 @@ mount -t devtmpfs none /dev
 
 # Install busybox symbolic links
 /bin/busybox --install -s
+
+# Save kernel boot time for later
+KERNEL_BOOT_TIME=$(awk '{print $1*1000}' /proc/uptime)
 
 # Prevent kernel logs from being sent to the console
 dmesg -n 1
@@ -66,7 +70,7 @@ fi
 
 # Mount non-volatile volume or NFS share
 mkdir -p "${ROOTFS}/${MNTNV}"
-WAITCOUNT=0
+RETRYCOUNT=0
 TRIEDDEVS=""
 FOUNDDEV=""
 while true; do
@@ -97,18 +101,26 @@ while true; do
         done
     fi
     [ "$FOUNDDEV" ] && break
-    if [ $WAITCOUNT -eq 0 ]; then
+    if [ $RETRYCOUNT -eq 0 ]; then
         [ "$NFSSHARE" ] && echo "Ethernet device $NET not found. Waiting..."
         [ -z "$NFSSHARE" ] && echo "Partition with root filesystem not found. Waiting..."
     fi
-    [ $WAITCOUNT -gt 10 ] && ( echo "Giving up..." && exec /bin/sh )
-    WAITCOUNT=$(($WAITCOUNT+1))
-    sleep 1
+    WAITTIME=$(($(awk '{print $1*1000}' /proc/uptime) - $KERNEL_BOOT_TIME))
+    [ $WAITTIME -gt 10000 ] && ( echo "Giving up..." && exec /bin/sh )
+    RETRYCOUNT=$(($RETRYCOUNT+1))
 done
 
 # Mount squashed root filesystem
 mkdir "${ROOTFS}/${MNTSQUASH}"
 mount -t squashfs -o loop,ro "${ROOTFS}/${MNTNV}/${SQUASHFS_BIN}" "${ROOTFS}/${MNTSQUASH}"
+
+# Check TinyLinux version in the squashed root filesystem
+SQUASHFS_VERSION=$(head -n 1 "${ROOTFS}/${MNTSQUASH}/etc/release" | sed "s/.*version //")
+if [ "$VERSION" != "$SQUASHFS_VERSION" ]; then
+    echo "Installation error: initrd version $VERSION does not match squash.bin version $SQUASHFS_VERSION"
+    echo "Unable to continue booting"
+    exec /bin/sh
+fi
 
 # Create symlinks to the squashed root filesystem
 cd "${ROOTFS}"
@@ -146,6 +158,9 @@ umount /sys
 
 # Copy mtab
 sed "s/\/mnt\/root\//\// ; s/\/mnt\/root /\/ /" </etc/mtab >etc/mtab
+
+# Store kernel boot time saved previously, convert to milliseconds
+echo "$KERNEL_BOOT_TIME" > var/log/kernel_boot_time
 
 # Switch to the new root filesystem
 exec /sbin/switch_root -c /dev/console "${ROOTFS}" /sbin/init

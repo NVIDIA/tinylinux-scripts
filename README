@@ -237,22 +237,15 @@ Networking
 
 To set up networking, perform the following steps:
 
-1. Configure networking in `/etc/conf.d/net`
+1. Stop the networking service, if it is currently started:
 
-2. If configuration should persist across reboots, copy it to
-   `/mnt/nv/tiny/conf`:
+        rc net stop
 
-        cp /etc/conf.d/net /mnt/nv/tiny/conf/
+2. Configure networking in `/etc/conf.d/net`
 
-3. If networking needs to be started on boot, add the `net` service to the
-   boot order file:
+3. Enable networking and preserve its state across reboots:
 
-        cp -n /etc/conf.d/boot /mnt/nv/tiny/conf/
-        echo net >> /mnt/nv/tiny/conf/boot
-
-4. Start networking:
-
-        /etc/init.d/net start
+        rc enable net
 
 The networking configuration file `/etc/conf.d/net` contains the following
 settings:
@@ -280,19 +273,13 @@ To set up the SSH daemon, perform the following steps:
 
         passwd root
 
-2. If the SSH daemon needs to be started on boot, add the `sshd` service to the
-   boot order file:
+2. Enable the ssh daemon (it will also be started on boot):
 
-        cp -n /etc/conf.d/boot /mnt/nv/tiny/conf/
-        echo sshd >> /mnt/nv/tiny/conf/boot
+        rc enable sshd
 
 3. Preserve user's password acroos reboots:
 
         cp /etc/passwd /mnt/nv/tiny/conf/
-
-4. Start the SSH daemon service:
-
-        /etc/init.d/sshd start
 
 Running random scripts on boot
 ------------------------------
