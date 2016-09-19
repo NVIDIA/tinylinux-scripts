@@ -2,7 +2,7 @@
 source "$BUILDSCRIPTS/profiles/default/custom"
 
 # Install additional packages
-install_into tiny/conf.d boot
+install_into tiny/conf boot
 install_package =python-2.7* "threads xml" "--nodeps"
 USE=ithreads emerge --quiet --usepkg --buildpkg =perl-5.20* # Enable ithreads
 install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn pulls too much
