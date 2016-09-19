@@ -1,0 +1,343 @@
+#!/bin/bash
+
+set -e
+
+# Rerun the script to capture the log
+if [[ $1 != rerun ]]; then
+    rerun()
+    {
+        "$0" rerun 2>&1 || return $? 
+    }
+    rerun | tee testtiny.log
+    exit ${PIPESTATUS[0]}
+fi
+
+start_test()
+{
+    echo -n "Checking $1..."
+    TESTPASS=1
+}
+
+check_exit_code()
+{
+    if [[ $1 != 0 ]]; then
+        echo -n " exit code $1"
+        fail_test "failed"
+    fi
+}
+
+fail_test()
+{
+    echo -ne " <-\033[1;31m$1\033[0m"
+    TESTPASS=0
+}
+
+end_test()
+{
+    if [[ $TESTPASS = 1 ]]; then
+        echo -e " \033[1;32mOK\033[0m"
+    else
+        echo -e " \033[1;31mFAIL\033[0m"
+        EXITCODE=1
+    fi
+}
+
+EXITCODE=0
+
+#==============================================================================
+
+start_test "version"
+VERSION=$(head -n 1 /mnt/squash/etc/release | sed "s/.*version// ; s/ *//g")
+echo -n " $VERSION"
+if [[ -f /etc/release-notes ]]; then
+    V=$(grep "^[0-9]" /etc/release-notes | head -n 1)
+    echo -n " $V"
+    [[ $V = $VERSION ]] || fail_test "incorrect"
+else
+    echo -n " missing /etc/release-notes"
+    TESTPASS=0
+fi
+end_test
+
+#==============================================================================
+
+start_test "profile"
+PROFILE=$(head -n 2 /etc/release | tail -n 1 | grep Profile | sed "s/^Profile //")
+echo -n " $PROFILE"
+[[ $PROFILE = full || $PROFILE = default ]] || fail_test "unexpected"
+end_test
+
+#==============================================================================
+
+start_test "mods driver version"
+if lsmod | grep -q mods; then
+    VER_ACTUAL=$(dmesg | grep "mods: driver loaded" | sed "s/.*version *//")
+    VER_RELEASE=$(grep MODS /etc/release | sed "s/.*driver //")
+    echo -n " $VER_ACTUAL $VER_RELEASE"
+    [[ $VER_ACTUAL = $VER_RELEASE ]] || fail_test "incorrect"
+else
+    fail_test "module missing"
+fi
+end_test
+
+#==============================================================================
+
+start_test "pwd"
+DIR=$(pwd)
+echo -n " $DIR"
+[[ $DIR = "/home" ]] || fail_test "incorrect"
+end_test
+
+#==============================================================================
+
+start_test "/home"
+[[ -d /home ]] || fail_test "missing"
+if [[ -L /home ]]; then
+    [[ $(readlink -f /home) = "/mnt/nv/home" ]] || fail_test "incorrect link"
+else
+    fail_test "not a symlink"
+fi
+end_test
+
+#==============================================================================
+
+start_test "modsoutputdir"
+DIR=$(modsoutputdir)
+echo -n " $DIR"
+[[ $DIR = "/home" ]] || fail_test "incorrect"
+end_test
+
+#==============================================================================
+
+start_test "tinydir"
+DIR=$(tinydir)
+echo -n " $DIR"
+[[ $DIR = "/mnt/nv/tiny" ]] || fail_test "incorrect"
+end_test
+
+#==============================================================================
+
+start_test "eth0"
+echo -n " /sys/class/net/eth0"
+[[ -d /sys/class/net/eth0 ]] || fail_test "missing"
+IPADDR=$(ifconfig eth0 2>&1 | grep "inet addr: *[0-9]\+" | sed "s/.*inet addr: *// ; s/ .*//")
+if [[ -n $IPADDR ]]; then
+    echo -n " $IPADDR"
+else
+    fail_test "not configured"
+fi
+end_test
+
+#==============================================================================
+
+start_test "lo"
+IPADDR=$(ifconfig lo 2>&1 | grep "inet addr: *[0-9]\+" | sed "s/.*inet addr: *// ; s/ .*//")
+if [[ $IPADDR = "127.0.0.1" ]]; then
+    echo -n " $IPADDR"
+else
+    fail_test "not configured"
+fi
+end_test
+
+#==============================================================================
+
+start_test "hostname"
+HOSTNAME=$(hostname)
+echo -n " $HOSTNAME"
+[[ $HOSTNAME = "tinylinux" ]] || fail_test "incorrect"
+end_test
+
+#==============================================================================
+
+start_test "services"
+while read SERVICE; do
+    echo -n " $SERVICE"
+    if ! rc status | grep -q "$SERVICE: started"; then
+        fail_test "failed"
+    fi
+done < /etc/conf.d/boot
+end_test
+
+#==============================================================================
+
+start_test "/var/rc/status/.order"
+diff -q /etc/conf.d/boot /var/rc/status/.order >/dev/null 2>&1 || fail_test "different than /etc/conf.d/boot"
+end_test
+
+#==============================================================================       
+                                                                                      
+start_test "service start/stop"
+echo -n " mods"
+[[ $(tail -n 1 /etc/conf.d/boot) != "mods" ]] || fail_test "last in /etc/conf.d/boot"
+grep -q mods /var/rc/status/.order || fail_test "not started"
+cp /var/rc/status/.order /tmp/order
+/etc/init.d/mods stop >/dev/null 2>&1
+/etc/init.d/mods start >/dev/null 2>&1
+echo -n " /var/rc/status/.order"
+[[ $(tail -n 1 /var/rc/status/.order) = "mods" ]] || fail_test "incorrect order"
+[[ $(grep mods /var/rc/status/.order | wc -l) = 1 ]] || fail_test "not one occurrence"
+mv /tmp/order /var/rc/status/.order
+end_test
+                                                                               
+#==============================================================================
+
+start_test "service restart"
+echo -n " mods"
+[[ $(tail -n 1 /etc/conf.d/boot) != "mods" ]] || fail_test "last in /etc/conf.d/boot"
+grep -q mods /var/rc/status/.order || fail_test "not started"
+/etc/init.d/mods restart >/dev/null 2>&1
+echo -n " /var/rc/status/.order"
+diff -q /etc/conf.d/boot /var/rc/status/.order >/dev/null 2>&1 || fail_test "incorrect order"
+[[ $(grep mods /var/rc/status/.order | wc -l) = 1 ]] || fail_test "not one occurrence"
+end_test
+
+#==============================================================================
+
+start_test "service enable"
+echo -n " sshd"
+! grep -q sshd /etc/conf.d/boot || fail_test "not expected in /etc/conf.d/boot"
+! grep -q sshd /var/rc/status/.order || fail_test "not expected in /var/rc/status/.order"
+if [ -f /mnt/nv/tiny/conf/boot ]; then
+    rm /etc/conf.d/boot
+    mv /mnt/nv/tiny/conf/boot /etc/conf.d/
+fi
+rm -f /etc/conf.d/sshd /mnt/nv/tiny/conf/sshd
+cp /mnt/squash/etc/conf.d/sshd /etc/conf.d/
+echo -n " enable"
+rc enable sshd >/dev/null 2>&1
+rc status | grep -q "sshd: started" || fail_test "not started"
+tail -n 1 /etc/conf.d/boot | grep -q sshd || fail_test "missing in /etc/conf.d/boot"
+tail -n 1 /var/rc/status/.order | grep -q sshd || fail_test "missing in /var/rc/status/.order"
+echo -n " symlinks"
+[[ -f /mnt/nv/tiny/conf/boot ]] || fail_test "missing /mnt/nv/tiny/conf/boot"
+[[ -L /etc/conf.d/boot ]] || fail_test "/etc/conf.d/boot is not a symlink"
+[[ $(readlink -f /etc/conf.d/boot) = "/mnt/nv/tiny/conf/boot" ]] || fail_test "incorrect symlink /etc/conf.d/boot"
+[[ -f /mnt/nv/tiny/conf/sshd ]] || fail_test "missing /mnt/nv/tiny/conf/sshd"
+[[ -L /etc/conf.d/sshd ]] || fail_test "/etc/conf.d/sshd is not a symlink"
+[[ $(readlink -f /etc/conf.d/sshd) = "/mnt/nv/tiny/conf/sshd" ]] || fail_test "incorrect symlink /etc/conf.d/sshd"
+end_test
+
+#==============================================================================
+
+start_test "service disable"
+echo -n " sshd disable"
+rc disable sshd >/dev/null 2>&1
+rc status | grep -q "sshd: stopped" || fail_test "not stopped"
+! grep -q sshd /etc/conf.d/boot || fail_test "not expected in /etc/conf.d/boot"
+! grep -q sshd /var/rc/status/.order || fail_test "not expected in /var/rc/status/.order"
+end_test
+
+#==============================================================================
+
+start_test "nano"
+rm -f testnano.txt
+echo -en "this is a test\rline2\030y\r" | nano testnano.txt >/dev/null 2>&1 | true
+check_exit_code ${PIPESTATUS[1]}
+echo -n " testnano.txt"
+LINES=$(wc -l < testnano.txt)
+[[ $LINES = 2 ]] || fail_test "wrote $LINES lines instead of 2"
+BYTES=$(stat -c %s testnano.txt)
+[[ $BYTES = 21 ]] || fail_test "wrote $BYTES bytes instead of 21"
+end_test
+
+#==============================================================================
+
+if [[ $PROFILE = full ]]; then
+    start_test "perl"
+    rm -f output.txt
+    perl -e "print 'Hello, World!'" > output.txt 2>&1 | true
+    check_exit_code ${PIPESTATUS[0]}
+    OUTPUT=$(cat output.txt)
+    echo -n " output: $OUTPUT"
+    [[ $OUTPUT = "Hello, World!" ]] || fail_test "incorrect"
+    end_test
+fi
+
+#==============================================================================
+
+if [[ $PROFILE = full ]]; then
+    start_test "python"
+    rm -f output.txt
+    python -c "print 'Hello, World!'" > output.txt 2>&1 | true
+    check_exit_code ${PIPESTATUS[0]}
+    OUTPUT=$(cat output.txt)
+    echo -n " output: $OUTPUT"
+    [[ $OUTPUT = "Hello, World!" ]] || fail_test "incorrect"
+    end_test
+fi
+
+#==============================================================================
+
+if [[ $PROFILE = full ]]; then
+    start_test "ALSA"
+    rm -f alsaout.txt alsaerr.txt
+    arecord -d 1 2>alsaerr.txt | head -c 100 > alsaout.txt
+    EC=${PIPESTATUS[0]}
+    if [[ $EC != 141 ]]; then
+        echo -n " exit code $EC"
+        fail_test "expected 141"
+    fi
+    echo -n " alsaerr.txt"
+    grep -q "Recording WAVE" alsaerr.txt || fail_test "incorrect"
+    [[ $(wc -l < alsaerr.txt) = 1 ]] || fail_test "errors"
+    echo -n " alsaout.txt"
+    grep -q "RIFF" alsaout.txt || fail_test "incorrect"
+    BYTES=$(stat -c %s alsaout.txt)
+    [[ $BYTES = 100 ]] || fail_test "wrote $BYTES bytes instead of 100"
+    end_test
+fi
+
+#==============================================================================
+
+start_test "ssh"
+/etc/init.d/sshd start >/dev/null 2>&1
+rc status | grep -q "sshd: started" || fail_test "failed"
+echo -n " user"
+mkdir -p /root/.ssh
+chmod 700 /root
+chmod 700 /root/.ssh
+rm -f /root/.bash_profile
+sed -i "/^root/s@:/:@:/root:@" /etc/passwd
+if [[ ! -f /root/.ssh/id_dropbear ]]; then
+    echo -n " generating key"
+    dropbearkey -t rsa -f /root/.ssh/id_dropbear -s 4096 > /dev/null 2>&1
+    check_exit_code $?
+    echo -n " pubkey"
+    dropbearkey -y -f /root/.ssh/id_dropbear | grep "^ssh-rsa" > /root/.ssh/authorized_keys
+    check_exit_code $?
+fi
+echo -n " pwd"
+TEXT=$(ssh -y localhost pwd 2>/dev/null)
+check_exit_code $?
+echo -n " $TEXT"
+[[ $TEXT = /home ]] || fail_test "incorrect"
+TEXT=$(ssh -y "$IPADDR" pwd 2>/dev/null)
+check_exit_code $?
+echo -n " $TEXT"
+[[ $TEXT = /home ]] || fail_test "incorrect"
+TEXT=$(ssh -y "$IPADDR" su -l -c pwd 2>/dev/null)
+check_exit_code $?
+echo -n " $TEXT"
+[[ $TEXT = /root ]] || fail_test "incorrect"
+echo "source /etc/bash/bashrc" > /root/.bash_profile
+TEXT=$(ssh -y "$IPADDR" su -l -c pwd 2>/dev/null)
+check_exit_code $?
+echo -n " $TEXT"
+[[ $TEXT = /home ]] || fail_test "incorrect"
+end_test
+
+#==============================================================================
+
+start_test "wtmp"
+INIT_LOGIN_COUNT=$(last | wc -l)
+ssh -y -t localhost exit >/dev/null 2>&1
+check_exit_code $?
+NEW_LOGIN_COUNT=$(last | wc -l)
+echo -n " $INIT_LOGIN_COUNT $NEW_LOGIN_COUNT"
+[[ $(($INIT_LOGIN_COUNT + 1)) = $NEW_LOGIN_COUNT ]] || fail_test "incorrect"
+rc disable sshd >/dev/null
+end_test
+
+#==============================================================================
+
+exit $EXITCODE
