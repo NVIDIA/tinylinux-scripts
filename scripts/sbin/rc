@@ -344,7 +344,11 @@ elif [ "$1" = "boot" ]; then
 
     # Display boot time statistics
     TOTAL_BOOT_TIME=$(uptime_ms)
-    KERNEL_BOOT_TIME=$(cat /var/log/kernel_boot_time)
+    if [ -f /var/log/kernel_boot_time ]; then
+        KERNEL_BOOT_TIME=$(cat /var/log/kernel_boot_time)
+    else
+        KERNEL_BOOT_TIME=$START_TIME
+    fi
     INIT_TIME=$(($START_TIME - $KERNEL_BOOT_TIME))
     SERVICES_BOOT_TIME=$(($TOTAL_BOOT_TIME - $START_TIME))
     echo "[kernel $(time_in_s $KERNEL_BOOT_TIME)s, init $(time_in_s $INIT_TIME)s, services $(time_in_s $SERVICES_BOOT_TIME)s, total $(time_in_s $TOTAL_BOOT_TIME)s]"

@@ -346,8 +346,8 @@ prepare_portage()
         mkdir -p /etc/portage/package.accept_keywords
         local PKG
         for PKG in dev-libs/libtommath-0.42.0-r1 \
-                   net-fs/autofs-5.0.8-r1 \
-                   net-nds/ypbind-1.37.2 \
+                   net-fs/autofs-5.1.2 \
+                   net-nds/ypbind-1.37.2-r1 \
                    net-nds/yp-tools-2.12-r1 \
                    net-nds/portmap-6.0 \
                    net-dialup/lrzsz-0.12.20-r3 \
@@ -366,6 +366,9 @@ prepare_portage()
         local KERNELVER="3.18"
         echo ">cross-aarch64-unknown-linux-gnu/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
         echo ">cross-armv7a-softfp-linux-gnueabi/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
+
+        # Newer gdb fails to build (spurious missing zlib.h)
+        echo ">sys-devel/gdb-7.9.1" >> /etc/portage/package.mask/tegra
     fi
 
     # Lock on to dropbear version which we have a fix for

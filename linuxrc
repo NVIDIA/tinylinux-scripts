@@ -159,7 +159,7 @@ umount /sys
 # Copy mtab
 sed "s/\/mnt\/root\//\// ; s/\/mnt\/root /\/ /" </etc/mtab >etc/mtab
 
-# Store kernel boot time saved previously, convert to milliseconds
+# Store kernel boot time for reporting in /sbin/rc
 echo "$KERNEL_BOOT_TIME" > var/log/kernel_boot_time
 
 # Switch to the new root filesystem
