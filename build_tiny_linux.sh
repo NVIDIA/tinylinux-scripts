@@ -322,7 +322,6 @@ prepare_portage()
             echo "net-misc/r8168 ~*"
             echo "net-misc/ipsvd ~*"
             echo "sys-apps/hwids ~*"
-            echo "=dev-lang/perl-5.16.3 ~*"
             echo "=sys-devel/patch-2.7.1-r3 ~*"
             echo "=sys-boot/syslinux-6.03 ~*"
             echo "=sys-boot/gnu-efi-3.0u ~*"
