@@ -1,5 +1,7 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+16.10
+ * Updated kernel to 4.8
  * Updated MOS kernel driver to 3.67
  * Removed legacy /mnt/dos symlink, use /mnt/nv instead
  * Added /home -> /mnt/nv/home symlink
