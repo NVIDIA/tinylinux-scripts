@@ -1,0 +1,76 @@
+Makefile: add -mno-red-zone to all efi64 objects
+
+x86_64 EFI requires that all sources are compiled without red zone,
+which is not supported by the Windows ABI.
+
+Without this, syslinux crashes on some UEFI implementations.
+
+--- syslinux-6.03-orig/mk/com32.mk
++++ syslinux-6.03/mk/com32.mk
+@@ -29,6 +29,9 @@
+ ifeq ($(strip $(ARCH)),x86_64)
+ 	GCCOPT += $(call gcc_ok,-m64,)
+ 	GCCOPT += $(call gcc_ok,-march=x86-64)
++ifdef EFI_BUILD
++	GCCOPT += $(call gcc_ok,-mno-red-zone)
++endif
+ 	#let the stack-boundary default to whatever it is on 64bit
+ 	#GCCOPT += $(call gcc_ok,-mpreferred-stack-boundary=8,)
+ 	#GCCOPT += $(call gcc_ok,-incoming-stack-boundary=8,)
+--- syslinux-6.03-orig/mk/efi.mk
++++ syslinux-6.03/mk/efi.mk
+@@ -17,6 +17,9 @@
+ endif
+ ifeq ($(ARCH),x86_64)
+ 	ARCHOPT = -m64 -march=x86-64
++ifdef EFI_BUILD
++	ARCHOPT = -mno-red-zone
++endif
+ 	EFI_SUBARCH = $(ARCH)
+ endif
+ 
+@@ -29,7 +32,7 @@
+ 		-I$(core)/include -I$(core)/ $(ARCHOPT) \
+ 		-I$(com32)/lib/ -I$(com32)/libutil/include -std=gnu99 \
+ 		-DELF_DEBUG -DSYSLINUX_EFI -I$(objdir) \
+-		$(GCCWARN) -D__COM32__ -D__FIRMWARE_$(FIRMWARE)__ -mno-red-zone \
++		$(GCCWARN) -D__COM32__ -D__FIRMWARE_$(FIRMWARE)__ \
+ 		-DLDLINUX=\"$(LDLINUX)\" -fvisibility=hidden \
+ 		-Wno-unused-parameter $(GCCOPT)
+ 
+--- syslinux-6.03-orig/mk/elf.mk
++++ syslinux-6.03/mk/elf.mk
+@@ -27,6 +27,9 @@
+ ifeq ($(ARCH),x86_64)
+ 	GCCOPT += $(call gcc_ok,-m64,)
+ 	GCCOPT += $(call gcc_ok,-march=x86-64)
++ifdef EFI_BUILD
++	GCCOPT += $(call gcc_ok,-mno-red-zone)
++endif
+ 	#let preferred-stack-boundary be default (=4)
+ endif
+ GCCOPT += -Os -fomit-frame-pointer
+--- syslinux-6.03-orig/mk/embedded.mk
++++ syslinux-6.03/mk/embedded.mk
+@@ -30,6 +30,9 @@
+ ifeq ($(ARCH),x86_64)
+ 	GCCOPT := $(call gcc_ok,-m64)
+ 	GCCOPT += $(call gcc_ok,-march=x86-64)
++ifdef EFI_BUILD
++	GCCOPT += $(call gcc_ok,-mno-red-zone)
++endif
+ 	#let preferred-stack-boundary and incoming-stack-boundary be default(=4)
+ # Somewhere down the line ld barfs requiring -fPIC
+ 	GCCOPT += $(call gcc_ok,-fPIC)
+--- syslinux-6.03-orig/mk/lib.mk
++++ syslinux-6.03/mk/lib.mk
+@@ -12,6 +12,9 @@
+ endif
+ ifeq ($(ARCH),x86_64)
+ 	GCCOPT += $(call gcc_ok,-m64,)
++ifdef EFI_BUILD
++	GCCOPT += $(call gcc_ok,-mno-red-zone)
++endif
+ 	#let preferred-stack-boundary be default(=4)
+ 	MARCH = x86-64
+ endif

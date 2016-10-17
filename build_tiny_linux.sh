@@ -401,6 +401,16 @@ prepare_portage()
         echo -e "src_prepare() {\n\tepatch \"\${FILESDIR}/\${P}-ethtool-ops.patch\"\n}" >> "$EBUILD"
         ebuild "$EBUILD" digest
     fi
+
+    # Install syslinux patch, which fixes UEFI build
+    local EBUILD=/usr/portage/sys-boot/syslinux/syslinux-6.03.ebuild
+    if [[ -f $EBUILD ]] && ! grep -q "red-zone" "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        mkdir -p /usr/portage/sys-boot/syslinux/files
+        cp "$BUILDSCRIPTS/syslinux-red-zone.patch" /usr/portage/sys-boot/syslinux/files/
+        sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-red-zone.patch\n\tepatch/" "$EBUILD"
+        ebuild "$EBUILD" digest
+    fi
 }
 
 run_interactive()
