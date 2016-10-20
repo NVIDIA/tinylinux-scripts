@@ -352,7 +352,7 @@ prepare_portage()
                    net-dialup/lrzsz-0.12.20-r3 \
                    dev-util/valgrind-3.11.0 \
                    net-libs/libpcap-1.7.4 \
-                   net-wireless/bluez-5.35 \
+                   net-wireless/bluez-5.42 \
                    net-wireless/rfkill-0.5 \
                    ; do
             echo "=${PKG} **" >> /etc/portage/package.accept_keywords/tegra
@@ -409,6 +409,14 @@ prepare_portage()
         mkdir -p /usr/portage/sys-boot/syslinux/files
         cp "$BUILDSCRIPTS/syslinux-red-zone.patch" /usr/portage/sys-boot/syslinux/files/
         sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-red-zone.patch\n\tepatch/" "$EBUILD"
+        ebuild "$EBUILD" digest
+    fi
+
+    # Fix issue with pkgconfig setup in glib when cross-compiling
+    local EBUILD=/usr/portage/dev-libs/glib/glib-2.44.1-r1.ebuild
+    if [[ -f $EBUILD && $TEGRABUILD ]] && ! grep -q "rm.*m4_copy" "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        sed -i '/m4macros/a sed -i "/m4_copy.*glib_/s/m4_copy/m4_copy_force/" "${S}"/m4macros/glib-gettext.m4' "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 }
