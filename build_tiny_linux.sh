@@ -1202,9 +1202,6 @@ make_tegra_image()
     mkdir -p "$PACKAGE"/simrd
     cp "$NEWROOT"/tmp/busybox "$PACKAGE"/simrd/
     cp "$BUILDSCRIPTS"/tegra/linuxrc-sim "$PACKAGE"/simrd/linuxrc
-    cp "$BUILDSCRIPTS"/profiles/tegra/simrd/commands "$PACKAGE"/simrd/
-    cp "$BUILDSCRIPTS"/profiles/tegra/simrd/runmods "$PACKAGE"/simrd/
-    cp "$BUILDSCRIPTS"/profiles/tegra/simrd/rungdb "$PACKAGE"/simrd/
 
     # Package filesystem image
     ( cd "$PACKAGE" && tar_bz2 -cpf "$OUTDIR/package.tar.bz2" * )
