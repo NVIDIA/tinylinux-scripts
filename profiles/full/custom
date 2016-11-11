@@ -16,6 +16,8 @@ install_package vim minimal --nodeps
 install_package alsa-utils "ncurses libsamplerate"
 remove_gentoo_services alsasound
 install_package vbetool
+install_package net-fs/autofs "" "--nodeps"
+install_package net-nds/ypbind
 
 # PERL modules
 mkdir -p /etc/portage/package.unmask
