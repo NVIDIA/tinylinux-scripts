@@ -593,7 +593,7 @@ compile_kernel()
     for OPT in "${BUSYBOX_OPTS[@]}"; do
         sed -i -e "/\<${OPT%=*}\>/s/.*/$OPT/" "$BBCFG"
     done
-    genkernel --oldconfig --linuxrc="$BUILDSCRIPTS/linuxrc" --no-mountboot "$MAKEOPTS" --all-ramdisk-modules --busybox-config="$BBCFG" ramdisk
+    genkernel --oldconfig --linuxrc="$BUILDSCRIPTS/linuxrc" --no-mountboot --no-zfs --no-btrfs "$MAKEOPTS" --all-ramdisk-modules --busybox-config="$BBCFG" ramdisk
 }
 
 target_emerge()
