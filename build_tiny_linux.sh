@@ -331,9 +331,6 @@ prepare_portage()
     echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
 
-    # Only use the version of ncurses used by MODS
-    echo ">=sys-libs/ncurses-6.0" >> /etc/portage/package.mask/tinylinux
-
     # Enable the latest iasl tool
     echo "sys-power/iasl ~*" >> $KEYWORDS
 
@@ -733,6 +730,7 @@ build_newroot()
     fi
     ROOT="$NEWROOT" eselect news read > /dev/null
     install_package ncurses
+    install_package =sys-libs/ncurses-5.9*
     propagate_ncurses
     install_package pciutils
     rm -f "$NEWROOT/usr/share/misc"/*.gz # Remove compressed version of hwids
