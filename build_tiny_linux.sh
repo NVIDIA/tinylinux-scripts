@@ -348,9 +348,10 @@ prepare_portage()
                    net-nds/portmap-6.0 \
                    net-dialup/lrzsz-0.12.20-r3 \
                    dev-util/valgrind-3.11.0 \
-                   net-libs/libpcap-1.7.4 \
-                   net-wireless/bluez-5.42 \
+                   net-libs/libpcap-1.8.1 \
+                   net-wireless/bluez-5.43-r1 \
                    net-wireless/rfkill-0.5 \
+                   sys-apps/dbus-1.10.14 \
                    ; do
             echo "=${PKG} **" >> /etc/portage/package.accept_keywords/tegra
         done

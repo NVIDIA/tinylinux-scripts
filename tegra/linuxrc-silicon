@@ -10,7 +10,7 @@ NEWROOT="/mnt/root"
 UUID="6cbfd9d7-fdea-487f-87fa-b521bfa4d71a"
 
 # Display startup info
-echo -e "\033[1mBooting TinyLinux\033[0m"
+echo "Booting TinyLinux"
 
 # Mount devfs and procfs
 /tiny/busybox mount -t devtmpfs none /dev
