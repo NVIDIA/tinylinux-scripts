@@ -26,7 +26,7 @@ if [[ $# -ne 1 ]]; then
 fi
 
 COMPRESS="-j"
-type lbzip2 >/dev/null 2>&1 && COMPRESS="-I lbzip2"
+type lbzip2 >/dev/null 2>&1 && COMPRESS="--use-compress-program lbzip2"
 
 if [[ $1 = prepare ]]; then
     [[ -d buildroot ]] || die "Error: Directory buildroot not found!"

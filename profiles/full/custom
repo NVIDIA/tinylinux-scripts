@@ -7,6 +7,7 @@ install_package =python-2.7* "threads xml" "--nodeps"
 install_package dev-lang/python-exec
 USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads
 install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn pulls too much
+ignore_busybox_symlinks /bin/bzip2 /bin/bunzip2 /bin/bzcat
 install_package perl "ithreads"
 install_package iasl
 install_package pmtools
@@ -19,6 +20,8 @@ remove_gentoo_services alsasound
 install_package vbetool
 install_package net-fs/autofs "" "--nodeps"
 install_package net-nds/ypbind
+install_package ipmitool "openipmi python"
+install_package dmidecode
 
 # PERL modules
 mkdir -p /etc/portage/package.unmask

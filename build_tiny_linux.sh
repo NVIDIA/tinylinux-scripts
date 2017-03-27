@@ -192,7 +192,7 @@ download_packages()
 tar_bz2()
 {
     if which lbzip2 >/dev/null 2>&1; then
-        $NICE tar -I lbzip2 "$@"
+        $NICE tar --use-compress-program lbzip2 "$@"
     else
         $NICE tar -j "$@"
     fi
@@ -307,8 +307,9 @@ prepare_portage()
 
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
-        echo "PORTAGE_NICENESS=\"15\""
-        echo "USE=\"-* ipv6 syslog python_targets_python2_7\""
+        echo 'PORTAGE_NICENESS="15"'
+        echo 'USE="-* ipv6 syslog python_targets_python2_7"'
+        echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
 
     local KEYWORDS="/etc/portage/package.keywords/tinylinux"
@@ -441,7 +442,7 @@ emerge_basic_packages()
     fi
     local KERNELPKG=gentoo-sources
     [[ $RCKERNEL = 1 ]] && KERNELPKG=git-sources
-    if [[ -z $TEGRABUILD ]] && ! emerge --quiet $KERNELPKG syslinux; then
+    if [[ -z $TEGRABUILD ]] && ! emerge --quiet $KERNELPKG syslinux grub; then
         boldecho "Failed to emerge some packages"
         boldecho "Please complete installation manually"
         bash
@@ -737,6 +738,7 @@ build_newroot()
     rm -f "$NEWROOT/usr/share/misc"/*.gz # Remove compressed version of hwids
     install_package busybox "make-symlinks mdev nfs savedconfig"
     rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
+    record_busybox_symlinks
     install_package dropbear "multicall"
 
     # Cross-installation of libtirpc is broken, do it manually
@@ -862,6 +864,37 @@ build_newroot()
     touch "$NEWROOT/etc/syslog.conf"
 }
 
+busybox_contents()
+{
+    ls "$NEWROOT"/var/db/pkg/sys-apps/busybox-*/CONTENTS
+}
+
+record_busybox_symlinks()
+{
+    echo "*** Recording busybox symlinks"
+    local CONTENTS="$(busybox_contents)"
+    local SYMLINK
+    find "$NEWROOT"/ -type l | while read SYMLINK; do
+        local RESOLV="$(stat -c "%N" "$SYMLINK" | sed "s/'//g ; s:$NEWROOT::")"
+        grep -q "busybox$" <<< "$RESOLV" || continue
+        local FILE="${RESOLV% ->*}"
+        local TIMESTAMP="$(stat -c "%Y" "$SYMLINK")"
+        if ! grep -q "sym $(sed 's:\[:\\[:g' <<< "$FILE")" "$CONTENTS"; then
+            echo "sym $RESOLV $TIMESTAMP" >> "$CONTENTS"
+        fi
+    done
+}
+
+ignore_busybox_symlinks()
+{
+    local CONTENTS="$(busybox_contents)"
+    while [[ $# -gt 0 ]]; do
+        local FILE="$(sed 's:/:.:g' <<< "$1")"
+        sed -i "/^sym $FILE/ d" "$CONTENTS"
+        shift
+    done
+}
+
 prepare_installation()
 {
     # Skip if the install directory already exists
@@ -886,6 +919,38 @@ prepare_installation()
         mkdir -p "$EFI_BOOT"
         cp /usr/share/syslinux/efi64/syslinux.efi "$EFI_BOOT/bootx64.efi"
         cp /usr/share/syslinux/efi64/ldlinux.e64  "$EFI_BOOT"/
+
+        # Prepare GRUB as an alternative
+        if [[ ! -f /grub.zip ]]; then
+            local MODULES=(
+                part_gpt
+                part_msdos
+                ext2
+                fat
+                exfat
+            )
+            rm -rf /grub
+            mkdir -p /grub/EFI/BOOT /grub/grub/x86_64-efi
+            grub-mkimage --directory '/usr/lib/grub/x86_64-efi' --prefix '(hd0,1)/grub' --output '/grub/EFI/BOOT/BOOTX64.EFI' --format 'x86_64-efi' --compression 'auto' "${MODULES[@]}"
+            cp /usr/lib/grub/x86_64-efi/*.mod /grub/grub/x86_64-efi
+            cat > /grub/grub/grub.cfg <<-EOF
+		set timeout=0
+		
+		insmod efi_gop
+		insmod efi_uga
+		
+		menuentry "TinyLinux" {
+		    insmod linux
+		    linux /tiny/kernel quiet
+		    initrd /tiny/initrd
+		}
+		EOF
+            cd grub
+            rm -f /grub.zip
+            zip -9 -r -q /grub.zip *
+            cd - >/dev/null
+            rm -rf grub
+        fi
     fi
 
     local COMMANDSFILE
@@ -1052,19 +1117,19 @@ make_squashfs()
     MSQJOBS="1"
     [[ $JOBS ]] && MSQJOBS="$JOBS"
     cat >/tmp/excludelist <<-EOF
-        etc/env.d
+	etc/env.d
 	etc/portage
-        etc/systemd
+	etc/systemd
 	mnt
-        run
+	run
 	tmp
-        usr/lib*/*.a
-        usr/lib*/*.o
-        usr/lib*/pkgconfig
-        usr/lib*/systemd
+	usr/lib*/*.a
+	usr/lib*/*.o
+	usr/lib*/pkgconfig
+	usr/lib*/systemd
 	usr/share/doc
 	usr/share/i18n
-        usr/share/locale/*
+	usr/share/locale/*
 	usr/share/man
 	var
 	EOF
@@ -1268,7 +1333,7 @@ compress_final_package()
     local SAVEDSYSLINUXCFG
 
     boldecho "Compressing final package"
-    
+
     SRCDIR="$INSTALL"
     [[ -f $INSTALL/tiny/grub.exe ]] && SRCDIR="$INSTALL/tiny"
     rm -f "/$FINALPACKAGE"
