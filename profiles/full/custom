@@ -21,6 +21,7 @@ install_package vbetool
 install_package net-fs/autofs "" "--nodeps"
 install_package net-nds/ypbind
 install_package ipmitool "openipmi python"
+install_package ipmiutil
 install_package dmidecode
 
 # PERL modules
