@@ -1,5 +1,10 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+17.04
+ * Updated kernel to 4.10.8
+ * Updated MODS kernel driver to 3.71
+ * Added ipmitool and dmidecode in full profile
+-------------------------------------------------------------------------------
 17.02
  * Updated kernel to 4.9.7
  * Updated MODS kernel driver to 3.68
