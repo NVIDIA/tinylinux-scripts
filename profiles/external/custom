@@ -1,6 +1,0 @@
-# Replace bash with ash
-sed -i "s/bash/bootshell/" "$NEWROOT"/etc/inittab
-sed -i "s/bash/ash/" "$NEWROOT"/etc/passwd
-sed -i "s/bash/ash/" "$NEWROOT"/etc/shells
-cp "$BUILDSCRIPTS"/profiles/external/profile   "$NEWROOT"/etc/profile
-cp "$BUILDSCRIPTS"/profiles/external/bootshell "$NEWROOT"/bin/bootshell
