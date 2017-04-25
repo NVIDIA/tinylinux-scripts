@@ -1,5 +1,7 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Discontinued default profile
+-------------------------------------------------------------------------------
 17.04
  * Updated kernel to 4.10.8
  * Updated MODS kernel driver to 3.71

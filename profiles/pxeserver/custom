@@ -1,6 +1,3 @@
-# Install general packages
-source "$BUILDSCRIPTS/profiles/default/custom"
-
 # Override tiny directory for the server to avoid clashes with client directory
 TINYDIR="tinysrv"
 

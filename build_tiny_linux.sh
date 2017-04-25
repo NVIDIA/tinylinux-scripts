@@ -741,6 +741,17 @@ build_newroot()
     record_busybox_symlinks
     install_package dropbear "multicall"
 
+    # Install more basic packages
+    install_package nano
+    install_package sys-libs/readline
+    if [[ $TEGRABUILD ]]; then
+        ( cd "$NEWROOT" && list_package_files "sys-libs/readline" | \
+            grep "^usr/lib\|^lib\|^usr/include" | \
+            xargs tar c | tar x -C "/usr/$TEGRAABI/" )
+    fi
+    install_package bash "readline net"
+    test -e "$NEWROOT/bin/bash" || ln -s $(ls "$NEWROOT"/bin/bash-* | head -n 1 | xargs basename) "$NEWROOT/bin/bash"
+
     # Cross-installation of libtirpc is broken, do it manually
     install_package net-libs/libtirpc
     if [[ $TEGRABUILD ]]; then

@@ -16,8 +16,7 @@ Profiles
 ========
 
 The following profiles are available, each of them packaged individually:
-* default   - the smallest version of NVIDIA TinyLinux
-* full      - contains additional tools - Python, PERL, pmtools
+* full      - basic release of NVIDIA TinyLinux
 * pxeserver - only suitable for hosting a PXE server
 
 
