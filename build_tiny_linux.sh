@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2009-2016, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2017, NVIDIA CORPORATION.  All rights reserved.
 # See LICENSE file for details.
 
 set -e
@@ -256,7 +256,7 @@ exit_chroot()
 {
     sleep 1
     sync
-    umount -l "$BUILDROOT"/{sys,run/shm,dev/pts,dev,proc} || boldecho "Unmount failed!"
+    umount -l "$BUILDROOT"/{sys,dev/shm,dev/pts,dev,proc} || boldecho "Unmount failed!"
 }
 
 run_in_chroot()
@@ -275,8 +275,8 @@ run_in_chroot()
     mount --bind /dev "$BUILDROOT/dev"
     mount --bind /dev/pts "$BUILDROOT/dev/pts"
     mount -t sysfs none "$BUILDROOT/sys"
-    mkdir -p "$BUILDROOT/run/shm"
-    mount -t tmpfs -o mode=1777,nodev none "$BUILDROOT/run/shm"
+    mkdir -p "$BUILDROOT/dev/shm"
+    mount -t tmpfs -o mode=1777,nodev none "$BUILDROOT/dev/shm"
 
     LINUX32=""
     [[ `uname -m` = "x86_64" && ${STAGE3ARCH/i?86/x86} = "x86" ]] && LINUX32="linux32"
@@ -740,6 +740,7 @@ build_newroot()
     rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
     record_busybox_symlinks
     install_package dropbear "multicall"
+    install_package sys-devel/bc
 
     # Install more basic packages
     install_package nano
@@ -783,6 +784,7 @@ build_newroot()
         install_package numactl
         install_package efibootmgr
         install_package ntfs3g "external-fuse xattr"
+        remove_gentoo_services netmount
     fi
 
     # Add symlink to /bin/env in /usr/bin/env where most apps expect it
@@ -815,7 +817,7 @@ build_newroot()
     sed -i "s/compat/db files nis/" "$NEWROOT/etc/nsswitch.conf"
 
     # Remove unneeded scripts
-    remove_gentoo_services autofs dropbear mdev nscd pciparm ypbind
+    remove_gentoo_services autofs dropbear fuse mdev nfsclient nscd pciparm ypbind
     rm -f "$NEWROOT/etc"/{init.d,conf.d}/busybox-*
     rm -rf "$NEWROOT/etc/systemd"
 
@@ -832,12 +834,14 @@ build_newroot()
         DEST="$NEWROOT/$FILE"
         mkdir -p `dirname "$NEWROOT/$FILE"`
         cp -P "$SRC" "$DEST"
-        if [[ ${FILE:2:11} = etc/init.d/ ]]; then
-            chmod 755 "$DEST"
-        elif [[ ${FILE:2:4} = etc/ ]]; then
-            chmod 644 "$DEST"
-        else
-            chmod 755 "$DEST"
+        if [[ ! -h $DEST ]]; then
+            if [[ ${FILE:2:11} = etc/init.d/ ]]; then
+                chmod 755 "$DEST"
+            elif [[ ${FILE:2:4} = etc/ ]]; then
+                chmod 644 "$DEST"
+            else
+                chmod 755 "$DEST"
+            fi
         fi
     done
 
