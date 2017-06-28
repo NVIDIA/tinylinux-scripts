@@ -1,0 +1,12 @@
+#!/sbin/rc
+
+# Copyright (c) 2009-2017, NVIDIA CORPORATION.  All rights reserved.
+# See /etc/LICENSE file for details.
+
+start()
+{
+    local MODULE
+    grep -v "^ *#\|^ *$" /etc/modules | while read MODULE; do
+        modprobe "$MODULE"
+    done
+}

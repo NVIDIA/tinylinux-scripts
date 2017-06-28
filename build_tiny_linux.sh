@@ -331,42 +331,39 @@ prepare_portage()
     echo "sys-fs/squashfs-tools xz" >> /etc/portage/package.use/tinylinux
     echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
+    echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
 
     # Enable the latest iasl tool
     echo "sys-power/iasl ~*" >> $KEYWORDS
 
-    # Broken strace build
-    echo "=dev-util/strace-4.10" >> /etc/portage/package.mask/tegra
-
     # Enable some packages on 64-bit ARM (temporary, until enabled in Gentoo)
     if [[ $TEGRABUILD ]]; then
         mkdir -p /etc/portage/package.accept_keywords
+        local ACCEPT_PKGS
+        ACCEPT_PKGS=(
+            dev-libs/libffi-3.2.1
+            dev-util/valgrind-3.13.0
+            net-fs/autofs-5.1.2
+            net-fs/nfs-utils-1.3.1-r5
+            net-nds/portmap-6.0
+            net-nds/ypbind-1.37.2-r1
+            net-nds/yp-tools-2.12-r1
+            net-wireless/bluez-5.43-r1
+            net-wireless/rfkill-0.5
+            sys-devel/gdb-7.12.1
+            )
         local PKG
-        for PKG in dev-libs/libtommath-0.42.0-r1 \
-                   net-fs/autofs-5.1.2 \
-                   net-nds/ypbind-1.37.2-r1 \
-                   net-nds/yp-tools-2.12-r1 \
-                   net-nds/portmap-6.0 \
-                   net-dialup/lrzsz-0.12.20-r3 \
-                   dev-util/valgrind-3.11.0 \
-                   net-libs/libpcap-1.8.1 \
-                   net-wireless/bluez-5.43-r1 \
-                   net-wireless/rfkill-0.5 \
-                   sys-apps/dbus-1.10.14 \
-                   ; do
+        for PKG in ${ACCEPT_PKGS[*]}; do
             echo "=${PKG} **" >> /etc/portage/package.accept_keywords/tegra
         done
 
-        # binutils-2.24 is needed for arm64 to avoid ld.so crash
-        echo "=cross-aarch64-unknown-linux-gnu/binutils-2.24* ~*" >> $KEYWORDS
+        # Enable rpc use flag, needed for rpcbind's dependency
+        echo "cross-aarch64-unknown-linux-gnu/glibc rpc" >> /etc/portage/package.use/tegra
 
         # Stick to the kernel we're officially using
-        local KERNELVER="3.18"
+        local KERNELVER="4.4"
         echo ">cross-aarch64-unknown-linux-gnu/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
         echo ">cross-armv7a-softfp-linux-gnueabi/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
-
-        # Newer gdb fails to build (spurious missing zlib.h)
-        echo ">sys-devel/gdb-7.9.1" >> /etc/portage/package.mask/tegra
     fi
 
     # Lock on to dropbear version which we have a fix for
@@ -753,29 +750,11 @@ build_newroot()
     install_package bash "readline net"
     test -e "$NEWROOT/bin/bash" || ln -s $(ls "$NEWROOT"/bin/bash-* | head -n 1 | xargs basename) "$NEWROOT/bin/bash"
 
-    # Cross-installation of libtirpc is broken, do it manually
-    install_package net-libs/libtirpc
-    if [[ $TEGRABUILD ]]; then
-        local CFGROOT="/usr/$TEGRAABI"
-        local LIB=lib
-        istegra64 && LIB=lib64
-        local ITEM
-        for ITEM in /usr/include/tirpc        \
-                    /usr/$LIB/libtirpc.so    \
-                    /$LIB/libtirpc.so.1.0.10 \
-                    /usr/$LIB/pkgconfig/libtirpc.pc; do
-            rm -rf "$CFGROOT/$ITEM"
-            mkdir -p "$(dirname "$CFGROOT/$ITEM")"
-            cp -r "$NEWROOT/$ITEM" "$CFGROOT/$ITEM"
-        done
-        rm -f "$CFGROOT/$LIB/libtirpc.so.1"
-        ln -s libtirpc.so.1.0.10 "$CFGROOT/$LIB/libtirpc.so.1"
-        [ -e /usr/include/tirpc ] || ln -s "$NEWROOT/usr/include/tirpc" /usr/include/tirpc
-    fi
-
     # Install NFS utils
-    install_package rpcbind
-    install_package nfs-utils "" "--nodeps"
+    if [[ $TEGRABUILD ]]; then
+        NEWROOT="/usr/$TEGRAABI" install_package net-libs/libtirpc # Host dependency for rpcbind
+    fi
+    install_package nfs-utils
     remove_gentoo_services nfs nfsmount rpcbind rpc.statd
 
     # Additional x86-specific packages

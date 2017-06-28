@@ -4,6 +4,7 @@ install_package =python-2.7* "threads xml" "--nodeps"
 install_package dev-lang/python-exec
 USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads
 install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn pulls too much
+perl-cleaner -q --all
 ignore_busybox_symlinks /bin/bzip2 /bin/bunzip2 /bin/bzcat
 install_package perl "ithreads"
 install_package iasl

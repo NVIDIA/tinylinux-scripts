@@ -1,0 +1,4 @@
+# The list of kernel modules to be loaded by the modules service on boot.
+# Lines starting with '#' are ignored.
+
+ipmi_ssif
