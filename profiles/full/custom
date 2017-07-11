@@ -21,6 +21,7 @@ install_package net-nds/ypbind
 install_package ipmitool "openipmi python"
 install_package ipmiutil
 install_package dmidecode
+install_package p7zip
 
 # PERL modules
 mkdir -p /etc/portage/package.unmask

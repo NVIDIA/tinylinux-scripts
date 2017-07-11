@@ -3,6 +3,7 @@ TinyLinux release history
  * Added /etc/modules with a list of modules to load on boot
  * Added bc tool
  * Discontinued default profile
+ * Added 7z tool in full profile
 -------------------------------------------------------------------------------
 17.04
  * Updated kernel to 4.10.8
