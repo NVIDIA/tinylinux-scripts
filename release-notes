@@ -1,5 +1,6 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Added libstdc++.so in tegra profile
  * Added /etc/modules with a list of modules to load on boot
  * Added bc tool
  * Discontinued default profile

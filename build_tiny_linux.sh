@@ -341,6 +341,7 @@ prepare_portage()
         mkdir -p /etc/portage/package.accept_keywords
         local ACCEPT_PKGS
         ACCEPT_PKGS=(
+            cross-aarch64-unknown-linux-gnu/gcc-7.2.0
             dev-libs/libffi-3.2.1
             dev-util/valgrind-3.13.0
             net-fs/autofs-5.1.2
@@ -350,7 +351,8 @@ prepare_portage()
             net-nds/yp-tools-2.12-r1
             net-wireless/bluez-5.43-r1
             net-wireless/rfkill-0.5
-            sys-devel/gdb-7.12.1
+            sys-apps/util-linux-2.30.1 # Only to compile this glib dependency on host
+            sys-devel/gdb-8.0
             )
         local PKG
         for PKG in ${ACCEPT_PKGS[*]}; do
@@ -367,11 +369,11 @@ prepare_portage()
     fi
 
     # Lock on to dropbear version which we have a fix for
-    echo "=net-misc/dropbear-2016.73 ~*" >> $KEYWORDS
-    echo ">net-misc/dropbear-2016.73" >> /etc/portage/package.mask/tinylinux
+    echo "=net-misc/dropbear-2016.74 ~*" >> $KEYWORDS
+    echo ">net-misc/dropbear-2016.74" >> /etc/portage/package.mask/tinylinux
 
     # Install dropbear patch for pubkey authentication
-    local EBUILD=/usr/portage/net-misc/dropbear/dropbear-2016.73.ebuild
+    local EBUILD=/usr/portage/net-misc/dropbear/dropbear-2016.74.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "pubkey\.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/dropbear-pubkey.patch" /usr/portage/net-misc/dropbear/files/
@@ -512,9 +514,6 @@ install_tegra_toolchain()
         rmdir "$CFGROOT/usr/lib"
         ln -s lib64 "$CFGROOT/usr/lib"
     fi
-
-    # WAR for Cortex-A53 errata 835769
-    ! istegra64 || sed -i "/CFLAGS=/s/\"$/ -mfix-cortex-a53-835769\"/" "$CFGROOT/$MAKECONF"
 
     # Setup split glibc symbols for valgrind and remote debugging
     mkdir -p "$PORTAGECFG/package.env"
@@ -787,6 +786,11 @@ build_newroot()
         cp /usr/lib/gcc/"$TEGRAABI"/*/libgcc_s.so.1 "$NEWLIB"/
     else
         cp /usr/lib/gcc/*/*/libgcc_s.so.1 "$NEWROOT/lib"/
+    fi
+
+    # Copy libstdc++ needed by some tools
+    if [[ $TEGRABUILD ]]; then
+        cp /usr/lib/gcc/"$TEGRAABI"/*/libstdc++.so.6 "$NEWLIB"/
     fi
 
     # Remove linuxrc script from busybox
