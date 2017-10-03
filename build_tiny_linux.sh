@@ -316,6 +316,7 @@ prepare_portage()
     mkdir -p /etc/portage/package.keywords
     mkdir -p /etc/portage/package.use
     mkdir -p /etc/portage/package.mask
+    mkdir -p /etc/portage/package.unmask
     if [[ ! -f $KEYWORDS ]]; then
         (
             echo "sys-kernel/gentoo-sources ~*"
@@ -326,12 +327,14 @@ prepare_portage()
             echo "=sys-devel/patch-2.7.1-r3 ~*"
             echo "=sys-boot/syslinux-6.03 ~*"
             echo "=sys-boot/gnu-efi-3.0u ~*"
+            echo "=dev-libs/openssl-1.1.0f ~*"
         ) > $KEYWORDS
     fi
     echo "sys-fs/squashfs-tools xz" >> /etc/portage/package.use/tinylinux
     echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
+    echo "=dev-libs/openssl-1.1.0f" >> /etc/portage/package.unmask/tinylinux
 
     # Enable the latest iasl tool
     echo "sys-power/iasl ~*" >> $KEYWORDS

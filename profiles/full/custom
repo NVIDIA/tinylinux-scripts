@@ -1,5 +1,6 @@
 # Install additional packages
 install_into tiny/conf boot
+install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
 install_package =python-2.7* "threads xml" "--nodeps"
 install_package dev-lang/python-exec
 USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads
