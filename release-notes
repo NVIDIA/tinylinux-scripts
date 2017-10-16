@@ -1,5 +1,8 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+17.10
+ * Updated kernel to 4.13.5
+ * Updated MODS kernel driver to 3.78
  * Added libstdc++.so in tegra profile
  * Added /etc/modules with a list of modules to load on boot
  * Added bc tool
