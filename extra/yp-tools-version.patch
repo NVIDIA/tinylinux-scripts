@@ -1,0 +1,28 @@
+Fix default version, current glibc does not define version 3
+
+--- old/src/ypwhich.c
++++ new/src/ypwhich.c
+@@ -82,7 +82,11 @@
+   fputs (_("  -m mname       Find the master NIS server for the map 'mname'\n"),
+ 	 stdout);
+   fputs (_("  -t             Inhibits map nickname translation\n"), stdout);
++#if defined(HAVE_YPBIND3)
+   fputs (_("  -V n           Version of ypbind, V3 is default\n"), stdout);
++#else
++  fputs (_("  -V n           Version of ypbind, V2 is default\n"), stdout);
++#endif
+   fputs (_("  -x             Display the map nickname translation table\n"),
+ 	 stdout);
+   fputs (_(" --verbose       Verbose output of result\n"), stdout);
+@@ -111,6 +115,11 @@
+   struct timeval tv;
+   CLIENT *client;
+ 
++#if !defined(HAVE_YPBIND3)
++  if (vers == -1)
++    vers = 2;
++#endif
++
+   client = clnt_create(hostname, YPBINDPROG, (vers==-1)?3:vers, "udp");
+   if (client == NULL)
+     {

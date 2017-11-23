@@ -11,6 +11,7 @@ install_package net-fs/autofs "" "--nodeps"
 install_package net-nds/ypbind
 install_package net-dialup/lrzsz
 install_package net-libs/libpcap ipv6
+install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
 
 if istegra64; then # glib fails to cross compile for armv7
     # bluez dependencies

@@ -327,14 +327,14 @@ prepare_portage()
             echo "=sys-devel/patch-2.7.1-r3 ~*"
             echo "=sys-boot/syslinux-6.03 ~*"
             echo "=sys-boot/gnu-efi-3.0u ~*"
-            echo "=dev-libs/openssl-1.1.0f ~*"
+            echo "=dev-libs/openssl-1.1.0g ~*"
         ) > $KEYWORDS
     fi
     echo "sys-fs/squashfs-tools xz" >> /etc/portage/package.use/tinylinux
     echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
-    echo "=dev-libs/openssl-1.1.0f" >> /etc/portage/package.unmask/tinylinux
+    echo "=dev-libs/openssl-1.1.0g" >> /etc/portage/package.unmask/tinylinux
 
     # Enable the latest iasl tool
     echo "sys-power/iasl ~*" >> $KEYWORDS
@@ -344,16 +344,20 @@ prepare_portage()
         mkdir -p /etc/portage/package.accept_keywords
         local ACCEPT_PKGS
         ACCEPT_PKGS=(
+            app-misc/ca-certificates-20170717.3.34
             cross-aarch64-unknown-linux-gnu/gcc-7.2.0
             dev-libs/libffi-3.2.1
+            dev-libs/openssl-1.1.0g
             dev-util/valgrind-3.13.0
             net-fs/autofs-5.1.2
-            net-fs/nfs-utils-1.3.1-r5
+            net-fs/nfs-utils-2.2.1
+            net-libs/libtirpc-1.0.2-r1
             net-nds/portmap-6.0
+            net-nds/rpcbind-0.2.4-r1
             net-nds/ypbind-1.37.2-r1
-            net-nds/yp-tools-2.12-r1
-            net-wireless/bluez-5.43-r1
-            net-wireless/rfkill-0.5
+            net-nds/yp-tools-4.2.2-r1
+            net-wireless/bluez-5.47-r1
+            net-wireless/rfkill-0.5-r3
             sys-apps/util-linux-2.30.1 # Only to compile this glib dependency on host
             sys-devel/gdb-8.0
             )
@@ -379,27 +383,17 @@ prepare_portage()
     local EBUILD=/usr/portage/net-misc/dropbear/dropbear-2016.74.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "pubkey\.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
-        cp "$BUILDSCRIPTS/dropbear-pubkey.patch" /usr/portage/net-misc/dropbear/files/
+        cp "$BUILDSCRIPTS/extra/dropbear-pubkey.patch" /usr/portage/net-misc/dropbear/files/
         sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-pubkey.patch\n\tepatch/" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
-    # Install yp-tools patch which fixes a compilation issue
-    local EBUILD=/usr/portage/net-nds/yp-tools/yp-tools-2.12-r1.ebuild
-    if [[ -f $EBUILD ]] && ! grep -q "src_prepare" "$EBUILD"; then
+    # Install yp-tools patch which fixes communication issue with ypbind
+    local EBUILD=/usr/portage/net-nds/yp-tools/yp-tools-4.2.2-r1.ebuild
+    if [[ -f $EBUILD ]] && ! grep -q "PATCHES" "$EBUILD"; then
         boldecho "Patching $EBUILD"
-        cp "$BUILDSCRIPTS/yp-tools-build.patch" /usr/portage/net-nds/yp-tools/files/
-        sed -i "0,/src_configure/ s//src_prepare() {\n\tepatch \"\${FILESDIR}\"\/\${PN}-build.patch\n}\n\nsrc_configure/" "$EBUILD"
-        ebuild "$EBUILD" digest
-    fi
-
-    # Install r8168 patch for kernel 3.16
-    local EBUILD=/usr/portage/net-misc/r8168/r8168-8.038.00.ebuild
-    if [[ -f $EBUILD ]] && ! grep -q "ethtool-ops" "$EBUILD"; then
-        boldecho "Patching $EBUILD"
-        mkdir -p /usr/portage/net-misc/r8168/files
-        cp "$BUILDSCRIPTS/extra/r8168-8.038.00-ethtool-ops.patch" /usr/portage/net-misc/r8168/files/
-        echo -e "src_prepare() {\n\tepatch \"\${FILESDIR}/\${P}-ethtool-ops.patch\"\n}" >> "$EBUILD"
+        cp "$BUILDSCRIPTS/extra/yp-tools-version.patch" /usr/portage/net-nds/yp-tools/files/
+        sed -i "0,/src_configure/ s//PATCHES=( \"\${FILESDIR}\"\/\${PN}-version.patch )\n\nsrc_configure/" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
@@ -408,7 +402,7 @@ prepare_portage()
     if [[ -f $EBUILD ]] && ! grep -q "red-zone" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         mkdir -p /usr/portage/sys-boot/syslinux/files
-        cp "$BUILDSCRIPTS/syslinux-red-zone.patch" /usr/portage/sys-boot/syslinux/files/
+        cp "$BUILDSCRIPTS/extra/syslinux-red-zone.patch" /usr/portage/sys-boot/syslinux/files/
         sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-red-zone.patch\n\tepatch/" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
@@ -495,7 +489,7 @@ install_tegra_toolchain()
         echo "PORTAGE_NICENESS=\"15\""
         echo "USE=\"-* ipv6 syslog \${ARCH}\""
     ) >> "$CFGROOT/$MAKECONF"
-    for FILE in package.use package.keywords package.mask package.accept_keywords savedconfig; do
+    for FILE in package.use package.keywords package.mask package.unmask package.accept_keywords savedconfig; do
         rm -f "$PORTAGECFG/$FILE"
         ln -s "/etc/portage/$FILE" "$PORTAGECFG/$FILE"
     done
