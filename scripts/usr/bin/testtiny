@@ -340,4 +340,15 @@ end_test
 
 #==============================================================================
 
+Z7="$(which 7z 2>/dev/null || true)"
+if [[ -n $Z7 ]]; then
+    start_test "7z"
+    7z a /tmp/test.7z /etc/conf.d >/dev/null || fail_test "failed"
+    7z l /tmp/test.7z | grep sshd >/dev/null || fail_test "failed"
+    rm -f /tmp/test.7z
+    end_test
+fi
+
+#==============================================================================
+
 exit $EXITCODE

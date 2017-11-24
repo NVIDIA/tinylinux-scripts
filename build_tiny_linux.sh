@@ -776,18 +776,13 @@ build_newroot()
     ( cd "$NEWROOT/usr/bin" && ln -s dbclient ssh )
     ( cd "$NEWROOT/usr/bin" && ln -s dbscp scp )
 
-    # Copy libgcc needed by bash
+    # Copy libgcc and libstdc++ needed by some tools
     if [[ $TEGRABUILD ]]; then
         local NEWLIB="$NEWROOT/lib"
         istegra64 && NEWLIB="$NEWROOT/lib64"
-        cp /usr/lib/gcc/"$TEGRAABI"/*/libgcc_s.so.1 "$NEWLIB"/
+        cp /usr/lib/gcc/"$TEGRAABI"/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWLIB"/
     else
-        cp /usr/lib/gcc/*/*/libgcc_s.so.1 "$NEWROOT/lib"/
-    fi
-
-    # Copy libstdc++ needed by some tools
-    if [[ $TEGRABUILD ]]; then
-        cp /usr/lib/gcc/"$TEGRAABI"/*/libstdc++.so.6 "$NEWLIB"/
+        cp /usr/lib/gcc/*/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWROOT/lib"/
     fi
 
     # Remove linuxrc script from busybox
