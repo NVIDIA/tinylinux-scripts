@@ -1118,6 +1118,7 @@ make_squashfs()
 	usr/lib*/pkgconfig
 	usr/lib*/systemd
 	usr/share/doc
+	usr/share/gtk-doc
 	usr/share/i18n
 	usr/share/locale/*
 	usr/share/man
