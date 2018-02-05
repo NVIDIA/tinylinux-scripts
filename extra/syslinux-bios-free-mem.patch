@@ -1,0 +1,19 @@
+efi: fix uninitialized variable
+
+In BIOS builds, bios_free_mem is initialized to address 0x413, which
+contains the amount of available memory in KB.  In EFI builds this
+variable has been uninitialized, leading to strange crashes with some
+UEFI builds.  Initialize bios_free_mem to point to a static variable.
+
+--- syslinux-orig/efi/main.c
++++ syslinux/efi/main.c
+@@ -393,7 +393,8 @@
+ void efi_init(void)
+ {
+ 	/* XXX timer */
+-	*bios_free_mem = 0;
++	static uint16_t free_mem = 0;
++	bios_free_mem = &free_mem;
+ 	syslinux_memscan_add(&efi_memscan);
+ 	mem_init();
+ }

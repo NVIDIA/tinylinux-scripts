@@ -325,7 +325,6 @@ prepare_portage()
             echo "net-misc/ipsvd ~*"
             echo "sys-apps/hwids ~*"
             echo "=sys-devel/patch-2.7.1-r3 ~*"
-            echo "=sys-boot/syslinux-6.03 ~*"
             echo "=sys-boot/gnu-efi-3.0u ~*"
             echo "=dev-libs/openssl-1.1.0g ~*"
         ) > $KEYWORDS
@@ -397,13 +396,13 @@ prepare_portage()
         ebuild "$EBUILD" digest
     fi
 
-    # Install syslinux patch, which fixes UEFI build
-    local EBUILD=/usr/portage/sys-boot/syslinux/syslinux-6.03.ebuild
-    if [[ -f $EBUILD ]] && ! grep -q "red-zone" "$EBUILD"; then
+    # Patch uninitialized variable in syslinux
+    local EBUILD=/usr/portage/sys-boot/syslinux/syslinux-6.04_pre1.ebuild
+    if [[ -f $EBUILD ]] && ! grep -q "bios-free-mem" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         mkdir -p /usr/portage/sys-boot/syslinux/files
-        cp "$BUILDSCRIPTS/extra/syslinux-red-zone.patch" /usr/portage/sys-boot/syslinux/files/
-        sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-red-zone.patch\n\tepatch/" "$EBUILD"
+        cp "$BUILDSCRIPTS/extra/syslinux-bios-free-mem.patch" /usr/portage/sys-boot/syslinux/files/
+        sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-bios-free-mem.patch\n\tepatch/" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
