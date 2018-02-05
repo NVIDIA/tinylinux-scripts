@@ -180,7 +180,7 @@ download_packages()
     if [[ ! -f $STAGE3PKG ]]; then
         local GREPSTAGE
         local STAGE3PATH
-        GREPSTAGE="^stage3-$STAGE3ARCH-[0-9].*\.tar\.bz2$"
+        GREPSTAGE="^stage3-$STAGE3ARCH-[0-9TZ].*\.tar\.xz$"
         boldecho "Downloading stage3 file list from the server"
         STAGE3PATH="$MIRROR/releases/${STAGE3ARCH/i?86/x86}/autobuilds/current-stage3-$STAGE3ARCH/"
         STAGE3PKG=`find_stage3 "$GREPSTAGE" "$STAGE3PATH"`
@@ -191,11 +191,15 @@ download_packages()
 
 tar_bz2()
 {
-    if which lbzip2 >/dev/null 2>&1; then
-        $NICE tar --use-compress-program lbzip2 "$@"
+    local PROGRAM
+    if [[ ${2##*.} = xz ]]; then
+        PROGRAM=xz
+    elif which lbzip2 >/dev/null 2>&1; then
+        PROGRAM=lbzip2
     else
-        $NICE tar -j "$@"
+        PROGRAM=bzip2
     fi
+    $NICE tar --use-compress-program "$PROGRAM" "$@"
 }
 
 unpack_packages()
@@ -334,6 +338,7 @@ prepare_portage()
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
     echo "=dev-libs/openssl-1.1.0g" >> /etc/portage/package.unmask/tinylinux
+    echo "=net-nds/ypbind-1.37.2-r1" >> /etc/portage/package.unmask/tinylinux # remove when bumped upstream
 
     # Enable the latest iasl tool
     echo "sys-power/iasl ~*" >> $KEYWORDS
