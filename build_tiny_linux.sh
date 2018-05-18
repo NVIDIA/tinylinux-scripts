@@ -90,7 +90,7 @@ TEGRATYPE="`dirname "$0"`/profiles/$PROFILE/tegra"
 [[ -z $TEGRABUILD && -f $TEGRATYPE ]] && TEGRABUILD=`cat "$TEGRATYPE"`
 
 # Find default stage3 package
-STAGE3PKG="${STAGE3PKG:-$(find ./ -maxdepth 1 -name stage3-$STAGE3ARCH-*.tar.bz2 | head -n 1)}"
+STAGE3PKG="${STAGE3PKG:-$(find ./ -maxdepth 1 -name stage3-$STAGE3ARCH-*.tar.xz | head -n 1)}"
 
 # Override package name with profile name
 FINALPACKAGE="$PROFILE.zip"
@@ -312,7 +312,7 @@ prepare_portage()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo 'PORTAGE_NICENESS="15"'
-        echo 'USE="-* ipv6 syslog python_targets_python2_7"'
+        echo 'USE="-* ipv6 syslog python_targets_python2_7 python_targets_python3_6"'
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
 
@@ -338,7 +338,6 @@ prepare_portage()
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
     echo "=dev-libs/openssl-1.1.0g" >> /etc/portage/package.unmask/tinylinux
-    echo "=net-nds/ypbind-1.37.2-r1" >> /etc/portage/package.unmask/tinylinux # remove when bumped upstream
 
     # Enable the latest iasl tool
     echo "sys-power/iasl ~*" >> $KEYWORDS
@@ -358,7 +357,6 @@ prepare_portage()
             net-libs/libtirpc-1.0.2-r1
             net-nds/portmap-6.0
             net-nds/rpcbind-0.2.4-r1
-            net-nds/ypbind-1.37.2-r1
             net-nds/yp-tools-4.2.2-r1
             net-wireless/bluez-5.47-r1
             net-wireless/rfkill-0.5-r3
@@ -389,15 +387,6 @@ prepare_portage()
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/extra/dropbear-pubkey.patch" /usr/portage/net-misc/dropbear/files/
         sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-pubkey.patch\n\tepatch/" "$EBUILD"
-        ebuild "$EBUILD" digest
-    fi
-
-    # Install yp-tools patch which fixes communication issue with ypbind
-    local EBUILD=/usr/portage/net-nds/yp-tools/yp-tools-4.2.2-r1.ebuild
-    if [[ -f $EBUILD ]] && ! grep -q "PATCHES" "$EBUILD"; then
-        boldecho "Patching $EBUILD"
-        cp "$BUILDSCRIPTS/extra/yp-tools-version.patch" /usr/portage/net-nds/yp-tools/files/
-        sed -i "0,/src_configure/ s//PATCHES=( \"\${FILESDIR}\"\/\${PN}-version.patch )\n\nsrc_configure/" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
@@ -1114,6 +1103,7 @@ make_squashfs()
 	etc/env.d
 	etc/portage
 	etc/systemd
+	lib64/systemd
 	mnt
 	run
 	tmp

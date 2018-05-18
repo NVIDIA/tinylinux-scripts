@@ -1,11 +1,18 @@
 # Install additional packages
 install_into tiny/conf boot
 install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
+
 install_package =python-2.7* "threads xml" "--nodeps"
+install_package =python-3.6* "threads xml" "--nodeps"
+rm -rf "$NEWROOT"/usr/lib64/python*/test
 install_package dev-lang/python-exec
+ROOT="$NEWROOT" eselect python set python2.7
+
+install_package dev-libs/glib "" "--nodeps" # For customer Python modules, avoid util-linux!
+
 USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads
 install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn pulls too much
-perl-cleaner -q --all
+perl-cleaner -q --all -- -q
 ignore_busybox_symlinks /bin/bzip2 /bin/bunzip2 /bin/bzcat
 install_package perl "ithreads"
 install_package iasl
@@ -18,7 +25,7 @@ install_package alsa-utils "ncurses libsamplerate"
 remove_gentoo_services alsasound
 install_package vbetool
 install_package net-fs/autofs "" "--nodeps"
-install_package net-nds/ypbind
+install_package net-nds/yp-tools
 install_package ipmitool "openipmi python"
 install_package ipmiutil
 install_package dmidecode
