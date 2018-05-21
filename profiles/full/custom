@@ -21,6 +21,7 @@ install_package sys-devel/gdb "client server"
 install_package dev-util/strace "aio"
 install_package vim-core minimal
 install_package vim minimal --nodeps
+sed -i '/skip_defaults_vim/s/^/"/' "$NEWROOT"/etc/vim/vimrc
 install_package alsa-utils "ncurses libsamplerate"
 remove_gentoo_services alsasound
 install_package vbetool
