@@ -1049,11 +1049,9 @@ make_squashfs()
     boldecho "Copying kernel modules"
     rm -rf "$NEWROOT/lib/modules"
     rm -rf "$NEWROOT/lib/firmware"
-    [[ $TEGRABUILD ]] || tar cp -C /lib modules | tar xp -C "$NEWROOT/lib"/
-    if [[ -d /lib/firmware ]]; then
-        tar cp -C /lib firmware | tar xp -C "$NEWROOT/lib"/
-    else
-        mkdir "$NEWROOT/lib/firmware"
+    if [[ -z $TEGRABUILD ]]; then
+        tar cp -C /lib modules | tar xp -C "$NEWROOT/lib"/
+        ln -s /var/firmware "$NEWROOT/lib/firmware"
     fi
 
     boldecho "Preparing squashfs"

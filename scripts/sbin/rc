@@ -250,7 +250,7 @@ elif [ "$1" = "enable" ]; then
         fi
 
         # Add service to boot list
-        echo "$1" >> /etc/conf.d/boot
+        grep -q "^$1\$" /etc/conf.d/boot || echo "$1" >> /etc/conf.d/boot
 
         # Next service
         shift
@@ -323,11 +323,16 @@ elif [ "$1" = "boot" ]; then
     # Remove stale files from before boot
     rm -f /var/run/*
 
+    # Create firmware directory if needed
+    VAR_FIRMWARE="$(readlink /lib/firmware)"
+    [ "$VAR_FIRMWARE" != "/var/firmware" ] || mkdir -p /var/firmware
+
     # Create persistent configuration directory if it does not exist
     echo "$TINYLINUXDIR" | grep -q "/mnt/nv" && mkdir -p "$TINYLINUXDIR/conf"
 
     # Symlink configuration files
     __make_conf_symlinks /etc/conf.d
+    __make_conf_symlinks /etc/bash
     __make_conf_symlinks /etc
 
     # Mount debug fs if it is available
