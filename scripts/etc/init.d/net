@@ -22,6 +22,18 @@ done
 
 start()
 {
+    # Wait for the network interface if it does not exist
+    if [ ! -d "/sys/class/net/$IFACE" -a -n "$TIMEOUT" ]; then
+        echo -n " waiting for $IFACE" >&2
+        local LOOP=0
+        while [ $LOOP -lt $TIMEOUT ]; do
+            [ ! -d "/sys/class/net/$IFACE" ] || break
+            LOOP=$(($LOOP + 1))
+            sleep 1
+            echo -n "." >&2
+        done
+    fi
+
     # Bring up networking
     if [ -d "/sys/class/net/$IFACE" ]; then
         if [ "$STATICIP" ]; then
@@ -61,6 +73,9 @@ start()
                 /sbin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS
             fi
         fi
+    else
+        echo -n " missing $IFACE" >&2
+        return 1
     fi
 }
 

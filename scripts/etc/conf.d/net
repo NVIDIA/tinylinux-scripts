@@ -3,6 +3,11 @@
 # Overriden by kernel argument net=
 IFACE="eth0"
 
+# Time in seconds, how long to wait for the IFACE to appear before giving up.
+# With some drivers it can take some time for the kernel to finish initializing
+# the device, so the network interface may not be present immediately.
+TIMEOUT="5"
+
 # Static IP to assign in form of IP/NETMASK (e.g. 10.0.0.1/255.255.255.0)
 # Overriden by kernel argument staticip=
 # Leave empty for DHCP
