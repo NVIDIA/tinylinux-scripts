@@ -2,13 +2,12 @@
 install_into tiny/conf boot
 install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
 
+install_package expat
 install_package =python-2.7* "threads xml" "--nodeps"
 install_package =python-3.6* "threads xml" "--nodeps"
 rm -rf "$NEWROOT"/usr/lib64/python*/test
 install_package dev-lang/python-exec
 ROOT="$NEWROOT" eselect python set python2.7
-
-install_package dev-libs/glib "" "--nodeps" # For customer Python modules, avoid util-linux!
 
 USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads
 install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn pulls too much
@@ -50,7 +49,7 @@ install_package perl-cleaner "" "--unmerge"
 install_package net-misc/curl
 
 # Tidy up
-remove_gentoo_services pydoc-2.7
+remove_gentoo_services pydoc-2.7 pydoc-3.6 ipmievd
 [[ -f "$NEWROOT/usr/bin/python-wrapper" ]] || (
     cd "$NEWROOT/usr/bin"
     ln -s python2 python-wrapper
