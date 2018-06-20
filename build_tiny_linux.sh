@@ -5,7 +5,7 @@
 
 set -e
 
-MIRROR="http://gentoo.cites.uiuc.edu/pub/gentoo/"
+MIRROR="http://gentoo.osuosl.org"
 PORTAGEPKG="portage-latest.tar.bz2"
 STAGE3ARCH="amd64"
 DISTFILESPKG="distfiles.tar.bz2"
@@ -337,6 +337,7 @@ prepare_portage()
     echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
+    echo "net-fs/autofs libtirpc" >> /etc/portage/package.use/tinylinux
     echo "=dev-libs/openssl-1.1.0g" >> /etc/portage/package.unmask/tinylinux
 
     # Enable the latest iasl tool
@@ -943,6 +944,20 @@ prepare_installation()
     cp "$BUILDSCRIPTS"/README "$INSTALL"/
 }
 
+compile_driver()
+{
+    local DIR
+    DIR="$1"
+
+    local MAKEOPTS
+    [[ $JOBS ]] && MAKEOPTS="-j$JOBS"
+
+    cd "$DIR"
+    make -C /usr/src/linux M="$DIR" $MAKEOPTS modules
+    make -C /usr/src/linux M="$DIR" $MAKEOPTS modules_install
+    cd - > /dev/null
+}
+
 install_mods()
 {
     [[ $TEGRABUILD ]] && return 0
@@ -962,11 +977,7 @@ install_mods()
         mkdir "$TMPMODS"
         tar xzf "$DRVPKG" -C "$TMPMODS"
         [[ ! -f $BUILDSCRIPTS/mods.tgz ]] || tar xzf "$TMPMODS"/driver.tgz -C "$TMPMODS"
-        local MAKEOPTS
-        [[ $JOBS ]] && MAKEOPTS="-j$JOBS"
-        local MAKE=make
-        ( cd "$TMPMODS"/driver && $MAKE -C /usr/src/linux M="$TMPMODS"/driver $MAKEOPTS modules )
-        ( cd "$TMPMODS"/driver && $MAKE -C /usr/src/linux M="$TMPMODS"/driver $MAKEOPTS modules_install )
+        compile_driver "$TMPMODS"/driver
         rm -rf "$TMPMODS"
 
         # Force regeneration of squashfs
