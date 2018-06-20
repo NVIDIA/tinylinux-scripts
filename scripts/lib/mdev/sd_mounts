@@ -29,21 +29,6 @@ shouldmount()
     return 0
 }
 
-isremovable()
-{
-    local FULLPATH
-    FULLPATH=`find /sys/devices/ -name "$1"`
-    local REMOVABLE
-    REMOVABLE="$FULLPATH/removable"
-    if [ ! -f "$REMOVABLE" ]; then
-        REMOVABLE="$FULLPATH/../removable"
-        # If we can't determine, treat is as removable
-        [ -f "$REMOVABLE" ] || return 1
-    fi
-    REMOVABLE=`cat "$REMOVABLE"`
-    [ "$REMOVABLE" != "0" ]
-}
-
 if [ "$ACTION" = "remove" ]; then
     if mountpoint -q "/media/$MDEV"; then
         echo "  unmounting /media/$MDEV" >> "$LOGFILE"
@@ -57,9 +42,7 @@ elif [ "$ACTION" = "add" ]; then
         0)
             echo "  mounting /media/$MDEV" >> "$LOGFILE"
             mkdir -p "/media/$MDEV"
-            MOUNTOPT=""
-            isremovable "$MDEV" && MOUNTOPT="-o sync"
-            mount $MOUNTOPT "/dev/$MDEV" "/media/$MDEV" || (
+            mount "/dev/$MDEV" "/media/$MDEV" || (
                 rmdir "/media/$MDEV"
                 echo "  mount /media/$MDEV failed" >> "$LOGFILE"
             )
