@@ -3,8 +3,8 @@ install_into tiny/conf boot
 install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
 
 install_package expat
-install_package =python-2.7* "threads xml" "--nodeps"
-install_package =python-3.6* "threads xml" "--nodeps"
+install_package =python-2.7* "threads xml ssl ncurses readline" "--nodeps"
+install_package =python-3.6* "threads xml ssl ncurses readline" "--nodeps"
 rm -rf "$NEWROOT"/usr/lib64/python*/test
 install_package dev-lang/python-exec
 ROOT="$NEWROOT" eselect python set python2.7
@@ -30,6 +30,24 @@ install_package ipmitool "openipmi python"
 install_package ipmiutil
 install_package dmidecode
 install_package p7zip
+
+# Python modules
+install_package dev-python/aniso8601
+install_package dev-python/asn1crypto
+install_package dev-python/Babel
+install_package dev-python/cffi
+install_package dev-python/chardet
+install_package dev-python/click
+install_package dev-python/flask
+install_package dev-python/flask-babel
+install_package dev-python/flask-restful
+install_package dev-python/futures
+install_package dev-python/idna
+install_package dev-python/pip
+install_package dev-python/pyopenssl
+install_package dev-python/PySocks
+install_package dev-python/requests
+install_package dev-python/ruamel-yaml
 
 # PERL modules
 mkdir -p /etc/portage/package.unmask
