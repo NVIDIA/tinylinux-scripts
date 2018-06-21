@@ -340,6 +340,9 @@ prepare_portage()
     echo "net-fs/autofs libtirpc" >> /etc/portage/package.use/tinylinux
     echo "=dev-libs/openssl-1.1.0g" >> /etc/portage/package.unmask/tinylinux
 
+    # Fix for stage3 bug
+    echo ">=sys-apps/util-linux-2.30.2-r1 static-libs" >> /etc/portage/package.use/tinylinux
+
     # Enable the latest iasl tool
     echo "sys-power/iasl ~*" >> $KEYWORDS
 
