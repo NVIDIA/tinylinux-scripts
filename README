@@ -23,8 +23,23 @@ The following profiles are available, each of them packaged individually:
 Installation
 ============
 
-From Windows - UEFI boot
-------------------------
+From Windows - UEFI boot on a USB stick
+---------------------------------------
+
+1. Format the target drive using FAT32 filesystem.  Right click the drive icon
+   and choose "Format...".
+
+2. Unpack the contents of the chosen profile package (e.g. full.zip) directly
+   to the root directory of the formatted drive.
+
+   - For example, right click on the zip file in Explorer, choose
+     "Extract all..." and enter drive letter (e.g. e:) as the destination.
+
+3. When booting NVIDIA TinyLinux, make sure the "Secure boot" option is
+   disabled in UEFI setup.
+
+From Windows - UEFI boot on a HDD
+---------------------------------
 
 1. Format the target drive with GPT (GUID partition table) and add a FAT32
    partition.  For USB drives, this can be done with
@@ -65,6 +80,8 @@ From Windows - legacy boot (SBIOS)
    - On Windows XP, go to Start -> Run... and type `cmd<ENTER>`
    - On Windows Vista, Windows 7 and later, click on the Start button, then in
      a small box in the lower-left corner type `cmd<CTRL+SHIFT+ENTER>`.
+     On Windows 10, just start typing the command after clicking on the Start
+     button.
      It is important to press ENTER when holding both CTRL and SHIFT.
      It will ask you to confirm, click Yes. CTRL+SHIFT+ENTER runs the cmd shell
      in Administrative mode.
