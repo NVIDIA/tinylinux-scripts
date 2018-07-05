@@ -1,10 +1,10 @@
 # Install additional packages
 install_into tiny/conf boot
-install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
+install_package dev-libs/openssl
 
 install_package expat
-install_package =python-2.7* "threads xml ssl ncurses readline" "--nodeps"
-install_package =python-3.6* "threads xml ssl ncurses readline" "--nodeps"
+install_package =python-2.7* "" "--nodeps"
+install_package =python-3.6* "" "--nodeps"
 rm -rf "$NEWROOT"/usr/lib64/python*/test
 install_package dev-lang/python-exec
 ROOT="$NEWROOT" eselect python set python2.7

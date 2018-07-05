@@ -316,6 +316,9 @@ prepare_portage()
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
 
+    # Temporary, until openssl-1.1.0* is unmasked in Portage
+    local OPENSSL="1.1.0h-r2"
+
     local KEYWORDS="/etc/portage/package.keywords/tinylinux"
     mkdir -p /etc/portage/package.keywords
     mkdir -p /etc/portage/package.use
@@ -330,15 +333,24 @@ prepare_portage()
             echo "sys-apps/hwids ~*"
             echo "=sys-devel/patch-2.7.1-r3 ~*"
             echo "=sys-boot/gnu-efi-3.0u ~*"
-            echo "=dev-libs/openssl-1.1.0g ~*"
+            echo "=dev-libs/openssl-$OPENSSL ~*"
         ) > $KEYWORDS
     fi
-    echo "sys-fs/squashfs-tools xz" >> /etc/portage/package.use/tinylinux
     echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
-    echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
-    echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
+    echo "dev-lang/python threads xml ssl ncurses readline" >> /etc/portage/package.use/tinylinux
+    echo "dev-libs/openssl asm bindist tls-heartbeat zlib" >> /etc/portage/package.use/tinylinux
     echo "net-fs/autofs libtirpc" >> /etc/portage/package.use/tinylinux
-    echo "=dev-libs/openssl-1.1.0g" >> /etc/portage/package.unmask/tinylinux
+    echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
+    echo "sys-fs/squashfs-tools xz" >> /etc/portage/package.use/tinylinux
+    echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
+
+    # Mask all openssl versions older than 1.1.0f, until 1.1.0* is unmasked in Portage
+    echo "=dev-libs/openssl-$OPENSSL" >> /etc/portage/package.unmask/tinylinux
+    echo "<dev-libs/openssl-1.1.0f" >> /etc/portage/package.mask/tinylinux
+
+    # Fix ipmitool compilation issue with newer openssl-1.1.0*
+    echo "=sys-apps/ipmitool-1.8.18* ~*" >> $KEYWORDS
+    echo "<sys-apps/ipmitool-1.8.18" >> /etc/portage/package.mask/tinylinux
 
     # Fix for stage3 bug
     echo ">=sys-apps/util-linux-2.30.2-r1 static-libs" >> /etc/portage/package.use/tinylinux
@@ -354,7 +366,7 @@ prepare_portage()
             app-misc/ca-certificates-20170717.3.34
             cross-aarch64-unknown-linux-gnu/gcc-7.2.0
             dev-libs/libffi-3.2.1
-            dev-libs/openssl-1.1.0g
+            dev-libs/openssl-$OPENSSL
             dev-util/valgrind-3.13.0
             net-fs/autofs-5.1.2
             net-fs/nfs-utils-2.2.1
@@ -433,12 +445,22 @@ emerge_basic_packages()
         boldecho "Please complete installation manually"
         bash
     fi
+    # WAR for old openssl, temporary until openssl-1.1.0* is unmasked in Portage
+    emerge --oneshot --quiet openssl wget iputils
     local KERNELPKG=gentoo-sources
     [[ $RCKERNEL = 1 ]] && KERNELPKG=git-sources
-    if [[ -z $TEGRABUILD ]] && ! emerge --quiet $KERNELPKG syslinux grub; then
-        boldecho "Failed to emerge some packages"
-        boldecho "Please complete installation manually"
-        bash
+    if [[ -z $TEGRABUILD ]]; then
+        if ! emerge --quiet $KERNELPKG syslinux grub; then
+            boldecho "Failed to emerge some packages"
+            boldecho "Please complete installation manually"
+            bash
+        fi
+
+        if [[ $(readlink /usr/src/linux) =~ linux-4.17.* ]]; then
+            patch -p0 -d /usr/src/linux -i "$BUILDSCRIPTS/extra/kernel-xhci.patch" || die "Failed to apply kernel patch!"
+        else
+            die "Kernel newer than 4.17, remove or update the patch"
+        fi
     fi
 }
 
