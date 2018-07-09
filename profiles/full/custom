@@ -24,8 +24,8 @@ sed -i '/skip_defaults_vim/s/^/"/' "$NEWROOT"/etc/vim/vimrc
 install_package alsa-utils "ncurses libsamplerate"
 remove_gentoo_services alsasound
 install_package vbetool
+install_package net-nds/ypbind
 install_package net-fs/autofs "" "--nodeps"
-install_package net-nds/yp-tools
 install_package ipmitool "openipmi python"
 install_package ipmiutil
 install_package dmidecode

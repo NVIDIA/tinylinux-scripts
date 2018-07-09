@@ -373,7 +373,8 @@ prepare_portage()
             net-libs/libtirpc-1.0.2-r1
             net-nds/portmap-6.0
             net-nds/rpcbind-0.2.4-r1
-            net-nds/yp-tools-4.2.2-r1
+            net-nds/ypbind-2.5
+            net-nds/yp-tools-4.2.2-r2
             net-wireless/bluez-5.47-r1
             net-wireless/rfkill-0.5-r3
             sys-apps/util-linux-2.30.1 # Only to compile this glib dependency on host
@@ -423,6 +424,27 @@ prepare_portage()
         sed -i '/m4macros/a sed -i "/m4_copy.*glib_/s/m4_copy/m4_copy_force/" "${S}"/m4macros/glib-gettext.m4' "$EBUILD"
         ebuild "$EBUILD" digest
     fi
+
+    # Install ypbind ebuild
+    local SRC=ypbind-2.5.ebuild
+    local EBUILD=/usr/portage/net-nds/ypbind/$SRC
+    local PKG=ypbind-mt-2.5.tar.xz
+    if [[ ! -f $EBUILD ]]; then
+        boldecho "Adding $EBUILD"
+        mkdir -p /usr/portage/net-nds/ypbind
+        mkdir -p /usr/portage/distfiles
+        cp "$BUILDSCRIPTS/extra/$SRC" "$EBUILD"
+        cp "$BUILDSCRIPTS/extra/$PKG" /usr/portage/distfiles/
+        ebuild "$EBUILD" digest
+    fi
+
+    # Fix for gdb failure to cross-compile due to some bug in Gentoo
+    local EBUILD=/usr/portage/sys-devel/gdb/gdb-8.1-r1.ebuild
+    if ! grep -q workaround "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
+        ebuild "$EBUILD" digest
+    fi
 }
 
 run_interactive()
@@ -440,7 +462,7 @@ emerge_basic_packages()
 
     boldecho "Compiling basic host packages"
 
-    if ! emerge --quiet squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel bc less libtirpc rpcbind; then
+    if ! emerge --quiet squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel bc less libtirpc rpcbind rpcsvc-proto; then
         boldecho "Failed to emerge some packages"
         boldecho "Please complete installation manually"
         bash
@@ -609,8 +631,11 @@ compile_kernel()
 
 target_emerge()
 {
-    if [[ $TEGRABUILD ]]; then
-        ROOT="$NEWROOT" "$TEGRAABI-emerge" "$@"
+    if [[ $TEGRABUILD && $NEWROOT != / ]]; then
+        if [[ $4 != sys-libs/glibc && $NEWROOT != "/usr/$TEGRAABI" ]]; then
+            "$TEGRAABI-emerge" "$@"
+        fi
+        ROOT="$NEWROOT" SYSROOT="$NEWROOT" PORTAGE_CONFIGROOT="/usr/$TEGRAABI" "$TEGRAABI-emerge" "$@"
     else
         ROOT="$NEWROOT" emerge "$@"
     fi
@@ -625,17 +650,6 @@ list_package_files()
 {
     grep -v "^dir" "$NEWROOT"/var/db/pkg/$1-*/CONTENTS | \
         cut -f 2 -d ' ' | cut -c 1 --complement
-}
-
-propagate_ncurses()
-{
-    [[ $TEGRABUILD ]] || return 0
-
-    [[ -e /usr/$TEGRAABI/usr/include/curses.h ]] && return 0
-
-    ( cd "$NEWROOT" && list_package_files "sys-libs/ncurses" | \
-        grep "^usr/lib\|^lib\|^usr/include" | grep -v "terminfo" | \
-        xargs tar c | tar x -C "/usr/$TEGRAABI/" )
 }
 
 install_syslinux()
@@ -732,6 +746,29 @@ build_newroot()
         ln -s lib64 "$NEWROOT"/lib
     fi
 
+    # Newer Portage requires that the target root (our NEWROOT) is set to
+    # either / or SYSROOT.  We install all packages into SYSROOT first, which
+    # is crossdev's own root, then into NEWROOT.  Preserve original SYSROOT here.
+    # The purpose of installing packages into sysroot is to be able to build
+    # some packages which have build-time dependencies.
+    if [[ $TEGRABUILD ]]; then
+        local SAVED_TEGRA_SYSROOT="/usr/${TEGRAABI}.tar.xz"
+        if [[ -f $SAVED_TEGRA_SYSROOT ]]; then
+            echo "Preparing sysroot..."
+            [[ -d /usr/$TEGRAABI/packages ]] && mv "/usr/$TEGRAABI/packages" "/usr/${TEGRAABI}-packages"
+            rm -rf "/usr/$TEGRAABI"
+            tar xJf "$SAVED_TEGRA_SYSROOT" -C /usr
+            [[ -d /usr/${TEGRAABI}-packages ]] && mv "/usr/${TEGRAABI}-packages" "/usr/$TEGRAABI/packages"
+        else
+            echo "Saving sysroot..."
+            tar cJf "$SAVED_TEGRA_SYSROOT" -C /usr --exclude="$TEGRAABI/packages" "$TEGRAABI"
+        fi
+    fi
+
+    # Handle Gentoo news items
+    eselect news read > /dev/null
+    [[ -z $TEGRABUILD ]] || ROOT="/usr/$TEGRAABI" eselect news read
+
     # Install basic system packages
     install_package sys-libs/glibc
     rm -rf "$NEWROOT"/lib/gentoo # Remove Gentoo scripts
@@ -742,10 +779,9 @@ build_newroot()
         rm -rf "$NEWROOT/lib"
         ln -s lib64 "$NEWROOT/lib"
     fi
-    ROOT="$NEWROOT" eselect news read > /dev/null
+    ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read > /dev/null
     install_package ncurses
     install_package =sys-libs/ncurses-5.9*
-    propagate_ncurses
     install_package pciutils
     rm -f "$NEWROOT/usr/share/misc"/*.gz # Remove compressed version of hwids
     install_package busybox "make-symlinks mdev nfs savedconfig"
@@ -757,18 +793,10 @@ build_newroot()
     # Install more basic packages
     install_package nano
     install_package sys-libs/readline
-    if [[ $TEGRABUILD ]]; then
-        ( cd "$NEWROOT" && list_package_files "sys-libs/readline" | \
-            grep "^usr/lib\|^lib\|^usr/include" | \
-            xargs tar c | tar x -C "/usr/$TEGRAABI/" )
-    fi
     install_package bash "readline net"
     test -e "$NEWROOT/bin/bash" || ln -s $(ls "$NEWROOT"/bin/bash-* | head -n 1 | xargs basename) "$NEWROOT/bin/bash"
 
     # Install NFS utils
-    if [[ $TEGRABUILD ]]; then
-        NEWROOT="/usr/$TEGRAABI" install_package net-libs/libtirpc # Host dependency for rpcbind
-    fi
     install_package nfs-utils
     remove_gentoo_services nfs nfsmount rpcbind rpc.statd
 
@@ -1317,7 +1345,7 @@ make_tegra_image()
     # Package optional directories
     ( cd /tiny && tar_bz2 -cpf "$OUTDIR/debug.tar.bz2"    debug    )
     ( cd /tiny && tar_bz2 -cpf "$OUTDIR/valgrind.tar.bz2" valgrind )
-    ( cd "$NEWROOT" && tar_bz2 -cpf "$OUTDIR/lib.tar.bz2" $LIBDIR --exclude=mdev --exclude=firmware --exclude=modules --exclude=libnv*so )
+    ( cd "$NEWROOT" && tar_bz2 -cpf "$OUTDIR/lib.tar.bz2" --exclude=mdev --exclude=firmware --exclude=modules --exclude=libnv*so $LIBDIR )
 
     # Create initial ramdisk
     local INITRD

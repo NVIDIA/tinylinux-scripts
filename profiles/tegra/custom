@@ -3,12 +3,11 @@ sed -i "/^tty.*getty/d" "$NEWROOT"/etc/inittab
 sed -i "/getty/s/38400/115200/ ; /getty/s/tty1/ttyS0/ ; /getty/s/-n/-L -n/" "$NEWROOT"/etc/inittab
 
 # Additional packages
-NEWROOT="/usr/$TEGRAABI" install_package sys-libs/zlib # Host dependency for gdb
-install_package sys-devel/gdb "client server"
+install_package sys-devel/gdb "client server xml"
 install_package dev-util/valgrind
 install_package dev-util/strace "aio"
+install_package net-nds/ypbind
 install_package net-fs/autofs "" "--nodeps"
-install_package net-nds/yp-tools
 install_package net-dialup/lrzsz
 install_package net-libs/libpcap ipv6
 install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
