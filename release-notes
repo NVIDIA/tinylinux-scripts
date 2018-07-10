@@ -1,8 +1,18 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+18.07
+ * Updated kernel to 4.17.4
+ * Updated MODS kernel driver to 3.87
+ * Added Python 3.6 in full profile
+ * Removable devices are no longer mounted with sync option, require unmount
+ * Network service net now waits for eth device to appear
+ * Added more Python modules and pip
+ * Enabled debugfs
+ * Improved preserving service configuration across reboots
+-------------------------------------------------------------------------------
 18.02
  * Updated kernel to 4.15.4
- * Updated MODS kernel deriver to 3.81
+ * Updated MODS kernel driver to 3.81
  * Fixed UEFI boot issue in syslinux bootloader on some systems
 -------------------------------------------------------------------------------
 17.10
