@@ -80,7 +80,7 @@ while true; do
             FOUNDDEV="$NET"
             ifconfig "$NET" up || exec /bin/sh
             udhcpc -n -T 1 -t 60 -q -i "$NET" || exec /bin/sh
-            mount -t nfs -o nolock,rsize=1024,wsize=1024 "$NFSSHARE" "${ROOTFS}/${MNTNV}" || exec /bin/sh
+            mount -t nfs -o nolock "$NFSSHARE" "${ROOTFS}/${MNTNV}" || exec /bin/sh
         fi
     else
         [ -z "$PARTNUMBER" ] || P_PARTNUMBER="p$PARTNUMBER"
