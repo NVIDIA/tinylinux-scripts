@@ -17,6 +17,7 @@ if istegra64; then # glib fails to cross compile for armv7
     NEWROOT=/ install_package docbook-xml-dtd:4.4           # Host dependency for building dbus
     NEWROOT=/ install_package app-text/xmlto                # Host dependency for building dbus
     NEWROOT="/usr/$TEGRAABI" install_package dev-libs/glib  # Host dependency for bluez
+    "$TEGRAABI-emerge" --unmerge util-linux                 # Make room for rfkill (glib pulls util-linux)
     NEWROOT="/usr/$TEGRAABI" install_package sys-apps/dbus  # Host dependency for bluez
     install_package virtual/libffi                          # Dependency for glib
     install_package virtual/libiconv                        # Dependency for glib

@@ -317,7 +317,7 @@ prepare_portage()
     ) >> "$MAKECONF"
 
     # Temporary, until openssl-1.1.0* is unmasked in Portage
-    local OPENSSL="1.1.0h-r2"
+    local OPENSSL="1.1.0i"
 
     local KEYWORDS="/etc/portage/package.keywords/tinylinux"
     mkdir -p /etc/portage/package.keywords
@@ -348,6 +348,14 @@ prepare_portage()
     echo "=dev-libs/openssl-$OPENSSL" >> /etc/portage/package.unmask/tinylinux
     echo "<dev-libs/openssl-1.1.0f" >> /etc/portage/package.mask/tinylinux
 
+    # Fix openssl-1.1.0i ebuild
+    local EBUILD=/usr/portage/dev-libs/openssl/openssl-1.1.0i.ebuild
+    if [[ -f $EBUILD ]] && grep -q "FEDORA_PATCH=.*PATCH37" "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        sed -i '/FEDORA_PATCH=/ s: \$PATCH37::' "$EBUILD"
+        ebuild "$EBUILD" digest
+    fi
+
     # Fix ipmitool compilation issue with newer openssl-1.1.0*
     echo "=sys-apps/ipmitool-1.8.18* ~*" >> $KEYWORDS
     echo "<sys-apps/ipmitool-1.8.18" >> /etc/portage/package.mask/tinylinux
@@ -375,7 +383,7 @@ prepare_portage()
             net-nds/rpcbind-0.2.4-r1
             net-nds/ypbind-2.5
             net-nds/yp-tools-4.2.2-r2
-            net-wireless/bluez-5.47-r1
+            net-wireless/bluez-5.49-r1
             net-wireless/rfkill-0.5-r3
             sys-apps/util-linux-2.30.1 # Only to compile this glib dependency on host
             sys-devel/gdb-8.0
@@ -468,7 +476,7 @@ emerge_basic_packages()
         bash
     fi
     # WAR for old openssl, temporary until openssl-1.1.0* is unmasked in Portage
-    emerge --oneshot --quiet openssl wget iputils
+    emerge --oneshot --quiet openssl wget iputils curl
     local KERNELPKG=gentoo-sources
     [[ $RCKERNEL = 1 ]] && KERNELPKG=git-sources
     if [[ -z $TEGRABUILD ]]; then
