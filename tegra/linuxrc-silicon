@@ -1,6 +1,6 @@
 #!/tiny/busybox sh
 
-# Copyright (c) 2009-2016, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2018, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 SQUASHFS_BIN="tiny/squash.bin"
@@ -8,56 +8,111 @@ LOOP="dev/loop0"
 MNTSQUASH="mnt/squash"
 NEWROOT="/mnt/root"
 UUID="6cbfd9d7-fdea-487f-87fa-b521bfa4d71a"
+NET="eth0"
+NFSSHARE=""
+BB="/tiny/busybox"
+
+# Prevent kernel logs from being sent to the console
+$BB dmesg -n1
 
 # Display startup info
 echo "Booting TinyLinux"
 
 # Mount devfs and procfs
-/tiny/busybox mount -t devtmpfs none /dev
-/tiny/busybox mount -t proc none /proc
+$BB mount -t devtmpfs none /dev
+$BB mount -t proc none /proc
 
 # Take note of current time (kernel boot time)
-KERNEL_BOOT_TIME=$(/tiny/busybox awk '{print $1*1000}' /proc/uptime)
+KERNEL_BOOT_TIME=$($BB awk '{print $1*1000}' /proc/uptime)
 
-# Locate partition
+# Parse kernel command line
+for ARG in $($BB cat /proc/cmdline); do
+    case "$ARG" in
+        nfsshare\=*) NFSSHARE="${ARG#*=}" ;;
+        net\=*)      NET="${ARG#*=}" ;;
+    esac
+done
+
+# Create mount point for root partition
+$BB mkdir -p "$NEWROOT"
+
+# Load additional kernel modules
+if [ -f /etc/modules ]; then
+    for MODULE in $($BB grep -v "^ *#\|^ *$" /etc/modules); do
+        echo "Loading $MODULE"
+        $BB modprobe $MODULE
+    done
+fi
+
+# Mount sysfs for NFS boot
+if [ "$NFSSHARE" ]; then
+    $BB mkdir -p /sys
+    $BB mount -t sysfs none /sys
+fi
+
+# Locate and mount root partition
 find_partition()
 {
-    /tiny/busybox blkid | /tiny/busybox grep "$UUID" | /tiny/busybox cut -f 1 -d ':'
+    $BB blkid | $BB grep "$UUID" | $BB cut -f 1 -d ':'
 }
-PARTITION=`find_partition`
 RETRYCOUNT=0
-while ! test "$PARTITION"; do
-    [ $RETRYCOUNT -eq 0 ] && echo "Partition with root filesystem not found. Waiting..."
-    WAITTIME=$(($(/tiny/busybox awk '{print $1*1000}' /proc/uptime) - $KERNEL_BOOT_TIME))
-    if [ $WAITTIME -gt 10000 ]; then
-        echo "Partition with UUID $UUID not found!"
-        echo "Existing partitions:"
-        /tiny/busybox blkid
-        exec /tiny/busybox sh
+while true; do
+
+    if [ "$NFSSHARE" ]; then
+        if [ -e "/sys/class/net/$NET" ]; then
+            echo "Obtaining DHCP lease for $NET..."
+            $BB ifconfig "$NET" up || exec $BB /bin/sh
+            $BB udhcpc -n -T 1 -t 60 -q -i "$NET" || exec $BB /bin/sh
+            $BB sleep 1
+            if ! $BB ifconfig "$NET" | $BB grep -q "inet addr"; then
+                echo "Failed to obtain IP from DHCP on $NET!"
+                exec $BB sh
+            fi
+            $BB mount -t nfs -o nolock "$NFSSHARE" "$NEWROOT" || exec $BB /bin/sh
+            break
+        fi
+    else
+        PARTITION="$(find_partition)"
+        if [ "$PARTITION" ]; then
+            echo "Found partition: $PARTITION"
+            $BB mount -o rw,noatime "$PARTITION" "$NEWROOT"
+            break
+        fi
     fi
-    PARTITION=`find_partition`
+
+    if [ $RETRYCOUNT -eq 0 ]; then
+        [ "$NFSSHARE" ] && echo "Ethernet device $NET not found. Waiting..."
+        [ -z "$NFSSHARE" ] && echo "Partition with root filesystem not found. Waiting..."
+    fi
+    WAITTIME=$(($($BB awk '{print $1*1000}' /proc/uptime) - $KERNEL_BOOT_TIME))
+    if [ $WAITTIME -gt 10000 ]; then
+        if [ "$NFSSHARE" ]; then
+            echo "Ethernet device $NET not found!"
+        else
+            echo "Partition with UUID $UUID not found!"
+            echo "Existing partitions:"
+            $BB blkid
+        fi
+        exec $BB sh
+    fi
     RETRYCOUNT=$(($RETRYCOUNT+1))
 done
-echo "Found partition: $PARTITION"
 
-# Mount partition
-/tiny/busybox mkdir -p "$NEWROOT"
-/tiny/busybox mount -o rw,noatime "$PARTITION" "$NEWROOT"
-
-# Unmount devfs and procfs
-/tiny/busybox umount /dev /proc
+# Unmount devfs, procfs and sysfs
+[ -z "$NFSSHARE" ] || $BB umount /sys
+$BB umount /dev /proc
 
 # Setup loop device
-/tiny/busybox losetup "$NEWROOT/$LOOP" "$NEWROOT/$SQUASHFS_BIN" || exec /tiny/busybox sh
+$BB losetup "$NEWROOT/$LOOP" "$NEWROOT/$SQUASHFS_BIN" || exec $BB sh
 
 # Mount squashed filesystem
-/tiny/busybox mount -t squashfs -o ro "$NEWROOT/$LOOP" "$NEWROOT/$MNTSQUASH" || exec /tiny/busybox sh
+$BB mount -t squashfs -o ro "$NEWROOT/$LOOP" "$NEWROOT/$MNTSQUASH" || exec $BB sh
 
 # Store kernel boot time for reporting in /sbin/rc
 echo "$KERNEL_BOOT_TIME" > "$NEWROOT/var/log/kernel_boot_time"
 
 # Switch root to the non-volatile partition
-exec /tiny/busybox switch_root -c /dev/console "$NEWROOT" /sbin/init
+exec $BB switch_root -c /dev/console "$NEWROOT" /sbin/init
 
 # Fallback - enter shell
-exec /tiny/busybox sh
+exec $BB sh
