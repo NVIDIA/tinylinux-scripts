@@ -1,5 +1,8 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+18.07.2
+ * Added smartmontools, lm-sensors and rsync tools in full profile
+-------------------------------------------------------------------------------
 18.07.1
  * Removed rsize/wsize options from mount of root FS over NFS
 -------------------------------------------------------------------------------

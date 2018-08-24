@@ -65,6 +65,9 @@ install_package dev-perl/Net-SNMP
 install_package perl-cleaner "" "--unmerge"
 
 install_package net-misc/curl
+install_package net-misc/rsync
+install_package sys-apps/lm_sensors
+install_package sys-apps/smartmontools
 
 # Tidy up
 remove_gentoo_services pydoc-2.7 pydoc-3.6 ipmievd
