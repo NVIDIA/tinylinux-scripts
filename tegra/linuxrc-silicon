@@ -61,14 +61,23 @@ while true; do
     if [ "$NFSSHARE" ]; then
         if [ -e "/sys/class/net/$NET" ]; then
             echo "Obtaining DHCP lease for $NET..."
-            $BB ifconfig "$NET" up || exec $BB /bin/sh
-            $BB udhcpc -n -T 1 -t 60 -q -i "$NET" || exec $BB /bin/sh
-            $BB sleep 1
-            if ! $BB ifconfig "$NET" | $BB grep -q "inet addr"; then
+            $BB ifconfig "$NET" up || exec $BB sh
+            if ! $BB udhcpc -n -T 1 -t 60 -q -i "$NET" 2>&1 | $BB tee /dhcp.txt; then
                 echo "Failed to obtain IP from DHCP on $NET!"
                 exec $BB sh
             fi
-            $BB mount -t nfs -o nolock "$NFSSHARE" "$NEWROOT" || exec $BB /bin/sh
+            if ! $BB ifconfig "$NET" | $BB grep -q "inet addr"; then
+                # Workaround for certain Ethernet controllers
+                IP=$($BB awk '/ obtained/ {print $4}' < /dhcp.txt)
+                $BB ifconfig "$NET" up || exec $BB sh
+                $BB ifconfig "$NET" "$IP" || exec $BB sh
+                if ! $BB ifconfig "$NET" | $BB grep -q "inet addr"; then
+                    echo "Failed to obtain IP from DHCP on $NET!"
+                    exec $BB sh
+                fi
+            fi
+            $BB rm /dhcp.txt
+            $BB mount -t nfs -o nolock "$NFSSHARE" "$NEWROOT" || exec $BB sh
             break
         fi
     else
