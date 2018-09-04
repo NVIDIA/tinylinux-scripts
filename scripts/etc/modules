@@ -3,3 +3,7 @@
 
 ipmi_ssif
 mods
+i2c-dev
+typec
+typec_ucsi_common
+typec_ucsi_i2c

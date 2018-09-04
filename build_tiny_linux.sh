@@ -1035,6 +1035,15 @@ install_mods()
         compile_driver "$TMPMODS"/driver
         rm -rf "$TMPMODS"
 
+        # Install PPC driver
+        boldecho "Installing PPC drivers"
+        mkdir "$TMPMODS"
+        tar xzf "$BUILDSCRIPTS/mods/ppc.tgz" -C "$TMPMODS"
+        compile_driver "$TMPMODS"/drivers/i2c/busses
+        compile_driver "$TMPMODS"/drivers/usb/serial
+        compile_driver "$TMPMODS"/drivers/usb/typec
+        rm -rf "$TMPMODS"
+
         # Force regeneration of squashfs
         rm -f "$INSTALL/$SQUASHFS"
     fi
