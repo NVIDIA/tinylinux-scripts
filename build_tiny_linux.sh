@@ -485,12 +485,6 @@ emerge_basic_packages()
             boldecho "Please complete installation manually"
             bash
         fi
-
-        if [[ $(readlink /usr/src/linux) =~ linux-4.17.* ]]; then
-            patch -p0 -d /usr/src/linux -i "$BUILDSCRIPTS/extra/kernel-xhci.patch" || die "Failed to apply kernel patch!"
-        else
-            die "Kernel newer than 4.17, remove or update the patch"
-        fi
     fi
 }
 
