@@ -167,28 +167,28 @@ end_test
 #==============================================================================       
                                                                                       
 start_test "service start/stop"
-echo -n " mods"
-[[ $(tail -n 1 /etc/conf.d/boot) != "mods" ]] || fail_test "last in /etc/conf.d/boot"
-grep -q mods /var/rc/status/.order || fail_test "not started"
+echo -n " bash"
+[[ $(tail -n 1 /etc/conf.d/boot) != "bash" ]] || fail_test "last in /etc/conf.d/boot"
+grep -q bash /var/rc/status/.order || fail_test "not started"
 cp /var/rc/status/.order /tmp/order
-/etc/init.d/mods stop >/dev/null 2>&1
-/etc/init.d/mods start >/dev/null 2>&1
+/etc/init.d/bash stop >/dev/null 2>&1
+/etc/init.d/bash start >/dev/null 2>&1
 echo -n " /var/rc/status/.order"
-[[ $(tail -n 1 /var/rc/status/.order) = "mods" ]] || fail_test "incorrect order"
-[[ $(grep mods /var/rc/status/.order | wc -l) = 1 ]] || fail_test "not one occurrence"
+[[ $(tail -n 1 /var/rc/status/.order) = "bash" ]] || fail_test "incorrect order"
+[[ $(grep bash /var/rc/status/.order | wc -l) = 1 ]] || fail_test "not one occurrence"
 mv /tmp/order /var/rc/status/.order
 end_test
                                                                                
 #==============================================================================
 
 start_test "service restart"
-echo -n " mods"
-[[ $(tail -n 1 /etc/conf.d/boot) != "mods" ]] || fail_test "last in /etc/conf.d/boot"
-grep -q mods /var/rc/status/.order || fail_test "not started"
-/etc/init.d/mods restart >/dev/null 2>&1
+echo -n " bash"
+[[ $(tail -n 1 /etc/conf.d/boot) != "bash" ]] || fail_test "last in /etc/conf.d/boot"
+grep -q bash /var/rc/status/.order || fail_test "not started"
+/etc/init.d/bash restart >/dev/null 2>&1
 echo -n " /var/rc/status/.order"
 diff -q /etc/conf.d/boot /var/rc/status/.order >/dev/null 2>&1 || fail_test "incorrect order"
-[[ $(grep mods /var/rc/status/.order | wc -l) = 1 ]] || fail_test "not one occurrence"
+[[ $(grep bash /var/rc/status/.order | wc -l) = 1 ]] || fail_test "not one occurrence"
 end_test
 
 #==============================================================================
