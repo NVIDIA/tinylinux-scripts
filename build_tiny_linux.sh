@@ -1363,7 +1363,7 @@ make_tegra_image()
     chmod 660 "$INITRD/dev/null"
     chmod 660 "$INITRD/dev/console"
     mkdir "$INITRD/etc"
-    touch "$INITRD/etc/mtab"
+    ln -s /proc/mounts "$INITRD/etc/mtab"
     ( cd "$INITRD" && find . | cpio --create --format=newc ) > "$OUTDIR/initrd"
     rm -rf "$INITRD"
     unset INITRD
