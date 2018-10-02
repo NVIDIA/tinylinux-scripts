@@ -399,4 +399,21 @@ fi
 
 #==============================================================================
 
+start_test "shared libraries"
+MISSING_LIBS=0
+for DIR in /bin /sbin /usr/bin /usr/sbin; do
+    for FILE in $(find $DIR -type f); do
+        if test -x "$FILE"; then
+            if ldd "$FILE" | grep -q "not found"; then
+                echo -n " $FILE"
+                MISSING_LIBS=1
+            fi
+        fi
+    done
+done
+[[ $MISSING_LIBS = 0 ]] || fail_test "ldd failed"
+end_test
+
+#==============================================================================
+
 exit $EXITCODE
