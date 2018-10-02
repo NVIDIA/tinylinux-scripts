@@ -312,7 +312,7 @@ prepare_portage()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo 'PORTAGE_NICENESS="15"'
-        echo 'USE="-* ipv6 syslog python_targets_python2_7 python_targets_python3_6"'
+        echo 'USE="-* ipv6 syslog unicode python_targets_python2_7 python_targets_python3_6"'
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
 
@@ -530,7 +530,7 @@ install_tegra_toolchain()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo "PORTAGE_NICENESS=\"15\""
-        echo "USE=\"-* ipv6 syslog \${ARCH}\""
+        echo "USE=\"-* ipv6 syslog unicode \${ARCH}\""
     ) >> "$CFGROOT/$MAKECONF"
     for FILE in package.use package.keywords package.mask package.unmask package.accept_keywords savedconfig; do
         rm -f "$PORTAGECFG/$FILE"
@@ -1189,6 +1189,7 @@ make_squashfs()
 	usr/share/i18n
 	usr/share/locale/*
 	usr/share/man
+	usr/share/X11
 	var
 	EOF
     find "$NEWROOT"/usr/include/ -mindepth 1 -maxdepth 1 | sed "s/^\/newroot\/// ; /^usr\/include\/python/d" >> /tmp/excludelist
