@@ -1,5 +1,12 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+18.10
+ * Updated kernel to 4.18.11
+ * Moved loading of mods module to /etc/modules
+ * Fixed gdb loading issue
+ * Enabled USB camera drivers in the kernel
+ * Added USB PPC driver 1.0.5
+ * Added zip and screen in full profile
  * Added support for NFS boot in tegra profile
 -------------------------------------------------------------------------------
 18.07.2
