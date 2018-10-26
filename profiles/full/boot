@@ -1,9 +1,10 @@
 modules
 mount
 syslogd
+acpid
 hostname
-net.lo
 bash
+net.lo
 net
 alsa
 commands

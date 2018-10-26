@@ -859,9 +859,9 @@ build_newroot()
         mkdir -p `dirname "$NEWROOT/$FILE"`
         cp -P "$SRC" "$DEST"
         if [[ ! -h $DEST ]]; then
-            if [[ ${FILE:2:11} = etc/init.d/ ]]; then
+            if [[ ${FILE:2:11} = etc/init.d/ || $FILE =~ etc/acpi/actions ]]; then
                 chmod 755 "$DEST"
-            elif [[ ${FILE:2:4} = etc/ ]]; then
+            elif [[ ${FILE:2:4} = etc/ || $FILE =~ usr/share ]]; then
                 chmod 644 "$DEST"
             else
                 chmod 755 "$DEST"

@@ -36,6 +36,7 @@ install_package smartmontools
 install_package p7zip
 install_package zip
 install_package app-misc/screen
+install_package acpid
 
 # Python modules
 install_package dev-python/aniso8601

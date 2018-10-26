@@ -1,0 +1,16 @@
+#!/sbin/rc
+
+# Copyright (c) 2009-2018, NVIDIA CORPORATION.  All rights reserved.
+# See /etc/LICENSE file for details.
+
+DAEMON="/usr/sbin/acpid"
+
+start()
+{
+    "$DAEMON" $ACPID_ARGS
+}
+
+stop()
+{
+    start-stop-daemon --stop --oknodo --exec "$DAEMON"
+}
