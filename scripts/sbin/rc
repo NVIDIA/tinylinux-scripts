@@ -147,6 +147,33 @@ __make_conf_symlinks()
     done
 }
 
+# Print services in boot order
+__get_boot_services()
+{
+    local CMDLINE
+    local BOOT_ORDER
+    local FILE
+
+    BOOT_ORDER="/etc/conf.d/boot"
+
+    CMDLINE="$(cat /proc/cmdline)"
+    if echo "$CMDLINE" | grep -q "boot_order="; then
+        FILE="$(echo "$CMDLINE" | sed "s/.*boot_order=// ; s/ .*//")"
+        if [ ! -f "/etc/conf.d/$FILE" -a -f "$TINYLINUXDIR/conf/$FILE" ]; then
+            echo "Linking $TINYLINUXDIR/conf/$FILE to /etc/conf.d/$FILE" >&2
+            ln -s "$TINYLINUXDIR/conf/$FILE" "/etc/conf.d/$FILE"
+        fi
+        if [ -e "/etc/conf.d/$FILE" ]; then
+            BOOT_ORDER="/etc/conf.d/$FILE"
+            echo "Using boot order override: $BOOT_ORDER" >&2
+        else
+            echo "Boot order override /etc/conf.d/$FILE not found, using $BOOT_ORDER" >&2
+        fi
+    fi
+
+    cat "$BOOT_ORDER"
+}
+
 # Find TinyLinux configuration files
 if [ -d "`/bin/tinydir`" ]; then
     TINYLINUXDIR="`/bin/tinydir`"
@@ -339,7 +366,7 @@ elif [ "$1" = "boot" ]; then
     grep -q debugfs /proc/filesystems && [ -d /sys/kernel/debug ] && mount -t debugfs none /sys/kernel/debug
 
     # Start boot services
-    cat "/etc/conf.d/boot" | while read __SVCNAME; do
+    __get_boot_services | while read __SVCNAME; do
         if [ -f "/etc/init.d/$__SVCNAME" ]; then
             "/etc/init.d/$__SVCNAME" silentstart
         else
