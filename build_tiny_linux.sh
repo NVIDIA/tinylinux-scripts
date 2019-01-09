@@ -350,9 +350,9 @@ prepare_portage()
 
     # Fix openssl-1.1.0i ebuild
     local EBUILD=/usr/portage/dev-libs/openssl/openssl-1.1.0i.ebuild
-    if [[ -f $EBUILD ]] && grep -q "FEDORA_PATCH=.*PATCH37" "$EBUILD"; then
-        boldecho "Patching $EBUILD"
-        sed -i '/FEDORA_PATCH=/ s: \$PATCH37::' "$EBUILD"
+    if [[ ! -f $EBUILD ]]; then
+        boldecho "Adding $EBUILD"
+        cp "$BUILDSCRIPTS"/extra/openssl-1.1.0i.ebuild /usr/portage/dev-libs/openssl/
         ebuild "$EBUILD" digest
     fi
 
@@ -371,13 +371,11 @@ prepare_portage()
         mkdir -p /etc/portage/package.accept_keywords
         local ACCEPT_PKGS
         ACCEPT_PKGS=(
-            app-misc/ca-certificates-20170717.3.34
-            cross-aarch64-unknown-linux-gnu/gcc-7.2.0
             dev-libs/libffi-3.2.1
             dev-libs/openssl-$OPENSSL
-            dev-util/valgrind-3.13.0
+            dev-util/valgrind-3.14.0
+            net-dns/libidn2-2.0.5
             net-fs/autofs-5.1.2
-            net-fs/nfs-utils-2.2.1
             net-libs/libtirpc-1.0.2-r1
             net-nds/portmap-6.0
             net-nds/rpcbind-0.2.4-r1
@@ -386,7 +384,8 @@ prepare_portage()
             net-wireless/bluez-5.49-r1
             net-wireless/rfkill-0.5-r3
             sys-apps/util-linux-2.30.1 # Only to compile this glib dependency on host
-            sys-devel/gdb-8.0
+            sys-auth/libnss-nis-1.4
+            sys-libs/glibc-2.28-r3
             )
         local PKG
         for PKG in ${ACCEPT_PKGS[*]}; do
@@ -397,7 +396,7 @@ prepare_portage()
         echo "cross-aarch64-unknown-linux-gnu/glibc rpc" >> /etc/portage/package.use/tegra
 
         # Stick to the kernel we're officially using
-        local KERNELVER="4.4"
+        local KERNELVER="4.9"
         echo ">cross-aarch64-unknown-linux-gnu/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
         echo ">cross-armv7a-softfp-linux-gnueabi/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
     fi
@@ -551,6 +550,8 @@ install_tegra_toolchain()
 
     # Fix lib directory (make a symlink to lib64)
     if istegra64 && [[ `ls "$CFGROOT/usr/lib" | wc -l` = 0 ]]; then
+        [[ ! -h "$CFGROOT/usr/lib/ld-linux-aarch64.so.1" ]] || rm -f "$CFGROOT/usr/lib/ld-linux-aarch64.so.1"
+        rm -f "$CFGROOT/usr/lib"/.keep*
         rmdir "$CFGROOT/usr/lib"
         ln -s lib64 "$CFGROOT/usr/lib"
     fi
@@ -773,6 +774,7 @@ build_newroot()
 
     # Install basic system packages
     install_package sys-libs/glibc
+    install_package sys-auth/libnss-nis
     rm -rf "$NEWROOT"/lib/gentoo # Remove Gentoo scripts
     if istegra64 || [[ -z $TEGRABUILD ]]; then
         rm -rf "$NEWROOT"/lib32 # Remove 32-bit glibc in 64-bit builds
