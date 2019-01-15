@@ -1,6 +1,14 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+19.02
+ * Updated kernel to 4.20.6
+ * Updated MODS kernel driver to 3.91
+ * Enabled pcspkr driver in the kernel
+ * Enabled i915 driver in the kernel
  * Added support for boot order override
+ * Added acpid in full profile
+ * Removed Python 2.7 from full profile
+ * Added temporary full27 profile with Python 2.7
 -------------------------------------------------------------------------------
 18.10
  * Updated kernel to 4.18.11
