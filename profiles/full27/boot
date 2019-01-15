@@ -1,0 +1,10 @@
+modules
+mount
+syslogd
+acpid
+hostname
+bash
+net.lo
+net
+alsa
+commands

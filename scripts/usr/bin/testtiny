@@ -64,7 +64,7 @@ end_test
 start_test "profile"
 PROFILE=$(head -n 2 /etc/release | tail -n 1 | grep Profile | sed "s/^Profile //")
 echo -n " $PROFILE"
-[[ $PROFILE = full ]] || fail_test "unexpected"
+[[ $PROFILE = full || $PROFILE = full27 ]] || fail_test "unexpected"
 end_test
 
 #==============================================================================
@@ -259,16 +259,51 @@ if [[ $PROFILE = full ]]; then
     start_test "python"
     rm -f output.txt
 
-    python -c "print 'Hello, World!'" > output.txt 2>&1 | true
+    python -c "print('Hello, World!')" > output.txt 2>&1 | true
     check_exit_code ${PIPESTATUS[0]}
     OUTPUT=$(cat output.txt)
-    echo -n " \"$OUTPUT\""
+    echo -n " output: \"$OUTPUT\""
     [[ $OUTPUT = "Hello, World!" ]] || fail_test "incorrect"
 
     python3 -c "print('Hello, World!')" > output.txt 2>&1 | true
     check_exit_code ${PIPESTATUS[0]}
     OUTPUT=$(cat output.txt)
     echo -n " output: \"$OUTPUT\""
+    [[ $OUTPUT = "Hello, World!" ]] || fail_test "incorrect"
+
+    python --version > output.txt 2>&1 | true
+    check_exit_code ${PIPESTATUS[0]}
+    OUTPUT=$(cat output.txt)
+    echo -n " ${OUTPUT#Python }"
+    [[ $OUTPUT =~ ^Python.3.6 ]] || fail_test "incorrect"
+
+    python3 --version > output.txt 2>&1 | true
+    check_exit_code ${PIPESTATUS[0]}
+    OUTPUT=$(cat output.txt)
+    echo -n " ${OUTPUT#Python }"
+    [[ $OUTPUT =~ ^Python.3.6 ]] || fail_test "incorrect"
+
+    python3 -c "import xml" > output.txt 2>&1 | true
+    check_exit_code ${PIPESTATUS[0]}
+    OUTPUT=$(cat output.txt)
+    [[ $OUTPUT = "" ]] || fail_test "error"
+
+    python3 -c "import zipfile" > output.txt 2>&1 | true
+    check_exit_code ${PIPESTATUS[0]}
+    OUTPUT=$(cat output.txt)
+    [[ $OUTPUT = "" ]] || fail_test "error"
+
+    end_test
+fi
+
+if [[ $PROFILE = full27 ]]; then
+    start_test "python"
+    rm -f output.txt
+
+    python -c "print 'Hello, World!'" > output.txt 2>&1 | true
+    check_exit_code ${PIPESTATUS[0]}
+    OUTPUT=$(cat output.txt)
+    echo -n " \"$OUTPUT\""
     [[ $OUTPUT = "Hello, World!" ]] || fail_test "incorrect"
 
     python --version > output.txt 2>&1 | true
@@ -283,30 +318,14 @@ if [[ $PROFILE = full ]]; then
     echo -n " ${OUTPUT#Python }"
     [[ $OUTPUT =~ ^Python.2.7 ]] || fail_test "incorrect"
 
-    python3 --version > output.txt 2>&1 | true
-    check_exit_code ${PIPESTATUS[0]}
-    OUTPUT=$(cat output.txt)
-    echo -n " ${OUTPUT#Python }"
-    [[ $OUTPUT =~ ^Python.3.6 ]] || fail_test "incorrect"
-
     echo -n " xml"
     python2 -c "import xml" > output.txt 2>&1 | true
     check_exit_code ${PIPESTATUS[0]}
     OUTPUT=$(cat output.txt)
     [[ $OUTPUT = "" ]] || fail_test "error"
 
-    python3 -c "import xml" > output.txt 2>&1 | true
-    check_exit_code ${PIPESTATUS[0]}
-    OUTPUT=$(cat output.txt)
-    [[ $OUTPUT = "" ]] || fail_test "error"
-
     echo -n " zipfile"
     python2 -c "import zipfile" > output.txt 2>&1 | true
-    check_exit_code ${PIPESTATUS[0]}
-    OUTPUT=$(cat output.txt)
-    [[ $OUTPUT = "" ]] || fail_test "error"
-
-    python3 -c "import zipfile" > output.txt 2>&1 | true
     check_exit_code ${PIPESTATUS[0]}
     OUTPUT=$(cat output.txt)
     [[ $OUTPUT = "" ]] || fail_test "error"

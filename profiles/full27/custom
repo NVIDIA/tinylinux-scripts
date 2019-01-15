@@ -3,10 +3,10 @@ install_into tiny/conf boot
 install_package dev-libs/openssl
 
 install_package expat
-install_package =python-3.6* "" "--nodeps"
+install_package =python-2.7* "" "--nodeps"
 rm -rf "$NEWROOT"/usr/lib64/python*/test
 install_package dev-lang/python-exec
-ROOT="$NEWROOT" eselect python set python3.6
+ROOT="$NEWROOT" eselect python set python2.7
 
 USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads
 install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn pulls too much
@@ -47,12 +47,12 @@ install_package dev-python/click
 install_package dev-python/flask
 install_package dev-python/flask-babel
 install_package dev-python/flask-restful
+install_package dev-python/futures
 install_package dev-python/idna
 install_package dev-python/pip
 install_package dev-python/pyopenssl
 install_package dev-python/PySocks
 install_package dev-python/requests
-install_package dev-python/ruamel-yaml
 
 # PERL modules
 mkdir -p /etc/portage/package.unmask
@@ -73,5 +73,5 @@ install_package perl-cleaner "" "--unmerge"
 remove_gentoo_services pydoc-2.7 pydoc-3.6 ipmievd fancontrol lm_sensors rsyncd
 [[ -f "$NEWROOT/usr/bin/python-wrapper" ]] || (
     cd "$NEWROOT/usr/bin"
-    ln -s python3 python-wrapper
+    ln -s python2 python-wrapper
 )

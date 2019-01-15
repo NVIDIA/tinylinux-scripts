@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2009-2017, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See LICENSE file for details.
 
 set -e
@@ -204,8 +204,6 @@ tar_bz2()
 
 unpack_packages()
 {
-    local SCRIPTSDIR
-
     # Don't do anything if we are inside the host tree already
     [[ -d ./$BUILDSCRIPTS ]] && return 0
 
@@ -230,30 +228,36 @@ unpack_packages()
 
 copy_scripts()
 {
+    local SCRIPTSDIR="$(cd -P $(dirname "$0") && pwd)"
+
     # Don't do anything if we are inside the host tree already
     [[ -d ./$BUILDSCRIPTS ]] && return 0
 
+    # Don't do anything if we are running the copy of build scripts already
+    local DESTDIR="$BUILDROOT/$BUILDSCRIPTS"
+    [[ -d $DESTDIR ]] && DESTDIR="$(cd -P "$DESTDIR" && pwd)"
+    [[ $DESTDIR = $SCRIPTSDIR ]] && return 0
+
     # Delete stale build scripts
-    rm -rf "$BUILDROOT/$BUILDSCRIPTS"
+    rm -rf "$DESTDIR"
 
     boldecho "Copying scripts to build environment"
 
     # Check access to the scripts
-    SCRIPTSDIR=`dirname $0`
     [[ -f $SCRIPTSDIR/scripts/etc/inittab ]] || die "TinyLinux scripts are not available"
     [[ -d $SCRIPTSDIR/profiles/$PROFILE   ]] || die "Selected profile $PROFILE is not available"
 
     # Copy TinyLinux scripts
-    mkdir -p "$BUILDROOT/$BUILDSCRIPTS"
-    find "$SCRIPTSDIR"/ -maxdepth 1 -type f -exec cp '{}' "$BUILDROOT/$BUILDSCRIPTS" \;
-    cp -r "$SCRIPTSDIR"/profiles "$BUILDROOT/$BUILDSCRIPTS"
-    cp -r "$SCRIPTSDIR"/mods     "$BUILDROOT/$BUILDSCRIPTS"
-    cp -r "$SCRIPTSDIR"/scripts  "$BUILDROOT/$BUILDSCRIPTS"
-    cp -r "$SCRIPTSDIR"/extra    "$BUILDROOT/$BUILDSCRIPTS"
-    [[ -z $TEGRABUILD ]] || cp -r "$SCRIPTSDIR"/tegra "$BUILDROOT/$BUILDSCRIPTS"
+    mkdir -p "$DESTDIR"
+    find "$SCRIPTSDIR"/ -maxdepth 1 -type f -exec cp '{}' "$DESTDIR" \;
+    cp -r "$SCRIPTSDIR"/profiles "$DESTDIR"
+    cp -r "$SCRIPTSDIR"/mods     "$DESTDIR"
+    cp -r "$SCRIPTSDIR"/scripts  "$DESTDIR"
+    cp -r "$SCRIPTSDIR"/extra    "$DESTDIR"
+    [[ -z $TEGRABUILD ]] || cp -r "$SCRIPTSDIR"/tegra "$DESTDIR"
 
     # Update TinyLinux version printed on boot
-    sed -i "/VERSION=/s/TINYLINUX_VERSION/$VERSION/" "$BUILDROOT/$BUILDSCRIPTS/linuxrc"
+    sed -i "/VERSION=/s/TINYLINUX_VERSION/$VERSION/" "$DESTDIR/linuxrc"
 }
 
 exit_chroot()
@@ -272,7 +276,10 @@ run_in_chroot()
 
     boldecho "Entering build environment"
 
-    cp "$0" "$BUILDROOT/$BUILDSCRIPTS"/
+    local SRCDIR="$(cd -P "$(dirname "$0")" && pwd)"
+    local DESTDIR="$(cd -P "$BUILDROOT/$BUILDSCRIPTS" && pwd)"
+    [[ $SRCDIR = $DESTDIR ]] || cp "$0" "$DESTDIR"/
+
     cp /etc/resolv.conf "$BUILDROOT/etc"/
     mount -t proc none "$BUILDROOT/proc"
     trap exit_chroot EXIT
@@ -312,12 +319,18 @@ prepare_portage()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo 'PORTAGE_NICENESS="15"'
-        echo 'USE="-* ipv6 syslog unicode python_targets_python2_7 python_targets_python3_6"'
+        echo 'USE="-* ipv6 syslog unicode python_targets_python3_6"'
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
 
+    [[ $PROFILE = full27 ]] && sed -i "s/python3_6/python2_7/" "$MAKECONF"
+
     # Temporary, until openssl-1.1.0* is unmasked in Portage
-    local OPENSSL="1.1.0i"
+    if [[ $TEGRABUILD ]]; then
+        local OPENSSL="1.1.0i"
+    else
+        local OPENSSL="1.1.0j"
+    fi
 
     local KEYWORDS="/etc/portage/package.keywords/tinylinux"
     mkdir -p /etc/portage/package.keywords
@@ -334,6 +347,7 @@ prepare_portage()
             echo "=sys-devel/patch-2.7.1-r3 ~*"
             echo "=sys-boot/gnu-efi-3.0u ~*"
             echo "=dev-libs/openssl-$OPENSSL ~*"
+            echo "=sys-auth/libnss-nis-1.4 ~*"
         ) > $KEYWORDS
     fi
     echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
