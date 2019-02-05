@@ -299,7 +299,9 @@ elif [ "$1" = "disable" ]; then
         /etc/init.d/$1 stop
 
         # Remove service from boot list
-        sed -i "/^$1$/d" /etc/conf.d/boot
+        BOOT_ORDER="/etc/conf.d/boot"
+        [ ! -L "$BOOT_ORDER" ] || BOOT_ORDER="$(readlink $BOOT_ORDER)"
+        sed -i "/^$1$/d" "$BOOT_ORDER"
 
         # Next service
         shift
