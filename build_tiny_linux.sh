@@ -498,6 +498,13 @@ emerge_basic_packages()
             boldecho "Please complete installation manually"
             bash
         fi
+
+        # WAR for failure when loading drm module
+        # The kernel wants to load 8KB for the drm module from the reserved
+        # per-CPU chunk while the size of that chunk also defaults to 8KB,
+        # but for some reason the block is not page-aligned.  Bump default
+        # size of reserved chunk to to 16KB.
+        sed -i '/^#define PERCPU_MODULE_RESERVE\>.*\<8\>/s/8/16/' /usr/src/linux/include/linux/percpu.h
     fi
 }
 
