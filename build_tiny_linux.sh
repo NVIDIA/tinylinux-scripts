@@ -323,8 +323,6 @@ prepare_portage()
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
 
-    [[ $PROFILE = full27 ]] && sed -i "s/python3_6/python2_7/" "$MAKECONF"
-
     # Temporary, until openssl-1.1.0* is unmasked in Portage
     if [[ $TEGRABUILD ]]; then
         local OPENSSL="1.1.0i"
