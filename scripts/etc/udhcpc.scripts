@@ -1,0 +1,34 @@
+#!/bin/sh
+
+[ -z "$1" ] && echo "Error: should be called from udhcpc" && exit 1
+
+case ${1} in
+    renew|bound)
+        [ -n "$broadcast" ] && BROADCAST="broadcast $broadcast"
+        [ -n "$subnet" ] && NETMASK="netmask $subnet"
+        [ -n "$rootpath" ] && echo "$rootpath" > /rootpath
+        [ -n "$hostname" ] && hostname ${hostname}
+
+        busybox ifconfig $interface $ip $BROADCAST $NETMASK
+        if [ -n "${router}" ]; then
+            while route del default gw 0.0.0.0 dev $interface; do
+                :
+            done
+
+            for i in ${router}; do
+                busybox route add default gw ${i}
+            done
+        fi
+        echo -n > /etc/resolv.conf
+        [ -n "$domain" ] && echo "domain ${domain}" >> /etc/resolv.conf
+        [ -n "$search" ] && echo "search ${search}" >> /etc/resolv.conf
+        if [ -n "${dns}" ]; then
+            for i in ${dns}; do
+                echo "nameserver ${i}" >> /etc/resolv.conf
+            done
+        fi
+    ;;
+    deconfig)
+        busybox ifconfig $interface 0.0.0.0
+    ;;
+esac

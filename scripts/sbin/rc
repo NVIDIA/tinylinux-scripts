@@ -360,6 +360,7 @@ elif [ "$1" = "boot" ]; then
     echo "$TINYLINUXDIR" | grep -q "/mnt/nv" && mkdir -p "$TINYLINUXDIR/conf"
 
     # Symlink configuration files
+    __make_conf_symlinks /etc/autofs
     __make_conf_symlinks /etc/conf.d
     __make_conf_symlinks /etc/bash
     __make_conf_symlinks /etc

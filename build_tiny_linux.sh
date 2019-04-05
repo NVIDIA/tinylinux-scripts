@@ -319,16 +319,9 @@ prepare_portage()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo 'PORTAGE_NICENESS="15"'
-        echo 'USE="-* ipv6 syslog unicode python_targets_python3_6"'
+        echo 'USE="-* ipv6 syslog unicode python_targets_python3_6 python_single_target_python3_6"'
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
-
-    # Temporary, until openssl-1.1.0* is unmasked in Portage
-    if [[ $TEGRABUILD ]]; then
-        local OPENSSL="1.1.0i"
-    else
-        local OPENSSL="1.1.0j"
-    fi
 
     local KEYWORDS="/etc/portage/package.keywords/tinylinux"
     mkdir -p /etc/portage/package.keywords
@@ -344,7 +337,6 @@ prepare_portage()
             echo "sys-apps/hwids ~*"
             echo "=sys-devel/patch-2.7.1-r3 ~*"
             echo "=sys-boot/gnu-efi-3.0u ~*"
-            echo "=dev-libs/openssl-$OPENSSL ~*"
             echo "=sys-auth/libnss-nis-1.4 ~*"
         ) > $KEYWORDS
     fi
@@ -355,22 +347,6 @@ prepare_portage()
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
     echo "sys-fs/squashfs-tools xz" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
-
-    # Mask all openssl versions older than 1.1.0f, until 1.1.0* is unmasked in Portage
-    echo "=dev-libs/openssl-$OPENSSL" >> /etc/portage/package.unmask/tinylinux
-    echo "<dev-libs/openssl-1.1.0f" >> /etc/portage/package.mask/tinylinux
-
-    # Fix openssl-1.1.0i ebuild
-    local EBUILD=/usr/portage/dev-libs/openssl/openssl-1.1.0i.ebuild
-    if [[ ! -f $EBUILD ]]; then
-        boldecho "Adding $EBUILD"
-        cp "$BUILDSCRIPTS"/extra/openssl-1.1.0i.ebuild /usr/portage/dev-libs/openssl/
-        ebuild "$EBUILD" digest
-    fi
-
-    # Fix ipmitool compilation issue with newer openssl-1.1.0*
-    echo "=sys-apps/ipmitool-1.8.18* ~*" >> $KEYWORDS
-    echo "<sys-apps/ipmitool-1.8.18" >> /etc/portage/package.mask/tinylinux
 
     # Fix for stage3 bug
     echo ">=sys-apps/util-linux-2.30.2-r1 static-libs" >> /etc/portage/package.use/tinylinux
@@ -384,7 +360,6 @@ prepare_portage()
         local ACCEPT_PKGS
         ACCEPT_PKGS=(
             dev-libs/libffi-3.2.1
-            dev-libs/openssl-$OPENSSL
             dev-util/valgrind-3.14.0
             net-dns/libidn2-2.0.5
             net-fs/autofs-5.1.2
@@ -486,8 +461,6 @@ emerge_basic_packages()
         boldecho "Please complete installation manually"
         bash
     fi
-    # WAR for old openssl, temporary until openssl-1.1.0* is unmasked in Portage
-    emerge --oneshot --quiet openssl wget iputils curl
     local KERNELPKG=gentoo-sources
     [[ $RCKERNEL = 1 ]] && KERNELPKG=git-sources
     if [[ -z $TEGRABUILD ]]; then
@@ -733,8 +706,8 @@ build_newroot()
         istegra64 || sed -e "s/^CHOST=.*/CHOST=$TEGRAABI/ ; /^CFLAGS=/s/\"$/ -mcpu=cortex-a9 -mfpu=vfpv3-d16 -mfloat-abi=softfp\"/" <"$MAKECONF"  >"${NEWROOT}${MAKECONF}"
     fi
 
-    # Create symlink to lib64 on Tegra
-    if istegra64; then
+    # Create symlink to lib64
+    if [[ -z $TEGRABUILD ]] || istegra64; then
         mkdir -p "$NEWROOT/usr/lib64"
         ln -s lib64 "$NEWROOT/usr/lib"
     fi
@@ -861,15 +834,18 @@ build_newroot()
     # Update ns switch
     sed -i "s/compat/db files nis/" "$NEWROOT/etc/nsswitch.conf"
 
+    # Add empty yp.conf so it can be overriden by the user in tiny/conf
+    touch "$NEWROOT"/etc/yp.conf
+
     # Remove unneeded scripts
     remove_gentoo_services autofs dropbear fuse mdev nfsclient nscd pciparm ypbind
     rm -f "$NEWROOT/etc"/{init.d,conf.d}/busybox-*
     rm -rf "$NEWROOT/etc/systemd"
 
     # Build setdomainname tool
-    if [[ $TEGRABUILD ]]; then
-        "$TEGRAABI-gcc" -o "$NEWROOT/usr/sbin/setdomainname" "$BUILDSCRIPTS/extra/setdomainname.c"
-    fi
+    local GCC=gcc
+    [[ $TEGRABUILD ]] && GCC="$TEGRAABI-gcc"
+    "$GCC" -o "$NEWROOT/usr/sbin/setdomainname" "$BUILDSCRIPTS/extra/setdomainname.c"
 
     # Copy TinyLinux scripts
     ( cd "$BUILDSCRIPTS/scripts" && find ./ ! -type d ) | while read FILE; do
@@ -880,7 +856,7 @@ build_newroot()
         mkdir -p `dirname "$NEWROOT/$FILE"`
         cp -P "$SRC" "$DEST"
         if [[ ! -h $DEST ]]; then
-            if [[ ${FILE:2:11} = etc/init.d/ || $FILE =~ etc/acpi/actions ]]; then
+            if [[ ${FILE:2:11} = etc/init.d/ || $FILE =~ etc/acpi/actions || $FILE =~ etc/udhcpc.scripts ]]; then
                 chmod 755 "$DEST"
             elif [[ ${FILE:2:4} = etc/ || $FILE =~ usr/share ]]; then
                 chmod 644 "$DEST"
@@ -912,10 +888,6 @@ build_newroot()
     # Copy /etc/services
     [[ -f $NEWROOT/etc/services ]] || cp /etc/services "$NEWROOT"/etc/
     
-    # Install udhcpc scripts
-    cp /usr/share/genkernel/defaults/udhcpc.scripts "$NEWROOT/etc"/
-    chmod a+x "$NEWROOT/etc/udhcpc.scripts"
-
     # Create hosts file
     echo "127.0.0.1   tinylinux localhost" > "$NEWROOT/etc/hosts"
     echo "::1         localhost" >> "$NEWROOT/etc/hosts"
@@ -1213,6 +1185,9 @@ make_squashfs()
 	usr/share/X11
 	var
 	EOF
+    if [[ -z $TEGRABUILD ]] || istegra64; then
+        echo "usr/lib32" >>/tmp/excludelist
+    fi
     find "$NEWROOT"/usr/include/ -mindepth 1 -maxdepth 1 | sed "s/^\/newroot\/// ; /^usr\/include\/python/d" >> /tmp/excludelist
     [[ $TEGRABUILD ]] && echo "etc" >> /tmp/excludelist
     mksquashfs "$NEWROOT"/ "$INSTALL/$SQUASHFS" -noappend -processors "$MSQJOBS" -comp xz -ef /tmp/excludelist -wildcards
