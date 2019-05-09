@@ -367,8 +367,8 @@ prepare_portage()
             net-nds/portmap-6.0
             net-nds/rpcbind-0.2.4-r1
             net-nds/ypbind-2.5
-            net-nds/yp-tools-4.2.2-r2
-            net-wireless/bluez-5.49-r1
+            net-nds/yp-tools-4.2.3
+            net-wireless/bluez-5.50-r2
             net-wireless/rfkill-0.5-r3
             sys-apps/util-linux-2.30.1 # Only to compile this glib dependency on host
             sys-auth/libnss-nis-1.4
@@ -381,6 +381,9 @@ prepare_portage()
 
         # Enable rpc use flag, needed for rpcbind's dependency
         echo "cross-aarch64-unknown-linux-gnu/glibc rpc" >> /etc/portage/package.use/tegra
+
+        # Enable gold and plugins in binutils to fix binutils build failure
+        echo "cross-aarch64-unknown-linux-gnu/binutils gold plugins" >> /etc/portage/package.use/tegra
 
         # Stick to the kernel we're officially using
         local KERNELVER="4.9"
@@ -408,14 +411,6 @@ prepare_portage()
         mkdir -p /usr/portage/sys-boot/syslinux/files
         cp "$BUILDSCRIPTS/extra/syslinux-bios-free-mem.patch" /usr/portage/sys-boot/syslinux/files/
         sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-bios-free-mem.patch\n\tepatch/" "$EBUILD"
-        ebuild "$EBUILD" digest
-    fi
-
-    # Fix issue with pkgconfig setup in glib when cross-compiling
-    local EBUILD=/usr/portage/dev-libs/glib/glib-2.44.1-r1.ebuild
-    if [[ -f $EBUILD && $TEGRABUILD ]] && ! grep -q "rm.*m4_copy" "$EBUILD"; then
-        boldecho "Patching $EBUILD"
-        sed -i '/m4macros/a sed -i "/m4_copy.*glib_/s/m4_copy/m4_copy_force/" "${S}"/m4macros/glib-gettext.m4' "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
@@ -456,7 +451,7 @@ emerge_basic_packages()
 
     boldecho "Compiling basic host packages"
 
-    if ! emerge --quiet squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel bc less libtirpc rpcbind rpcsvc-proto; then
+    if ! emerge --quiet squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel bc less libtirpc rpcbind rpcsvc-proto dev-libs/glib; then
         boldecho "Failed to emerge some packages"
         boldecho "Please complete installation manually"
         bash
@@ -531,13 +526,13 @@ install_tegra_toolchain()
     rm -f "$PORTAGECFG/make.profile"
     local PROFILE_ARCH=arm
     istegra64 && PROFILE_ARCH=arm64
-    local PROFILE=13.0
+    local PROFILE=17.0
     ln -s "/usr/portage/profiles/default/linux/$PROFILE_ARCH/$PROFILE" "$PORTAGECFG/make.profile"
 
     # Try to install as many stable packages as possible
-    if grep -q "ACCEPT_KEYWORDS.*~$PROFILE_ARCH" "$CFGROOT/$MAKECONF"; then
+    if grep -q "ACCEPT_KEYWORDS.*~\($PROFILE_ARCH\|\\\${ARCH}\)" "$CFGROOT/$MAKECONF"; then
         boldecho "Fixing ACCEPT_KEYWORDS: removing ~$PROFILE_ARCH"
-        sed -i "s/~$PROFILE_ARCH//" "$CFGROOT/$MAKECONF"
+        sed -i "s/ \\?~$PROFILE_ARCH//; s/ \\?~\\\${ARCH}//" "$CFGROOT/$MAKECONF"
     fi
 
     # Fix lib directory (make a symlink to lib64)
@@ -785,6 +780,14 @@ build_newroot()
     record_busybox_symlinks
     install_package dropbear "multicall"
     install_package sys-devel/bc
+
+    if [[ $TEGRABUILD ]]; then
+        # nano pulls pkg-config, which pulls glib-utils for some reason.
+        # Unfortunately this pulls a load of other, completely useless packages. :-(
+        NEWROOT="/usr/$TEGRAABI" install_package dev-lang/python # Host dependency for building glib-utils
+        NEWROOT="/usr/$TEGRAABI" install_package dev-util/glib-utils "python_targets_python3_6 python_single_target_python3_6" # Host dependency for glib
+        NEWROOT="/usr/$TEGRAABI" install_package dev-libs/glib  # Host dependency for nano and bluez
+    fi
 
     # Install more basic packages
     install_package nano

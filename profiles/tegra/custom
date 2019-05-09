@@ -11,14 +11,13 @@ install_package net-fs/autofs "" "--nodeps"
 install_package net-dialup/lrzsz
 install_package net-libs/libpcap ipv6
 install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
+emerge --quiet --noreplace dev-util/meson dev-util/ninja # needed for libdrm
+install_package x11-libs/libdrm
 
 if istegra64; then # glib fails to cross compile for armv7
     # bluez dependencies
     NEWROOT=/ install_package docbook-xml-dtd:4.4           # Host dependency for building dbus
     NEWROOT=/ install_package app-text/xmlto                # Host dependency for building dbus
-    NEWROOT="/usr/$TEGRAABI" install_package dev-lang/python # Host dependency for building glib-utils
-    NEWROOT="/usr/$TEGRAABI" install_package dev-util/glib-utils "python_targets_python3_6 python_single_target_python3_6" # Host dependency for glib
-    NEWROOT="/usr/$TEGRAABI" install_package dev-libs/glib  # Host dependency for bluez
     "$TEGRAABI-emerge" --unmerge util-linux                 # Make room for rfkill (glib pulls util-linux)
     NEWROOT="/usr/$TEGRAABI" install_package sys-apps/dbus  # Host dependency for bluez
     install_package virtual/libffi                          # Dependency for glib
