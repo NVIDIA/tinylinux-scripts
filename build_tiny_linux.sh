@@ -236,28 +236,29 @@ copy_scripts()
     # Don't do anything if we are running the copy of build scripts already
     local DESTDIR="$BUILDROOT/$BUILDSCRIPTS"
     [[ -d $DESTDIR ]] && DESTDIR="$(cd -P "$DESTDIR" && pwd)"
-    [[ $DESTDIR = $SCRIPTSDIR ]] && return 0
+    if [[ $DESTDIR != $SCRIPTSDIR ]]; then
 
-    # Delete stale build scripts
-    rm -rf "$DESTDIR"
+        # Delete stale build scripts
+        rm -rf "$DESTDIR"
 
-    boldecho "Copying scripts to build environment"
+        boldecho "Copying scripts to build environment"
 
-    # Check access to the scripts
-    [[ -f $SCRIPTSDIR/scripts/etc/inittab ]] || die "TinyLinux scripts are not available"
-    [[ -d $SCRIPTSDIR/profiles/$PROFILE   ]] || die "Selected profile $PROFILE is not available"
+        # Check access to the scripts
+        [[ -f $SCRIPTSDIR/scripts/etc/inittab ]] || die "TinyLinux scripts are not available"
+        [[ -d $SCRIPTSDIR/profiles/$PROFILE   ]] || die "Selected profile $PROFILE is not available"
 
-    # Copy TinyLinux scripts
-    mkdir -p "$DESTDIR"
-    find "$SCRIPTSDIR"/ -maxdepth 1 -type f -exec cp '{}' "$DESTDIR" \;
-    cp -r "$SCRIPTSDIR"/profiles "$DESTDIR"
-    cp -r "$SCRIPTSDIR"/mods     "$DESTDIR"
-    cp -r "$SCRIPTSDIR"/scripts  "$DESTDIR"
-    cp -r "$SCRIPTSDIR"/extra    "$DESTDIR"
-    [[ -z $TEGRABUILD ]] || cp -r "$SCRIPTSDIR"/tegra "$DESTDIR"
+        # Copy TinyLinux scripts
+        mkdir -p "$DESTDIR"
+        find "$SCRIPTSDIR"/ -maxdepth 1 -type f -exec cp '{}' "$DESTDIR" \;
+        cp -r "$SCRIPTSDIR"/profiles "$DESTDIR"
+        cp -r "$SCRIPTSDIR"/mods     "$DESTDIR"
+        cp -r "$SCRIPTSDIR"/scripts  "$DESTDIR"
+        cp -r "$SCRIPTSDIR"/extra    "$DESTDIR"
+        [[ -z $TEGRABUILD ]] || cp -r "$SCRIPTSDIR"/tegra "$DESTDIR"
+    fi
 
     # Update TinyLinux version printed on boot
-    sed -i "/VERSION=/s/TINYLINUX_VERSION/$VERSION/" "$DESTDIR/linuxrc"
+    sed -i "/s/^VERSION=.*/VERSION=\"$VERSION\"/" "$DESTDIR/linuxrc"
 }
 
 exit_chroot()
