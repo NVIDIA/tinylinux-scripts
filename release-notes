@@ -7,6 +7,9 @@ TinyLinux release history
  * Removed temporary full27 profile
  * Added libdrm in tegra profile
 -------------------------------------------------------------------------------
+19.02.1
+ * Updated USB PPC driver to 1.0.7
+-------------------------------------------------------------------------------
 19.02
  * Updated kernel to 4.20.6
  * Updated MODS kernel driver to 3.91
