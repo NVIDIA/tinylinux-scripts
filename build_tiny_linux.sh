@@ -9,6 +9,7 @@ MIRROR="http://gentoo.osuosl.org"
 PORTAGEPKG="portage-latest.tar.bz2"
 STAGE3ARCH="amd64"
 DISTFILESPKG="distfiles.tar.bz2"
+PORTAGE="/var/db/repos/gentoo"
 BUILDROOT="buildroot"
 BUILDSCRIPTS="/buildscripts"
 NEWROOT="/newroot"
@@ -213,16 +214,17 @@ unpack_packages()
     # Unpack the root
     boldecho "Unpacking stage3 package"
     mkdir "$BUILDROOT"
-    tar_bz2 -xpf "$STAGE3PKG" -C "$BUILDROOT"
+    tar_bz2 -xpf "$STAGE3PKG" --xattrs-include='*.*' -C "$BUILDROOT"
 
     # Unpack portage tree
     boldecho "Unpacking portage tree"
-    tar_bz2 -xpf "$PORTAGEPKG" -C "$BUILDROOT/usr"
+    tar_bz2 -xpf "$PORTAGEPKG" -C "$BUILDROOT/var/db/repos"
+    mv "$BUILDROOT/var/db/repos/portage" "${BUILDROOT}$PORTAGE"
 
     # Unpack distfiles if available
     if [[ -f $DISTFILESPKG ]]; then
         boldecho "Unpacking distfiles"
-        tar_bz2 -xpf "$DISTFILESPKG" -C "$BUILDROOT/usr/portage"
+        tar_bz2 -xpf "$DISTFILESPKG" -C "$BUILDROOT/var/cache"
     fi
 }
 
@@ -258,7 +260,7 @@ copy_scripts()
     fi
 
     # Update TinyLinux version printed on boot
-    sed -i "/s/^VERSION=.*/VERSION=\"$VERSION\"/" "$DESTDIR/linuxrc"
+    sed -i "s/^VERSION=.*/VERSION=\"$VERSION\"/" "$DESTDIR/linuxrc"
 }
 
 exit_chroot()
@@ -315,7 +317,7 @@ check_env()
 
 prepare_portage()
 {
-    sed -i -e "/^MAKEOPTS/d ; /^PORTAGE_NICENESS/d ; /^USE/d" "$MAKECONF"
+    sed -i -e "/^MAKEOPTS/d ; /^PORTAGE_NICENESS/d ; /^USE/d ; /^GRUB_PLATFORMS/d" "$MAKECONF"
 
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
@@ -397,39 +399,39 @@ prepare_portage()
     echo ">net-misc/dropbear-2018.76" >> /etc/portage/package.mask/tinylinux
 
     # Install dropbear patch for pubkey authentication
-    local EBUILD=/usr/portage/net-misc/dropbear/dropbear-2018.76.ebuild
+    local EBUILD=$PORTAGE/net-misc/dropbear/dropbear-2018.76.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "pubkey\.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
-        cp "$BUILDSCRIPTS/extra/dropbear-pubkey.patch" /usr/portage/net-misc/dropbear/files/
+        cp "$BUILDSCRIPTS/extra/dropbear-pubkey.patch" $PORTAGE/net-misc/dropbear/files/
         sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-pubkey.patch\n\tepatch/" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
     # Patch uninitialized variable in syslinux
-    local EBUILD=/usr/portage/sys-boot/syslinux/syslinux-6.04_pre1.ebuild
+    local EBUILD=$PORTAGE/sys-boot/syslinux/syslinux-6.04_pre1.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "bios-free-mem" "$EBUILD"; then
         boldecho "Patching $EBUILD"
-        mkdir -p /usr/portage/sys-boot/syslinux/files
-        cp "$BUILDSCRIPTS/extra/syslinux-bios-free-mem.patch" /usr/portage/sys-boot/syslinux/files/
+        mkdir -p $PORTAGE/sys-boot/syslinux/files
+        cp "$BUILDSCRIPTS/extra/syslinux-bios-free-mem.patch" $PORTAGE/sys-boot/syslinux/files/
         sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-bios-free-mem.patch\n\tepatch/" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
     # Install ypbind ebuild
     local SRC=ypbind-2.5.ebuild
-    local EBUILD=/usr/portage/net-nds/ypbind/$SRC
+    local EBUILD=$PORTAGE/net-nds/ypbind/$SRC
     local PKG=ypbind-mt-2.5.tar.xz
     if [[ ! -f $EBUILD ]]; then
         boldecho "Adding $EBUILD"
-        mkdir -p /usr/portage/net-nds/ypbind
-        mkdir -p /usr/portage/distfiles
+        mkdir -p $PORTAGE/net-nds/ypbind
+        mkdir -p /var/cache/distfiles
         cp "$BUILDSCRIPTS/extra/$SRC" "$EBUILD"
-        cp "$BUILDSCRIPTS/extra/$PKG" /usr/portage/distfiles/
+        cp "$BUILDSCRIPTS/extra/$PKG" /var/cache/distfiles/
         ebuild "$EBUILD" digest
     fi
 
     # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=/usr/portage/sys-devel/gdb/gdb-8.1-r1.ebuild
+    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-8.1-r1.ebuild
     if ! grep -q workaround "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
@@ -475,9 +477,9 @@ emerge_basic_packages()
     fi
 }
 
-istegra64()
+is64bit()
 {
-    [[ $TEGRABUILD ]] || return 1
+    [[ $TEGRABUILD ]] || return 0
     [[ ${TEGRAABI%%-*} = "aarch64" ]]
 }
 
@@ -502,7 +504,7 @@ install_tegra_toolchain()
     grep -q "USE.*cxx" "$MAKECONF" || sed -i "/USE/s/\"$/ cxx\"/" "$MAKECONF"
 
     # Hack for crossdev awk script bug
-    sed -i "/cross_init$/ s:cross_init:MAIN_REPO_PATH=/usr/portage ; cross_init:" /usr/bin/emerge-wrapper
+    sed -i "/cross_init$/ s:cross_init:MAIN_REPO_PATH=$PORTAGE ; cross_init:" /usr/bin/emerge-wrapper
 
     # Build cross toolchain
     grep -q "PORTDIR_OVERLAY" "$MAKECONF" || echo "PORTDIR_OVERLAY=\"/usr/local/portage\"" >> "$MAKECONF"
@@ -519,29 +521,22 @@ install_tegra_toolchain()
         echo "PORTAGE_NICENESS=\"15\""
         echo "USE=\"-* ipv6 syslog unicode \${ARCH}\""
     ) >> "$CFGROOT/$MAKECONF"
+    local FILE
     for FILE in package.use package.keywords package.mask package.unmask package.accept_keywords savedconfig; do
         rm -f "$PORTAGECFG/$FILE"
         ln -s "/etc/portage/$FILE" "$PORTAGECFG/$FILE"
     done
     [ -e "$CFGROOT/tmp" ] || ln -s /tmp "$CFGROOT/tmp"
     rm -f "$PORTAGECFG/make.profile"
-    local PROFILE_ARCH=arm
-    istegra64 && PROFILE_ARCH=arm64
+    local PROFILE_ARCH=arm64
+    is64bit || PROFILE_ARCH=arm
     local PROFILE=17.0
-    ln -s "/usr/portage/profiles/default/linux/$PROFILE_ARCH/$PROFILE" "$PORTAGECFG/make.profile"
+    ln -s "$PORTAGE/profiles/default/linux/$PROFILE_ARCH/$PROFILE" "$PORTAGECFG/make.profile"
 
     # Try to install as many stable packages as possible
     if grep -q "ACCEPT_KEYWORDS.*~\($PROFILE_ARCH\|\\\${ARCH}\)" "$CFGROOT/$MAKECONF"; then
         boldecho "Fixing ACCEPT_KEYWORDS: removing ~$PROFILE_ARCH"
         sed -i "s/ \\?~$PROFILE_ARCH//; s/ \\?~\\\${ARCH}//" "$CFGROOT/$MAKECONF"
-    fi
-
-    # Fix lib directory (make a symlink to lib64)
-    if istegra64 && [[ `ls "$CFGROOT/usr/lib" | wc -l` = 0 ]]; then
-        [[ ! -h "$CFGROOT/usr/lib/ld-linux-aarch64.so.1" ]] || rm -f "$CFGROOT/usr/lib/ld-linux-aarch64.so.1"
-        rm -f "$CFGROOT/usr/lib"/.keep*
-        rmdir "$CFGROOT/usr/lib"
-        ln -s lib64 "$CFGROOT/usr/lib"
     fi
 
     # Setup split glibc symbols for valgrind and remote debugging
@@ -585,8 +580,7 @@ compile_kernel()
 
     boldecho "Preparing kernel"
     [[ $JOBS ]] && MAKEOPTS="--makeopts=-j$JOBS"
-    rm -rf /lib/modules /lib/firmware
-    mkdir /lib/firmware # Due to kernel bug with builtin firmware
+    rm -rf /lib/{modules,firmware}
     cp "$BUILDSCRIPTS/kernel-config" /usr/src/linux/.config
 
     if [[ $KERNELMENUCONFIG = 1 ]]; then
@@ -596,6 +590,10 @@ compile_kernel()
 
     boldecho "Compiling kernel"
     genkernel --oldconfig --linuxrc="$BUILDSCRIPTS/linuxrc" --no-mountboot "$MAKEOPTS" kernel
+
+    [[ -f /var/cache/distfiles/r8168-8.047.02.tar.bz2 ]] || \
+        curl -s https://fichiers.touslesdrivers.com/61687/r8168-8.047.02.tar.bz2 -o /var/cache/distfiles/r8168-8.047.02.tar.bz2 || \
+        die "Failed to fetch r8168 driver package"
 
     emerge --quiet r8168
 
@@ -657,6 +655,7 @@ install_syslinux()
     NEWROOT="$SAVEROOT"
 
     cp -p "$DESTDIR/sbin/extlinux" "$NEWROOT/usr/sbin/extlinux"
+    local FILE
     for FILE in syslinux mcopy mattrib; do
         cp -p "$DESTDIR/usr/bin/$FILE" "$NEWROOT/usr/bin/$FILE"
     done
@@ -699,13 +698,7 @@ build_newroot()
     # Prepare build configuration for Tegra target
     if [[ $TEGRABUILD ]]; then
         mkdir -p "$NEWROOT/etc/portage"
-        istegra64 || sed -e "s/^CHOST=.*/CHOST=$TEGRAABI/ ; /^CFLAGS=/s/\"$/ -mcpu=cortex-a9 -mfpu=vfpv3-d16 -mfloat-abi=softfp\"/" <"$MAKECONF"  >"${NEWROOT}${MAKECONF}"
-    fi
-
-    # Create symlink to lib64
-    if [[ -z $TEGRABUILD ]] || istegra64; then
-        mkdir -p "$NEWROOT/usr/lib64"
-        ln -s lib64 "$NEWROOT/usr/lib"
+        is64bit || sed -e "s/^CHOST=.*/CHOST=$TEGRAABI/ ; /^CFLAGS=/s/\"$/ -mcpu=cortex-a9 -mfpu=vfpv3-d16 -mfloat-abi=softfp\"/" <"$MAKECONF"  >"${NEWROOT}${MAKECONF}"
     fi
 
     # Restore busybox config file
@@ -713,7 +706,7 @@ build_newroot()
     local HOSTBUSYBOXCFGDIR=/etc/portage/savedconfig/sys-apps
     local TARGETBUSYBOXCFGDIR="$NEWROOT/etc/portage/savedconfig/sys-apps"
     local BUSYBOX_VER
-    ls /usr/portage/sys-apps/busybox/*ebuild | sed "s:.*/:: ; s:\.ebuild::" | while read BUSYBOX_VER; do
+    ls $PORTAGE/sys-apps/busybox/*ebuild | sed "s:.*/:: ; s:\.ebuild::" | while read BUSYBOX_VER; do
         mkdir -p "$HOSTBUSYBOXCFGDIR"
         cp "$BUSYBOXCFG" "$HOSTBUSYBOXCFGDIR/$BUSYBOX_VER"
         mkdir -p "$TARGETBUSYBOXCFGDIR"
@@ -721,20 +714,16 @@ build_newroot()
     done
 
     # Setup directories for valgrind and for debug symbols
-    local NEWUSRLIB="$NEWROOT/usr/lib"
-    istegra64 && NEWUSRLIB="$NEWROOT/usr/lib64"
-    rm -rf /tiny/debug /tiny/valgrind
-    mkdir -p /tiny/debug/mnt
-    mkdir -p /tiny/valgrind
-    mkdir -p "$NEWUSRLIB"
-    mkdir -p "$NEWROOT/usr/share"
-    ln -s /tiny/debug    "$NEWUSRLIB/debug"
-    ln -s /tiny/valgrind "$NEWUSRLIB/valgrind"
-
-    # Prepare lib directory for 64-bit builds
-    if [[ -z $TEGRABUILD ]]; then
-        mkdir -p "$NEWROOT"/lib64
-        ln -s lib64 "$NEWROOT"/lib
+    if [[ $TEGRABUILD ]]; then
+        local NEWUSRLIB="$NEWROOT/usr/lib64"
+        is64bit || NEWUSRLIB="$NEWROOT/usr/lib"
+        rm -rf /tiny/debug /tiny/valgrind
+        mkdir -p /tiny/debug/mnt
+        mkdir -p /tiny/valgrind
+        mkdir -p "$NEWUSRLIB"
+        mkdir -p "$NEWROOT/usr/share"
+        ln -s /tiny/debug    "$NEWUSRLIB/debug"
+        ln -s /tiny/valgrind "$NEWUSRLIB/valgrind"
     fi
 
     # Newer Portage requires that the target root (our NEWROOT) is set to
@@ -763,13 +752,11 @@ build_newroot()
     # Install basic system packages
     install_package sys-libs/glibc
     install_package sys-auth/libnss-nis
-    rm -rf "$NEWROOT"/lib/gentoo # Remove Gentoo scripts
-    if istegra64 || [[ -z $TEGRABUILD ]]; then
-        rm -rf "$NEWROOT"/lib32 # Remove 32-bit glibc in 64-bit builds
-    fi
-    if istegra64; then
-        rm -rf "$NEWROOT/lib"
-        ln -s lib64 "$NEWROOT/lib"
+    rm -rf "$NEWROOT"/lib*/gentoo # Remove Gentoo scripts
+    if is64bit; then
+        # Remove 32-bit glibc in 64-bit builds
+        rm -rf "$NEWROOT"/lib
+        rm -rf "$NEWROOT"/usr/lib
     fi
     ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read > /dev/null
     install_package ncurses
@@ -825,11 +812,11 @@ build_newroot()
 
     # Copy libgcc and libstdc++ needed by some tools
     if [[ $TEGRABUILD ]]; then
-        local NEWLIB="$NEWROOT/lib"
-        istegra64 && NEWLIB="$NEWROOT/lib64"
+        local NEWLIB="$NEWROOT/lib64"
+        is64bit || NEWLIB="$NEWROOT/lib"
         cp /usr/lib/gcc/"$TEGRAABI"/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWLIB"/
     else
-        cp /usr/lib/gcc/*/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWROOT/lib"/
+        cp /usr/lib/gcc/*/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWROOT/lib64"/
     fi
 
     # Remove linuxrc script from busybox
@@ -852,12 +839,14 @@ build_newroot()
     "$GCC" -o "$NEWROOT/usr/sbin/setdomainname" "$BUILDSCRIPTS/extra/setdomainname.c"
 
     # Copy TinyLinux scripts
+    local FILE
     ( cd "$BUILDSCRIPTS/scripts" && find ./ ! -type d ) | while read FILE; do
         local SRC
         local DEST
         SRC="$BUILDSCRIPTS/scripts/$FILE"
         DEST="$NEWROOT/$FILE"
-        mkdir -p `dirname "$NEWROOT/$FILE"`
+        is64bit && DEST=$(sed 's:/lib/:/lib64/:' <<< "$DEST")
+        mkdir -p $(dirname "$DEST")
         cp -P "$SRC" "$DEST"
         if [[ ! -h $DEST ]]; then
             if [[ ${FILE:2:11} = etc/init.d/ || $FILE =~ etc/acpi/actions || $FILE =~ etc/udhcpc.scripts ]]; then
@@ -1109,6 +1098,15 @@ get_mods_driver_version()
     echo "${MAJOR}.${MINOR}"
 }
 
+restore_newroot()
+{
+    rm "$NEWROOT"/{lib,usr/lib}
+    mv "$NEWROOT/saved/lib" "$NEWROOT/lib"
+    mv "$NEWROOT/saved/usr_lib" "$NEWROOT/usr/lib"
+    [[ -d "$NEWROOT"/usr/lib64/python-exec ]] && mv "$NEWROOT"/usr/lib64/python-exec "$NEWROOT"/usr/lib/python-exec
+    rmdir "$NEWROOT"/saved
+}
+
 make_squashfs()
 {
     local MSQJOBS
@@ -1119,11 +1117,12 @@ make_squashfs()
 
     # Install kernel modules and firmware
     boldecho "Copying kernel modules"
-    rm -rf "$NEWROOT/lib/modules"
-    rm -rf "$NEWROOT/lib/firmware"
+    local NEWROOT_LIB="$NEWROOT/lib64"
+    is64bit || NEWROOT_LIB="$NEWROOT/lib"
+    rm -rf "$NEWROOT_LIB"/{modules,firmware}
     if [[ -z $TEGRABUILD ]]; then
-        tar cp -C /lib modules | tar xp -C "$NEWROOT/lib"/
-        ln -s /var/firmware "$NEWROOT/lib/firmware"
+        tar cp -C /lib modules | tar xp -C "$NEWROOT_LIB"/
+        ln -s /var/firmware "$NEWROOT_LIB"/firmware
     fi
 
     boldecho "Preparing squashfs"
@@ -1138,13 +1137,13 @@ make_squashfs()
 
     # Make the modules and firmware replaceable on Tegra
     if [[ $TEGRABUILD ]]; then
-        rm -rf "$NEWROOT/lib/modules" "$NEWROOT/lib/firmware"
+        rm -rf "$NEWROOT_LIB"/{modules,firmware}
         mkdir -p "$INSTALL/tiny/modules"
         mkdir -p "$INSTALL/tiny/firmware"
         mkdir -p "$INSTALL/tiny/debug"
         mkdir -p "$INSTALL/tiny/valgrind"
-        ln -s /tiny/modules  "$NEWROOT/lib/modules"
-        ln -s /tiny/firmware "$NEWROOT/lib/firmware"
+        ln -s /tiny/modules  "$NEWROOT_LIB/modules"
+        ln -s /tiny/firmware "$NEWROOT_LIB/firmware"
     fi
 
     # Emit version information
@@ -1165,6 +1164,25 @@ make_squashfs()
     # Copy release notes
     cp "$BUILDSCRIPTS"/{release-notes,LICENSE} "$NEWROOT"/etc/
 
+    # Prepare lib dirs
+    if is64bit; then
+        # Unfortunately we can't just have a symlink lib -> lib64 in newroot,
+        # because emerge will fail complaining about 17.1 profile requirements
+        # not being satisified, because Gentoo now requires lib directory
+        # to contain 32-bit libs and lib64 64-bit libs.  This is not really
+        # true, stuff like python-exec is kept in /usr/lib for some reason.
+        # We have no choice than to workaround, so that on the next run
+        # emerge can still work correctly.
+        trap restore_newroot EXIT
+        rm -rf "$NEWROOT/saved"
+        [[ -d $NEWROOT/usr/lib/python-exec ]] && mv "$NEWROOT/usr/lib/python-exec" "$NEWROOT/usr/lib64/python-exec"
+        mkdir "$NEWROOT/saved"
+        mv "$NEWROOT/lib" "$NEWROOT/saved/lib"
+        mv "$NEWROOT/usr/lib" "$NEWROOT/saved/usr_lib"
+        ln -s lib64 "$NEWROOT/lib"
+        ln -s lib64 "$NEWROOT/usr/lib"
+    fi
+
     # Make squashfs
     boldecho "Compressing squashfs"
     MSQJOBS="1"
@@ -1173,7 +1191,8 @@ make_squashfs()
 	etc/env.d
 	etc/portage
 	etc/systemd
-	lib64/systemd
+	lib*/systemd
+	lib*/udev
 	mnt
 	run
 	tmp
@@ -1189,20 +1208,17 @@ make_squashfs()
 	usr/share/X11
 	var
 	EOF
-    if [[ -z $TEGRABUILD ]] || istegra64; then
-        echo "usr/lib32" >>/tmp/excludelist
-    fi
     find "$NEWROOT"/usr/include/ -mindepth 1 -maxdepth 1 | sed "s/^\/newroot\/// ; /^usr\/include\/python/d" >> /tmp/excludelist
     [[ $TEGRABUILD ]] && echo "etc" >> /tmp/excludelist
     mksquashfs "$NEWROOT"/ "$INSTALL/$SQUASHFS" -noappend -processors "$MSQJOBS" -comp xz -ef /tmp/excludelist -wildcards
 
     # Compress distfiles for future use
     if [[ ! -f /$DISTFILESPKG ]] || \
-            find /usr/portage/distfiles -type f -newer "/$DISTFILESPKG" | grep -q . || \
+            find /var/cache/distfiles -type f -newer "/$DISTFILESPKG" | grep -q . || \
             find "/usr/$TEGRAABI/packages"/ -type f -newer "/$DISTFILESPKG" 2>/dev/null | grep -q . || \
-            find /usr/portage/packages -type f -newer "/$DISTFILESPKG" | grep -q .; then
+            find /var/cache/binpkgs -type f -newer "/$DISTFILESPKG" | grep -q .; then
         boldecho "Compressing distfiles"
-        ( cd "/usr/portage" && tar_bz2 -cf "/$DISTFILESPKG" distfiles packages )
+        ( cd "/var/cache" && tar_bz2 -cf "/$DISTFILESPKG" distfiles binpkgs )
     fi
 }
 
@@ -1230,7 +1246,7 @@ compile_busybox()
     BUSYBOX=${BUSYBOX%-r[0-9]}
 
     # Find package
-    BUSYBOX_PKG="/usr/portage/distfiles/$BUSYBOX.tar.bz2"
+    BUSYBOX_PKG="/var/cache/distfiles/$BUSYBOX.tar.bz2"
     if [[ ! -f $BUSYBOX_PKG ]]; then
         echo "Busybox package $BUSYBOX_PKG not found!"
         exit 1
@@ -1268,8 +1284,8 @@ make_tegra_image()
     rm -f package.tar.bz2
 
     # Create output directory
-    local OUTDIR=/armv7
-    istegra64 && OUTDIR=/aarch64
+    local OUTDIR=/aarch64
+    is64bit || OUTDIR=/armv7
     rm -rf "$OUTDIR"
     mkdir "$OUTDIR"
      
@@ -1310,10 +1326,9 @@ make_tegra_image()
     chmod 660 "$FILESYSTEM/dev/loop0"
 
     # Create symlinks
-    for DIR in bin sbin lib usr; do
+    for DIR in bin sbin lib64 usr; do
         ln -s mnt/squash/"$DIR" "$FILESYSTEM/$DIR"
     done
-    ! istegra64 || ln -s mnt/squash/lib64 "$FILESYSTEM/lib64"
 
     # Create symlink to /sys/kernel/debug
     ln -s sys/kernel/debug "$FILESYSTEM/d"
@@ -1332,8 +1347,8 @@ make_tegra_image()
     unset PACKAGE
 
     # Clean up debug directory - leave only files we need
-    local LIBDIR=lib
-    istegra64 && LIBDIR=lib64
+    local LIBDIR=lib64
+    is64bit || LIBDIR=lib
     local DEBUG_FILES=(
         ld-*.so.debug
         libc-*.so.debug

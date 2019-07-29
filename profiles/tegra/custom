@@ -14,7 +14,7 @@ install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
 emerge --quiet --noreplace dev-util/meson dev-util/ninja # needed for libdrm
 install_package x11-libs/libdrm
 
-if istegra64; then # glib fails to cross compile for armv7
+if is64bit; then # glib fails to cross compile for armv7
     # bluez dependencies
     NEWROOT=/ install_package docbook-xml-dtd:4.4           # Host dependency for building dbus
     NEWROOT=/ install_package app-text/xmlto                # Host dependency for building dbus

@@ -40,7 +40,7 @@ if [[ $1 = prepare ]]; then
     [[ -f $SCRIPT ]] || SCRIPT=$(type "$0" | sed "s/.* is //")
     cp "$SCRIPT" build_mods_driver
 
-    tar cpf build_mods_driver/buildroot.tar.bz2 $COMPRESS --exclude=newroot --exclude=usr/portage --exclude=install --exclude=boot --exclude=var/db/pkg --exclude=usr/lib64/python2.7 --exclude=usr/lib64/python3.6 buildroot
+    tar cpf build_mods_driver/buildroot.tar.bz2 $COMPRESS --exclude=newroot --exclude=var/db/repos --exclude=install --exclude=boot --exclude=var/db/pkg --exclude=usr/lib64/python2.7 --exclude=usr/lib64/python3.6 buildroot
 
     tar cf build_mods_driver.tar.bz2 $COMPRESS build_mods_driver
     rm -rf build_mods_driver
