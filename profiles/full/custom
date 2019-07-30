@@ -36,6 +36,7 @@ install_package p7zip
 install_package zip
 install_package app-misc/screen
 install_package acpid
+install_package app-admin/sudo
 
 # Python modules
 install_package dev-python/cffi

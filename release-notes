@@ -1,11 +1,13 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Updated MODS kernel driver to 3.93
  * Enabled support from booting from CD/DVD
  * Downgraded openssl to 1.0.0
  * Enabled pulling domain name from DHCP
  * Removed several redundant Python packages from full profile
  * Removed temporary full27 profile
  * Added libdrm in tegra profile
+ * Added sudo in full profile
 -------------------------------------------------------------------------------
 19.02.1
  * Updated USB PPC driver to 1.0.7
