@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
 # See LICENSE file for details.
 
 set -e
@@ -40,7 +40,7 @@ if [[ $1 = prepare ]]; then
     [[ -f $SCRIPT ]] || SCRIPT=$(type "$0" | sed "s/.* is //")
     cp "$SCRIPT" build_mods_driver
 
-    tar cpf build_mods_driver/buildroot.tar.bz2 $COMPRESS --exclude=newroot --exclude=var/db/repos --exclude=install --exclude=boot --exclude=var/db/pkg --exclude=usr/lib64/python2.7 --exclude=usr/lib64/python3.6 buildroot
+    tar cpf build_mods_driver/buildroot.tar.bz2 $COMPRESS --exclude=newroot --exclude=var/db/repos --exclude=install --exclude=boot --exclude=var/db/pkg --exclude=var/cache/distfiles --exclude=var/cache/binpkgs --exclude=usr/lib64/python2.7 --exclude=usr/lib64/python3.6 buildroot
 
     tar cf build_mods_driver.tar.bz2 $COMPRESS build_mods_driver
     rm -rf build_mods_driver

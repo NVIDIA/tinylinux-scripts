@@ -431,7 +431,7 @@ prepare_portage()
     fi
 
     # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-8.1-r1.ebuild
+    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-8.3.ebuild
     if ! grep -q workaround "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
@@ -715,8 +715,7 @@ build_newroot()
 
     # Setup directories for valgrind and for debug symbols
     if [[ $TEGRABUILD ]]; then
-        local NEWUSRLIB="$NEWROOT/usr/lib64"
-        is64bit || NEWUSRLIB="$NEWROOT/usr/lib"
+        local NEWUSRLIB="$NEWROOT/usr/lib"
         rm -rf /tiny/debug /tiny/valgrind
         mkdir -p /tiny/debug/mnt
         mkdir -p /tiny/valgrind
