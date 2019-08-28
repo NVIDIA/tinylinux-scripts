@@ -1,0 +1,5 @@
+# Option passed to ypbind
+YPBIND_OPTIONS="-ping-interval 20 -verbose"
+
+# NIS map on which to wait to verify whether ypbind has started
+YPBIND_MAP="passwd"

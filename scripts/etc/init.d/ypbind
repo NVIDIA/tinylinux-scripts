@@ -1,6 +1,6 @@
 #!/sbin/rc
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 DEPENDS="net rpc"
@@ -9,14 +9,14 @@ start()
 {
     [ -d /var/yp ] || mkdir /var/yp
     [ -e /var/yp/nicknames ] || ln -s /usr/share/ypbind/nicknames /var/yp/nicknames
-    start-stop-daemon --start --quiet --exec /usr/sbin/ypbind
+    start-stop-daemon --start --quiet --exec /usr/sbin/ypbind -- $YPBIND_OPTIONS
 
     local I
     for I in `seq 10`; do
-        ypwhich >/dev/null 2>/dev/null && break
+        ypwhich -m $YPBIND_MAP >/dev/null 2>/dev/null && break
         sleep "$I"
     done
-    if ! ypwhich >/dev/null 2>/dev/null; then
+    if ! ypwhich -m $YPBIND_MAP >/dev/null 2>/dev/null; then
         echo -n " Unable to connect to NIS server" >&2
         killall ypbind
         return 1
