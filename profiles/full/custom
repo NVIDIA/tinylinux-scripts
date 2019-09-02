@@ -58,6 +58,7 @@ install_package perl-cleaner "" "--unmerge"
 
 # Tidy up
 remove_gentoo_services pydoc-2.7 pydoc-3.6 ipmievd fancontrol lm_sensors rsyncd
+remove_gentoo_services opentmpfiles-dev opentmpfiles-setup
 [[ -f "$NEWROOT/usr/bin/python-wrapper" ]] || (
     cd "$NEWROOT/usr/bin"
     ln -s python3 python-wrapper
