@@ -37,6 +37,7 @@ install_package zip
 install_package app-misc/screen
 install_package acpid
 install_package app-admin/sudo
+install_package sys-apps/file "python zlib"
 
 # Python modules
 install_package dev-python/cffi
