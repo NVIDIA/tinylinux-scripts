@@ -126,7 +126,7 @@ download()
     URL="$1"
     FILENAME=`basename $1`
     boldecho "Downloading $FILENAME"
-    curl -O "$URL"
+    curl -f -O "$URL" || die "Unable to download $FILENAME"
     TYPE=`file "$FILENAME"`
     if echo "$TYPE" | grep -q HTML; then
         rm "$FILENAME"
@@ -150,7 +150,7 @@ find_stage3()
 
     PARSEFILELIST="s/<[^>]*>/ /g ; s/^ *// ; s/ .*//"
 
-    FILELIST=`curl "$URL" | sed "$PARSEFILELIST"`
+    FILELIST=$(curl -f "$URL" | sed "$PARSEFILELIST")
     if echo "$FILELIST" | grep -q "$GREPSTAGE"; then
         FILELIST=`echo "$FILELIST" | grep "$GREPSTAGE"`
         echo "${URL}$FILELIST"
@@ -312,7 +312,7 @@ check_env()
         TARGET=`cat /var/lib/misc/extra`
         [[ $PROFILE = $TARGET || $REBUILDNEWROOT = 1 ]] || die "Invalid profile, target system was built with $TARGET profile"
     fi
-    eselect news read > /dev/null
+    eselect news read
 }
 
 prepare_portage()
@@ -322,7 +322,7 @@ prepare_portage()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo 'PORTAGE_NICENESS="15"'
-        echo 'USE="-* ipv6 syslog unicode python_targets_python3_6 python_single_target_python3_6"'
+        echo 'USE="-* ipv6 readline syslog unicode python_targets_python3_6 python_single_target_python3_6"'
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
 
@@ -519,7 +519,7 @@ install_tegra_toolchain()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo "PORTAGE_NICENESS=\"15\""
-        echo "USE=\"-* ipv6 syslog unicode \${ARCH}\""
+        echo "USE=\"-* ipv6 readline syslog unicode \${ARCH}\""
     ) >> "$CFGROOT/$MAKECONF"
     local FILE
     for FILE in package.use package.keywords package.mask package.unmask package.accept_keywords savedconfig; do
@@ -591,9 +591,13 @@ compile_kernel()
     boldecho "Compiling kernel"
     genkernel --oldconfig --linuxrc="$BUILDSCRIPTS/linuxrc" --no-mountboot "$MAKEOPTS" kernel
 
-    [[ -f /var/cache/distfiles/r8168-8.047.02.tar.bz2 ]] || \
-        curl -s https://fichiers.touslesdrivers.com/61687/r8168-8.047.02.tar.bz2 -o /var/cache/distfiles/r8168-8.047.02.tar.bz2 || \
-        die "Failed to fetch r8168 driver package"
+    local R8168_PKG="r8168-8.047.04.tar.bz2"
+    if [[ ! -f /var/cache/distfiles/$R8168_PKG ]]; then
+        curl -f -s https://fichiers.touslesdrivers.com/62050/$R8168_PKG -o /var/cache/distfiles/$R8168_PKG || \
+            die "Failed to fetch r8168 driver package"
+        [[ -f /var/cache/distfiles/$R8168_PKG ]] || die "Failed to fetch r8168 driver package"
+        echo "Fetched $R8168_PKG"
+    fi
 
     emerge --quiet r8168
 
@@ -690,6 +694,10 @@ build_newroot()
     # Skip if new root already exists
     [[ -d $NEWROOT ]] && return 0
 
+    # Handle Gentoo news items
+    eselect news read
+    [[ -z $TEGRABUILD ]] || ROOT="/usr/$TEGRAABI" eselect news read
+
     boldecho "Building TinyLinux root filesystem"
 
     mkdir -p "$NEWROOT"
@@ -744,12 +752,9 @@ build_newroot()
         fi
     fi
 
-    # Handle Gentoo news items
-    eselect news read > /dev/null
-    [[ -z $TEGRABUILD ]] || ROOT="/usr/$TEGRAABI" eselect news read
-
     # Install basic system packages
     install_package sys-libs/glibc
+    ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read
     install_package sys-auth/libnss-nis
     rm -rf "$NEWROOT"/lib*/gentoo # Remove Gentoo scripts
     if is64bit; then
@@ -757,7 +762,6 @@ build_newroot()
         rm -rf "$NEWROOT"/lib
         rm -rf "$NEWROOT"/usr/lib
     fi
-    ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read > /dev/null
     install_package ncurses
     install_package =sys-libs/ncurses-5.9*
     install_package pciutils
@@ -778,8 +782,7 @@ build_newroot()
 
     # Install more basic packages
     install_package nano
-    install_package sys-libs/readline
-    install_package bash "readline net"
+    install_package bash "net"
     test -e "$NEWROOT/bin/bash" || ln -s $(ls "$NEWROOT"/bin/bash-* | head -n 1 | xargs basename) "$NEWROOT/bin/bash"
 
     # Install NFS utils
