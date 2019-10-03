@@ -30,7 +30,7 @@ install_package ipmiutil
 install_package dmidecode
 install_package net-misc/curl
 install_package rsync
-install_package lm_sensors
+install_package sys-apps/lm-sensors
 install_package smartmontools
 install_package p7zip
 install_package zip
@@ -38,6 +38,8 @@ install_package app-misc/screen
 install_package acpid
 install_package app-admin/sudo
 install_package sys-apps/file "python zlib"
+install_package sys-block/parted "" "--nodeps"
+install_package sys-fs/f2fs-tools
 
 # Python modules
 install_package dev-python/cffi
