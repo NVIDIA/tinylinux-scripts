@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2009-2016, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 VERSION="TINYLINUX_VERSION"
@@ -8,6 +8,7 @@ CONSOLE="/dev/console"
 ROOTFS="/mnt/root"
 MNTNV="mnt/nv"
 MNTSQUASH="mnt/squash"
+MNTETC="mnt/etc"
 SQUASHFS_BIN="tiny/squash.bin"
 NFSSHARE=""
 NET="eth0"
@@ -20,9 +21,9 @@ exec >${CONSOLE} <${CONSOLE} 2>&1
 echo -e "\033[1mBooting TinyLinux $VERSION\033[0m"
 
 # Mount basic filesystems
-mount -t proc none /proc
-mount -t sysfs none /sys
-mount -t devtmpfs none /dev
+mount -t proc     proc     /proc
+mount -t sysfs    sysfs    /sys
+mount -t devtmpfs devtmpfs /dev
 
 # Install busybox symbolic links
 /bin/busybox --install -s
@@ -59,7 +60,7 @@ done
 
 # Create root filesystem
 mkdir -p "${ROOTFS}"
-mount -t tmpfs none "${ROOTFS}"
+mount -t tmpfs tmpfs "${ROOTFS}"
 
 # Coldplug
 if [ "$COLDPLUG" = "1" ]; then
@@ -130,8 +131,65 @@ rm -f etc
 # Create symlink to home dir
 ln -s "${MNTNV}/home" home
 
-# Copy etc
-cp -a "${MNTSQUASH}"/etc .
+# Set up etc
+CONFIG_DIR="${ROOTFS}/${MNTNV}/`dirname "$SQUASHFS_BIN"`"
+if [ ! -f "$CONFIG_DIR/config" ] && [ -f "$CONFIG_DIR/config.new" ]; then
+    cp "$CONFIG_DIR/config.new" "$CONFIG_DIR/config" || echo "Error: Failed to copy config.new"
+fi
+mount_overlay()
+{
+    local ETCOVR
+    if [ -f "$CONFIG_DIR/config" ]; then
+        ETCOVR="${ROOTFS}/${MNTETC}"
+        mkdir -p "$ETCOVR"
+        mount -o loop "$CONFIG_DIR/config" "$ETCOVR" || return 1
+    else
+        ETCOVR=etc_overlay
+        mkdir -p "$ETCOVR"
+        echo "Persistent configuration not found, storing configuration in tmpfs"
+    fi
+    mkdir -p "${ETCOVR}/etc" "${ETCOVR}/work"
+    if ! mount -t overlay -o lowerdir="${ROOTFS}/${MNTSQUASH}/etc",upperdir="${ETCOVR}/etc",workdir="${ETCOVR}/work" overlay etc; then
+        [ -f "$CONFIG_DIR/config" ] && umount "$ETCOVR"
+        rm -rf "$ETCOVR"
+        return 1
+    fi
+    if [ -f "$CONFIG_DIR/config" ]; then
+        cp "$CONFIG_DIR/config" "$CONFIG_DIR/config.bak"
+    fi
+}
+mkdir etc
+if ! mount_overlay; then
+    echo "Error: Failed to mount configuration overlay"
+    OVROK=0
+    if [ -f "$CONFIG_DIR/config" ]; then
+        mv "$CONFIG_DIR/config" "$CONFIG_DIR/config.bad"
+        if [ -f "$CONFIG_DIR/config.bak" ]; then
+            echo "Trying config.bak"
+            cp "$CONFIG_DIR/config.bak" "$CONFIG_DIR/config"
+        elif [ -f "$CONFIG_DIR/config.new" ]; then
+            echo "Trying config.new"
+            cp "$CONFIG_DIR/config.new" "$CONFIG_DIR/config"
+        else
+            echo "Trying config in ramdisk"
+        fi
+        if mount_overlay; then
+            OVROK=1
+        else
+            echo "Error: Failed to mount backup configuration overlay"
+        fi
+    fi
+    if [ "$OVROK" != "1" ]; then
+        echo "Copying configuration to ramdisk"
+        cp -a "${ROOTFS}/${MNTSQUASH}"/etc/* etc/
+    fi
+fi
+
+# Mount boot partition
+if [ "$PARTNUMBER" = "2" ] && [ -z "$NFSSHARE" ] && [ ! -f "${CONFIG_DIR}/kernel" ]; then
+    mkdir "${ROOTFS}/boot"
+    mount -o ro "${FOUNDDEV%2}1" "${ROOTFS}/boot"
+fi
 
 # Copy resolv.conf
 [ "$NFSSHARE" ] && [ -f "/etc/resolv.conf" ] && cp /etc/resolv.conf etc/

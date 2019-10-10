@@ -827,9 +827,6 @@ build_newroot()
     # Update ns switch
     sed -i "s/compat/db files nis/" "$NEWROOT/etc/nsswitch.conf"
 
-    # Add empty yp.conf so it can be overriden by the user in tiny/conf
-    touch "$NEWROOT"/etc/yp.conf
-
     # Remove unneeded scripts
     remove_gentoo_services autofs dropbear fuse mdev nfsclient nscd pciparm ypbind
     rm -f "$NEWROOT/etc"/{init.d,conf.d}/busybox-*
@@ -880,9 +877,10 @@ build_newroot()
     # Create /etc/shells so that root can log in remotely using bash
     echo "/bin/bash" > "$NEWROOT"/etc/shells
 
-    # Copy /etc/services
-    [[ -f $NEWROOT/etc/services ]] || cp /etc/services "$NEWROOT"/etc/
-    
+    # Copy /etc/services and /etc/protocols
+    [[ -f $NEWROOT/etc/services  ]] || cp /etc/services  "$NEWROOT"/etc/
+    [[ -f $NEWROOT/etc/protocols ]] || cp /etc/protocols "$NEWROOT"/etc/
+
     # Create hosts file
     echo "127.0.0.1   tinylinux localhost" > "$NEWROOT/etc/hosts"
     echo "::1         localhost" >> "$NEWROOT/etc/hosts"
@@ -1054,6 +1052,17 @@ install_into()
     done
 }
 
+install_config()
+{
+    local DEST="/mnt/etc/$1"
+    mkdir -p "$DEST"
+    shift
+    while [[ $# -gt 0 ]]; do
+        cp "$BUILDSCRIPTS/profiles/$PROFILE/$1" "$DEST"
+        shift
+    done
+}
+
 remove_syslinux()
 {
     rm -f "$INSTALL/syslinux.exe"
@@ -1072,6 +1081,9 @@ install_extra_packages()
     # Skip if extra packages have already been installed
     [[ -f /var/lib/misc/extra ]] && return 0
 
+    # Remove old config
+    rm -rf /mnt/etc
+
     # Proceed only if the current profile supports extra packages
     CUSTOMSCRIPT="$BUILDSCRIPTS/profiles/$PROFILE/custom"
     if [[ -f $CUSTOMSCRIPT ]]; then
@@ -1086,6 +1098,23 @@ install_extra_packages()
     # by setting profile name
     mkdir -p /var/lib/misc
     echo "$PROFILE" > /var/lib/misc/extra
+}
+
+pack_config()
+{
+    local CONFIG_FILE="$INSTALL/tiny/config.new"
+
+    dd if=/dev/zero of="$CONFIG_FILE" bs=1K count=256
+    local ETCDEV=$(losetup --show -f "$CONFIG_FILE")
+    mke2fs -L etc -j "$ETCDEV"
+    losetup -d "$ETCDEV"
+
+    local MNT="$(mktemp -d -t etc.XXXXXX)"
+    mount -o loop "$CONFIG_FILE" $MNT
+    mkdir "$MNT"/{etc,work}
+    cp -a /mnt/etc/* $MNT/etc/
+    umount $MNT
+    rmdir $MNT
 }
 
 get_mods_driver_version()
@@ -1197,6 +1226,7 @@ make_squashfs()
 	lib*/udev
 	mnt
 	run
+        saved
 	tmp
 	usr/lib*/*.a
 	usr/lib*/*.o
@@ -1487,6 +1517,7 @@ build_newroot               # Build newroot, which is the actual TinyLinux. Can 
 prepare_installation        # Prepare /buildroot/install directory. Copy kernel, etc.
 install_mods                # Install MODS kernel driver.
 install_extra_packages      # Install additional profile-specific packages. Runs the custom script.
+pack_config                 # Create persistent configuration file
 make_squashfs               # Create squashfs.bin from newroot. Can be forced with -q.
 compile_busybox             # [Tegra only] Compile busybox for startup.
 make_tegra_image            # [Tegra only] Create initial ramdisk for Tegra.

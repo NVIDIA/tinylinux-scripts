@@ -1,18 +1,18 @@
 #!/sbin/rc
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 saveconfig()
 {
-    /usr/sbin/alsactl store -f /mnt/nv/tiny/asound.state
+    /usr/sbin/alsactl store -f $ALSA_CONFIG
     sync
     return 0
 }
 
 readconfig()
 {
-    /usr/sbin/alsactl restore -f /mnt/nv/tiny/asound.state
+    /usr/sbin/alsactl restore -f $ALSA_CONFIG
     return 0
 }
 

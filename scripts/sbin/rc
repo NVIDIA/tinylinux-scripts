@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2009-2016, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 __STATUSDIR="/var/rc/status"
@@ -126,25 +126,42 @@ __stopservice()
     return $RC
 }
 
-# Symlink files from conf dir (shallow)
-__make_conf_symlinks()
+# Migrate old configuration
+__migrate_config()
 {
-    local FILE
-    local SRC
-    local DEST
+    [ -d /etc_overlay ] && return 0
 
-    find "$1/" -maxdepth 1 -type f | while read FILE; do
-        FILE=`basename "$FILE"`
-        SRC="$TINYLINUXDIR/conf/$FILE"
-        DEST="$1/$FILE"
-        if [ -f "$SRC" ]; then
-            echo "Linking $SRC to $DEST"
-            tr -d '\r' < "$SRC" > /tmp/_doseol
-            cat /tmp/_doseol > "$SRC"
-            rm -f "$DEST"
-            ln -s "$SRC" "$DEST"
-        fi
+    [ -f /etc/.migrated ] && return 0
+
+    touch /etc/.migrated
+
+    [ -n "$TINYLINUXDIR" ] || return 0
+    [ -d "$TINYLINUXDIR/conf" ] || return 0
+
+    local DIR
+    for DIR in /etc/autofs /etc/conf.d /etc/bash /etc; do
+        local FILE
+        find "$DIR/" -maxdepth 1 -type f | while read FILE; do
+            local SRC
+            FILE=`basename "$FILE"`
+            SRC="$TINYLINUXDIR/conf/$FILE"
+            if [ -f "$SRC" ]; then
+                echo "Copying $SRC to $DIR/$FILE"
+                mkdir -p "$DIR"
+                tr -d '\r' < "$SRC" > "$DIR/$FILE"
+            fi
+        done
     done
+
+    if [ -f "$TINYLINUXDIR/udhcpd.conf" ]; then
+        echo "Copying $TINYLINUXDIR/udhcpd.conf to /etc/udhcpd.conf"
+        tr -d '\r' < "$TINYLINUXDIR/udhcpd.conf" > /etc/udhcpd.conf
+    fi
+
+    if [ -f "$TINYLINUXDIR/asound.state" ]; then
+        echo "Copying $TINYLINUXDIR/asound.state to /etc/asound.state"
+        cp "$TINYLINUXDIR/asound.state" /etc/asound.state
+    fi
 }
 
 # Print services in boot order
@@ -159,10 +176,6 @@ __get_boot_services()
     CMDLINE="$(cat /proc/cmdline)"
     if echo "$CMDLINE" | grep -q "boot_order="; then
         FILE="$(echo "$CMDLINE" | sed "s/.*boot_order=// ; s/ .*//")"
-        if [ ! -f "/etc/conf.d/$FILE" -a -f "$TINYLINUXDIR/conf/$FILE" ]; then
-            echo "Linking $TINYLINUXDIR/conf/$FILE to /etc/conf.d/$FILE" >&2
-            ln -s "$TINYLINUXDIR/conf/$FILE" "/etc/conf.d/$FILE"
-        fi
         if [ -e "/etc/conf.d/$FILE" ]; then
             BOOT_ORDER="/etc/conf.d/$FILE"
             echo "Using boot order override: $BOOT_ORDER" >&2
@@ -243,7 +256,9 @@ elif [ "$1" = "status" ]; then
     find /etc/init.d/ -type f | sort | while read __SVC; do
         __SVCNAME=`basename "$__SVC"`
         __STATUS=`__getstatus "$__SVCNAME"`
-        echo "$__SVCNAME: $__STATUS"
+        [ "$__STATUS" = "stopped" ] || [ "$NOCOLOR" = "1" ] ||  __STATUS="\033[1;32m${__STATUS}\033[0m"
+        __PADDING="            "
+        echo -e "$__SVCNAME${__PADDING:${#__SVCNAME}} $__STATUS"
     done
 
 # Enable services
@@ -261,27 +276,15 @@ elif [ "$1" = "enable" ]; then
         # Attempt to start the service
         /etc/init.d/$1 start || exit $?
 
-        # Prepare boot list
-        if echo "$TINYLINUXDIR" | grep -q "/mnt/nv"; then
-            mkdir -p "$TINYLINUXDIR/conf"
-            if [ ! -f "$TINYLINUXDIR/conf/boot" ]; then
-                cp /etc/conf.d/boot "$TINYLINUXDIR/conf"/
-                rm /etc/conf.d/boot
-                ln -s "$TINYLINUXDIR/conf/boot" /etc/conf.d/boot
-            fi
-            if [ ! -f "$TINYLINUXDIR/conf/$1" -a -f "/etc/conf.d/$1" ]; then
-                cp "/etc/conf.d/$1" "$TINYLINUXDIR/conf"/
-                rm "/etc/conf.d/$1"
-                ln -s "$TINYLINUXDIR/conf/$1" "/etc/conf.d/$1"
-            fi
-        fi
-
         # Add service to boot list
         grep -q "^$1\$" /etc/conf.d/boot || echo "$1" >> /etc/conf.d/boot
 
         # Next service
         shift
     done
+
+    # Prevent losing data during accidental reboot
+    sync
 
 # Disable services
 elif [ "$1" = "disable" ]; then
@@ -300,26 +303,28 @@ elif [ "$1" = "disable" ]; then
 
         # Remove service from boot list
         BOOT_ORDER="/etc/conf.d/boot"
-        [ ! -L "$BOOT_ORDER" ] || BOOT_ORDER="$(readlink $BOOT_ORDER)"
         sed -i "/^$1$/d" "$BOOT_ORDER"
 
         # Next service
         shift
     done
 
+    # Prevent losing data during accidental reboot
+    sync
+
 # System init
 elif [ "$1" = "sysinit" ]; then
 
     # Remount root as rw if necessary
-    mount -t proc none /proc
+    mount -t proc proc /proc
     if grep -q " rootfs.*ro" /proc/mounts; then
         echo "Remounting root read-write"
         mount -o remount,rw rootfs /
     fi
 
     # Mount basic filesystems
-    mount -t sysfs none /sys
-    mount -t devtmpfs -o "mode=0755" udev /dev
+    mount -t sysfs sysfs /sys
+    mount -t devtmpfs -o "mode=0755" devtmpfs /dev
     [ -d /dev/pts ] || mkdir -m 0755 /dev/pts
     [ -d /dev/shm ] || mkdir -m 1777 /dev/shm
     mount -t devpts -o "mode=0620,gid=5" devpts /dev/pts
@@ -356,17 +361,11 @@ elif [ "$1" = "boot" ]; then
     VAR_FIRMWARE="$(readlink /lib/firmware)"
     [ "$VAR_FIRMWARE" != "/var/firmware" ] || mkdir -p /var/firmware
 
-    # Create persistent configuration directory if it does not exist
-    echo "$TINYLINUXDIR" | grep -q "/mnt/nv" && mkdir -p "$TINYLINUXDIR/conf"
-
-    # Symlink configuration files
-    __make_conf_symlinks /etc/autofs
-    __make_conf_symlinks /etc/conf.d
-    __make_conf_symlinks /etc/bash
-    __make_conf_symlinks /etc
-
     # Mount debug fs if it is available
-    grep -q debugfs /proc/filesystems && [ -d /sys/kernel/debug ] && mount -t debugfs none /sys/kernel/debug
+    grep -q debugfs /proc/filesystems && [ -d /sys/kernel/debug ] && mount -t debugfs debugfs /sys/kernel/debug
+
+    # Migrate old configuration
+    __migrate_config
 
     # Start boot services
     __get_boot_services | while read __SVCNAME; do

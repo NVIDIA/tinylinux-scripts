@@ -1,13 +1,10 @@
 #!/sbin/rc
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 start()
 {
-    # Copy configuration
-    [ -f "$TINYLINUXDIR/udhcpd.conf" ] && tr -d '\r' < "$TINYLINUXDIR/udhcpd.conf" > /etc/udhcpd.conf
-
     # Create directories and files needed by udhcpd
     [ -d /var/lib/misc ] || mkdir -p /var/lib/misc
     [ -f /var/lib/misc/udhcpd.leases ] || touch /var/lib/misc/udhcpd.leases
