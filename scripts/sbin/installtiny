@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 set -e
@@ -11,95 +11,194 @@ die()
     exit 1
 }
 
-[ $# -gt 0 ] || die "Usage: `basename $0` <DEVICE1> [DEVICE2 [...]]"
-
-# Check required tools
-[ -x /sbin/mkfs.vfat   ] || die "/sbin/mkfs.vfat not found"
-[ -x /sbin/fdisk       ] || die "/sbin/fdisk not found"
-[ -x /usr/bin/syslinux ] || die "/usr/bin/syslinux not found"
-[ -f /usr/share/syslinux/mbr.bin ] || die "mbr.bin not found"
-
-# Find TinyLinux directory
-TINY="`tinydir`"
-[ -d "$TINY" ] || die "TinyLinux directory not found"
-
-IBLK=1
-while [ $IBLK -le $# ]; do
-    BLKDEV=`eval "echo "'$'"$IBLK"`
-    BLKDEV="${BLKDEV#/dev/}"
-    [ -e "/sys/class/block/$BLKDEV" ] || die "/dev/$BLKDEV device does not exist!"
-    cut -f 1 -d ' ' < /proc/mounts | grep -q "$BLKDEV" && \
-        die "/dev/$BLKDEV device is already mounted!"
-    IBLK=$(($IBLK+1))
-done
-
-UMOUNT_DEV1=""
-
-umount_on_exit()
+print_usage()
 {
-    sync
-    [ -z $UMOUNT_DEV1 ] || umount "$UMOUNT_DEV1" || echo "Umount failed - device $UMOUNT_DEV1 may be still mounted!"
+    echo "Usage: installtiny [OPTIONS] /dev/sdx"
+    echo
+    echo "Options:"
+    echo "  -r         Use ReiserFS instead of default F2FS for root partition"
+    echo "  -f FILE    Unpack TinyLinux from zip file"
+    echo
+    exit 1
 }
 
-trap umount_on_exit EXIT
+##############################################################################
+# Check if required tools exist
 
-install_tiny()
+check_tool()
 {
-    local BLKDEV
-    local DEV
-
-    BLKDEV="$1"
-
-    # Install master boot record and existing clear partition table
-    dd if=/dev/zero of="$BLKDEV" bs=512 count=1
-    cat /usr/share/syslinux/mbr.bin > "$BLKDEV"
-    sync
-
-    # Create partitions
-    echo -en "np1  a1pw" | sed "s/./&\n/g" | /sbin/fdisk "$BLKDEV"
-    sync
-    find /sys/devices/ -name uevent -exec sh -c "echo add > '{}'" \;
-    sleep 4
-    grep "^$BLKDEV" < /proc/mounts | cut -f 1 -d ' ' | while read DEV; do
-        umount "$DEV"
-    done
-    /sbin/mkfs.vfat -n "TinyLinux" "${BLKDEV}1"
-    sync
-
-    # Install TinyLinux
-    local INSTALLDIR
-    INSTALLDIR="`mktemp -d -t`"
-    mount "${BLKDEV}1" "$INSTALLDIR"
-    UMOUNT_DEV1="${BLKDEV}1"
-    mkdir -p "$INSTALLDIR/home"
-    cp -r "$TINY" "$INSTALLDIR/tiny"
-    [ -f /mnt/nv/README       ] && cp /mnt/nv/README       "$INSTALLDIR"
-    [ -f /mnt/nv/syslinux.exe ] && cp /mnt/nv/syslinux.exe "$INSTALLDIR"
-    [ -d /mnt/nv/EFI          ] && cp -r /mnt/nv/EFI       "$INSTALLDIR"
-
-    # Make it bootable
-    mkdir -p "$INSTALLDIR/syslinux"
-    echo "default /tiny/kernel initrd=/tiny/initrd" > "$INSTALLDIR"/syslinux/syslinux.cfg
-    /usr/bin/syslinux --install "${BLKDEV}1"
-    UMOUNT_DEV1=""
-    sync
-    umount "${BLKDEV}1"
-    rmdir "$INSTALLDIR"
+    [ -x "$1" ] || die "Error: $1 not found"
 }
 
-install_wrap()
-{
-    local STATUS
-    echo "Installing TinyLinux on $1"
-    install_tiny "$1" 2<&1 | sed "s/^/${1//\//\\/}: /" | tee -a "/var/log/install"
-    STATUS=${PIPESTATUS[0]}
-    [ $STATUS -eq 0 ] || exit $STATUS
-    echo "TinyLinux installed successfuly on $1"
-}
+check_tool /usr/sbin/parted
+check_tool /sbin/mkfs.vfat
+check_tool /sbin/mkfs.reiser
 
-while [ $# -gt 0 ]; do
-    install_wrap "/dev/${1#/dev/}" &
+##############################################################################
+# Handle command line args
+
+PACKAGE=""
+FS=f2fs
+FS_REASON=""
+if [ "$(which mkfs.f2fs 2>&1)" = "" ]; then
+    FS=reiser
+    FS_REASON="mkfs.f2fs not found, falling back to ReiserFS"
+fi
+if ! grep -q "\<f2fs\>" /proc/filesystems; then
+    FS=reiser
+    FS_REASON="f2fs not found in /proc/filesystems, falling back to ReiserFS"
+fi
+
+while [ $# -gt 1 ]; do
+    case "$1" in
+        -h) print_usage ;;
+        -r) FS=reiser ;;
+        -f) shift
+            PACKAGE="$1"
+            [ "$PACKAGE" ] || die "Error: Missing package filename"
+            [ -f "$PACKAGE" ] || die "Error: Missing package file $PACKAGE"
+            ;;
+        *) die "Error: Unrecognized parameter - $1"
+    esac
     shift
 done
 
-wait
+##############################################################################
+# Perform sanity checks
+
+[ $# -eq 1 ] || print_usage
+
+[ -b $1 ] || die "Error: $1 is not a block device"
+
+PARTITION="/sys/class/block/${1#/dev/}/partition"
+[ ! -f "$PARTITION" ] || [ "$(cat "$PARTITION")" = "0" ] || die "Error: $1 is a partition"
+
+[ $(id -u) = 0 ] || die "Error: This program requires root privileges"
+
+##############################################################################
+# Print info and ask the user one last time
+
+echo
+echo "Installing TinyLinux to $1"
+echo
+
+parted "$1" print
+
+echo
+echo "Do you want to continue? [y|n]"
+RESPONSE=
+read RESPONSE
+if [[ $RESPONSE != y ]]; then
+    echo "Exiting"
+    exit 1
+fi
+echo
+
+##############################################################################
+# Set up partitions
+
+# Restore hotplug on exit
+HOTPLUG="$(cat /proc/sys/kernel/hotplug)"
+cleanup()
+{
+    [ -z "$HOTPLUG" ] || echo "$HOTPLUG" > /proc/sys/kernel/hotplug
+}
+
+# Disable hotplug
+echo "" > /proc/sys/kernel/hotplug
+
+# Unmount any partitions from the target drive
+if grep -q "^$1" /proc/mounts; then
+    for PARTITION in $(grep "^$1" /proc/mounts | awk '{print $2}'); do
+        echo "Unmounting $PARTITION"
+        umount $PARTITION
+        sync
+    done
+fi
+
+echo "Creating partitions..."
+
+# Clear any existing partitions and data
+dd if=/dev/zero of="$1" bs=1M count=1
+
+# Create GPT partition table and partitions
+parted -s "$1" \
+    mklabel gpt \
+    mkpart boot 2048s 64m \
+    set 1 boot on \
+    set 1 esp on \
+    mkpart root 64m 100% \
+    print
+
+# Write all data to the drive
+sync
+
+[ -z "$FS_REASON" ] || echo "$FS_REASON"
+
+# Create filesystems in partitions
+mkfs.vfat -n BOOT "$1"1
+mkfs.$FS -f -l root "$1"2
+
+# Write all data to the drive
+sync
+
+# Restore hotplug
+echo "$HOTPLUG" > /proc/sys/kernel/hotplug
+HOTPLUG=""
+
+# Perform hotplug
+ls /sys/bus/pci/devices/*/uevent /sys/bus/usb/devices/*/uevent /sys/block/*/uevent /sys/block/*/*/uevent | while read UEVENT; do
+    echo "add" > "$UEVENT"
+done
+
+# Wait for partitions to appear
+WAIT=10 # in seconds
+while true; do
+    [ $WAIT -gt 0 ] || die "Failed to auto-mount created partitions"
+    grep -q "^${1}1 " /proc/mounts && grep -q "^${1}2 " /proc/mounts && break
+    sleep 1
+    WAIT=$(($WAIT - 1))
+done
+
+##############################################################################
+# Install TinyLinux
+
+echo "Copying data..."
+
+# Locate boot partition
+if [ -d /boot/tiny ]; then
+    BOOT=/boot
+else
+    BOOT=/mnt/nv
+fi
+
+TARGET_BOOT="${1/dev/media}1"
+TARGET_ROOT="${1/dev/media}2"
+
+if [ "$PACKAGE" ] && [ -f "$PACKAGE" ]; then
+    # Unpack TinyLinux package
+    unzip "$PACKAGE" -d "$TARGET_ROOT"
+
+    # Populate boot partition
+    mv "$TARGET_ROOT"/EFI "$TARGET_ROOT"/syslinux "$TARGET_BOOT"
+    mkdir "$TARGET_BOOT"/tiny
+    mv "$TARGET_ROOT"/tiny/kernel "$TARGET_ROOT"/tiny/initrd "$TARGET_BOOT"/tiny
+else
+    # Populate boot partition
+    cp -a "$BOOT"/EFI "$BOOT"/syslinux "$TARGET_BOOT"
+    mkdir "$TARGET_BOOT"/tiny
+    cp "$BOOT"/tiny/kernel "$BOOT"/tiny/initrd "$TARGET_BOOT"/tiny
+
+    # Populate root partition
+    cp -a /mnt/nv/tiny "$TARGET_ROOT"
+    rm -f "$TARGET_ROOT"/tiny/kernel "$TARGET_ROOT"/tiny/initrd
+    mkdir "$TARGET_ROOT"/home
+fi
+
+# Configure bootloader for initrd to find the root partition quicker
+sed -i '/default/s/$/ partno=2/' "$TARGET_BOOT"/syslinux/syslinux.cfg
+
+sync
+
+echo
+echo "Done!"

@@ -1,6 +1,8 @@
 # Install additional packages
-install_into tiny/conf boot
+install_config /conf.d boot
+
 install_package dev-libs/openssl
+ROOT="$NEWROOT" emerge --unmerge -q debianutils
 
 install_package expat
 install_package =python-3.6* "" "--nodeps"
@@ -13,6 +15,7 @@ install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn p
 perl-cleaner -q --all -- -q
 ignore_busybox_symlinks /bin/bzip2 /bin/bunzip2 /bin/bzcat
 install_package perl "ithreads"
+ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read # Print news items from PERL
 install_package iasl
 install_package pmtools
 install_package sys-devel/gdb "client server"
@@ -25,6 +28,7 @@ remove_gentoo_services alsasound
 install_package vbetool
 install_package net-nds/ypbind
 install_package net-fs/autofs "" "--nodeps"
+yes | ROOT=/newroot etc-update --automode -7 # Clean up autofs script changes
 install_package ipmitool "openipmi python"
 install_package ipmiutil
 install_package dmidecode
@@ -36,10 +40,12 @@ install_package p7zip
 install_package zip
 install_package app-misc/screen
 install_package acpid
+yes | ROOT=/newroot etc-update --automode -7 # Clean up acpid script changes
 install_package app-admin/sudo
 install_package sys-apps/file "python zlib"
-install_package sys-block/parted "" "--nodeps"
 install_package sys-fs/f2fs-tools
+install_package sys-block/parted "" --nodeps
+cp -a /lib64/lib{uuid,blkid}.so.* "$NEWROOT"/lib64/ # Needed by parted, but we don't want entire util-linux
 
 # Python modules
 install_package dev-python/cffi
