@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 LOGFILE="/var/log/mounts"
@@ -18,13 +18,16 @@ shouldmount()
 
     # Skip boot partition
     if [ -x /bin/tinydir ] && [ ! -f "`/bin/tinydir`/kernel" ]; then
-        if grep -q "2 /mnt/nv reiserfs" /proc/mounts; then
+        if grep -q "2 /mnt/nv " /proc/mounts; then
             local INSTALL
-            INSTALL=`grep " /mnt/nv " /proc/mounts | cut -f 1 -d ' '`
+            INSTALL=`grep " /mnt/nv " /proc/mounts | awk '{print $1}'`
             INSTALL=${INSTALL#/dev/}
             [ "$1" = "${INSTALL/2/1}" ] && return 2
         fi
     fi
+
+    # Skip if it's already in /etc/fstab
+    grep -q "^/dev/${1}\>" /etc/fstab && return 3
 
     return 0
 }
@@ -36,19 +39,19 @@ if [ "$ACTION" = "remove" ]; then
         rmdir "/media/$MDEV"
     fi
 elif [ "$ACTION" = "add" ]; then
-    if ! grep -q "$MDEV\>" /proc/mounts; then
+    if ! grep -q "^/dev/$MDEV\>" /proc/mounts; then
         shouldmount "$MDEV" "$DEVTYPE"
         case "$?" in
-        0)
-            echo "  mounting /media/$MDEV" >> "$LOGFILE"
+        0)  echo "  mounting /media/$MDEV" >> "$LOGFILE"
             mkdir -p "/media/$MDEV"
             mount "/dev/$MDEV" "/media/$MDEV" || (
                 rmdir "/media/$MDEV"
                 echo "  mount /media/$MDEV failed" >> "$LOGFILE"
             )
             ;;
-        2)
-            echo "  /dev/$MDEV is boot partition, skipping" >> "$LOGFILE"
+        2)  echo "  /dev/$MDEV is boot partition, skipping" >> "$LOGFILE"
+            ;;
+        3)  echo "  /dev/$MDEV is in /etc/fstab, skipping" >> "$LOGFILE"
             ;;
         *)
             echo "  ignored /dev/$MDEV" >> "$LOGFILE"
