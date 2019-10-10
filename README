@@ -110,18 +110,19 @@ following section:
 Replace `(hd0,0)` with the hard drive and partition numbers corresponding to
 the partition where you unpack the NVIDIA TinyLinux package.
 
+The instructions for GRUB 2 configuration may vary.
+
 It is recommended to unpack NVIDIA TinyLinux into its own partition.
 
 It is also recommended to have only one copy of NVIDIA TinyLinux in the system,
 otherwise the boot script may become confused and problems with booting will
 occur.
 
-From NVIDIA TinyLinux - legacy boot (SBIOS)
--------------------------------------------
+From NVIDIA TinyLinux - UEFI boot
+---------------------------------
 
 After determining the location of the target drive, run:
 
-    umount /media/sdx*
     installtiny /dev/sdx
 
 Replace /dev/sdx with the actual drive where you want to install
@@ -143,8 +144,8 @@ Directory              | Description
 /tiny/kernel           | Compressed Linux kernel image.
 /tiny/initrd           | Compressed initial ramdisk.
 /tiny/squash.bin       | Compressed Linux filesystem.
+/tiny/config           | File containing persistent system configuration.
 /tiny/commands         | Editable script, executed on startup.
-/tiny/conf             | Persistent system configuration directory.
 
 
 Filesystem structure after boot
@@ -227,26 +228,14 @@ Services
 --------
 
 There are multiple services available in NVIDIA TinyLinux.  The configuration
-files for each service live in `/etc/conf.d` directory.  Because this directory
-is located in the ramdisk, any modifications to it will be lost on reboot.
+files for each service live in `/etc/conf.d` directory.
 
-To preserve service configuration across reboots, copy the relevant
-configuration files from `/etc/conf.d` and `/etc` to `/mnt/nv/tiny/conf`
-directory.
+Any modifications to system configuration in `/etc` are automatically saved
+in `/mnt/nv/tiny/config`.
 
 There is also a special configuration file `/etc/conf.d/boot`, which specifies
 the boot order of services.  If more services need to be started at boot, they
 need to be listed there.
-
-An example how to preserve the `/etc/conf.d/boot` file across reboots:
-
-    cp /etc/conf.d/boot /mnt/nv/tiny/conf/
-
-On boot, the entire `/etc` directory is copied by the service manager
-`/sbin/rc` from `/mnt/squash/etc`, which is located in the read-only compressed
-Linux filesystem.  Symbolic links are created for any additional configuration
-files in `/mnt/nv/tiny/conf` instead of the initial copies from
-`/mnt/squash/etc`.
 
 Networking
 ----------
@@ -292,10 +281,6 @@ To set up the SSH daemon, perform the following steps:
 2. Enable the ssh daemon (it will also be started on boot):
 
         rc enable sshd
-
-3. Preserve user's password acroos reboots:
-
-        cp /etc/passwd /mnt/nv/tiny/conf/
 
 Running random scripts on boot
 ------------------------------
