@@ -49,6 +49,8 @@ cp -a /lib64/lib{uuid,blkid}.so.* "$NEWROOT"/lib64/ # Needed by parted, but we d
 
 # Python modules
 install_package dev-python/cffi
+install_package dev-python/dnspython
+rm -rf "$NEWROOT"/usr/lib*/python*/site-packages/Crypto/SelfTest
 install_package dev-python/pip
 
 # PERL modules
