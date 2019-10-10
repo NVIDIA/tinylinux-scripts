@@ -42,6 +42,11 @@ end_test()
     fi
 }
 
+rc_status()
+{
+    NOCOLOR=1 rc status
+}
+
 EXITCODE=0
 
 #==============================================================================
@@ -152,7 +157,7 @@ end_test
 start_test "services"
 while read SERVICE; do
     echo -n " $SERVICE"
-    if ! rc status | grep -q "$SERVICE: started"; then
+    if ! rc_status | grep -q "$SERVICE *started"; then
         fail_test "failed"
     fi
 done < /etc/conf.d/boot
@@ -197,24 +202,13 @@ start_test "service enable"
 echo -n " sshd"
 ! grep -q sshd /etc/conf.d/boot || fail_test "not expected in /etc/conf.d/boot"
 ! grep -q sshd /var/rc/status/.order || fail_test "not expected in /var/rc/status/.order"
-if [ -f /mnt/nv/tiny/conf/boot ]; then
-    rm /etc/conf.d/boot
-    mv /mnt/nv/tiny/conf/boot /etc/conf.d/
-fi
-rm -f /etc/conf.d/sshd /mnt/nv/tiny/conf/sshd
+rm -f /etc/conf.d/sshd
 cp /mnt/squash/etc/conf.d/sshd /etc/conf.d/
 echo -n " enable"
 rc enable sshd >/dev/null 2>&1
-rc status | grep -q "sshd: started" || fail_test "not started"
+rc_status | grep -q "sshd *started" || fail_test "not started"
 tail -n 1 /etc/conf.d/boot | grep -q sshd || fail_test "missing in /etc/conf.d/boot"
 tail -n 1 /var/rc/status/.order | grep -q sshd || fail_test "missing in /var/rc/status/.order"
-echo -n " symlinks"
-[[ -f /mnt/nv/tiny/conf/boot ]] || fail_test "missing /mnt/nv/tiny/conf/boot"
-[[ -L /etc/conf.d/boot ]] || fail_test "/etc/conf.d/boot is not a symlink"
-[[ $(readlink -f /etc/conf.d/boot) = "/mnt/nv/tiny/conf/boot" ]] || fail_test "incorrect symlink /etc/conf.d/boot"
-[[ -f /mnt/nv/tiny/conf/sshd ]] || fail_test "missing /mnt/nv/tiny/conf/sshd"
-[[ -L /etc/conf.d/sshd ]] || fail_test "/etc/conf.d/sshd is not a symlink"
-[[ $(readlink -f /etc/conf.d/sshd) = "/mnt/nv/tiny/conf/sshd" ]] || fail_test "incorrect symlink /etc/conf.d/sshd"
 end_test
 
 #==============================================================================
@@ -222,7 +216,7 @@ end_test
 start_test "service disable"
 echo -n " sshd disable"
 rc disable sshd >/dev/null 2>&1
-rc status | grep -q "sshd: stopped" || fail_test "not stopped"
+rc_status | grep -q "sshd *stopped" || fail_test "not stopped"
 ! grep -q sshd /etc/conf.d/boot || fail_test "not expected in /etc/conf.d/boot"
 ! grep -q sshd /var/rc/status/.order || fail_test "not expected in /var/rc/status/.order"
 end_test
@@ -321,7 +315,7 @@ fi
 
 start_test "ssh"
 /etc/init.d/sshd start >/dev/null 2>&1
-rc status | grep -q "sshd: started" || fail_test "failed"
+rc_status | grep -q "sshd *started" || fail_test "failed"
 echo -n " user"
 mkdir -p /root/.ssh
 chmod 700 /root
