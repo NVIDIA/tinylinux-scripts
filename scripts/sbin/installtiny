@@ -146,7 +146,7 @@ sync
 echo "$HOTPLUG" > /proc/sys/kernel/hotplug
 HOTPLUG=""
 
-# Perform hotplug
+# Perform coldplug
 ls /sys/bus/pci/devices/*/uevent /sys/bus/usb/devices/*/uevent /sys/block/*/uevent /sys/block/*/*/uevent | while read UEVENT; do
     echo "add" > "$UEVENT"
 done
