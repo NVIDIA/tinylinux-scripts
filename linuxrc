@@ -69,8 +69,26 @@ if [ "$COLDPLUG" = "1" ]; then
     done
 fi
 
+# Mounts squashed root filesystem and checks TinyLinux version
+mount_squash()
+{
+    if ! mount -t squashfs -o loop,ro "${ROOTFS}/${MNTNV}/${SQUASHFS_BIN}" "${ROOTFS}/${MNTSQUASH}"; then
+        echo "Error: Failed to mount ${1}/${SQUASHFS_BIN}"
+        return 1
+    fi
+
+    # Check TinyLinux version in the squashed root filesystem
+    SQUASHFS_VERSION=$(head -n 1 "${ROOTFS}/${MNTSQUASH}/etc/release" | sed "s/.*version //")
+    if [ "$VERSION" != "$SQUASHFS_VERSION" ]; then
+        echo "Error: initrd version $VERSION does not match TinyLinux version $SQUASHFS_VERSION"
+        echo "       found in ${1}/${SQUASHFS_BIN}"
+        umount "${ROOTFS}/${MNTSQUASH}"
+        return 1
+    fi
+}
+
 # Mount non-volatile volume or NFS share
-mkdir -p "${ROOTFS}/${MNTNV}"
+mkdir -p "${ROOTFS}/${MNTNV}" "${ROOTFS}/${MNTSQUASH}"
 RETRYCOUNT=0
 TRIEDDEVS=""
 FOUNDDEV=""
@@ -82,23 +100,23 @@ while true; do
             ifconfig "$NET" up || exec /bin/sh
             udhcpc -n -T 1 -t 60 -q -i "$NET" || exec /bin/sh
             mount -t nfs -o nolock "$NFSSHARE" "${ROOTFS}/${MNTNV}" || exec /bin/sh
+            mount_squash "$NFSSHARE" || exit /bin/sh
         fi
     else
         [ -z "$PARTNUMBER" ] || P_PARTNUMBER="p$PARTNUMBER"
         for DEVFILE in `find /dev/ -name "[sh]d[a-z]${PARTNUMBER}*" \
                                 -o -name "sr${PARTNUMBER}*"         \
                                 -o -name "nvme*n*${P_PARTNUMBER}*"`; do
-            if ! echo "$TRIEDDEVS" | grep -q "$DEVFILE\>"; then
-                if mount "$DEVFILE" "${ROOTFS}/${MNTNV}" 2>/dev/null; then
-                    TRIEDDEVS="$TRIEDDEVS $DEVFILE"
-                    if [ -f "${ROOTFS}/${MNTNV}/${SQUASHFS_BIN}" ]; then
-                        echo "Found root device ${DEVFILE}"
-                        FOUNDDEV="${DEVFILE}"
-                        break
-                    fi
-                    umount "${ROOTFS}/${MNTNV}" || exec /bin/sh
-                fi
+            echo "$TRIEDDEVS" | grep -q "$DEVFILE\>" && continue
+            mount "$DEVFILE" "${ROOTFS}/${MNTNV}" 2>/dev/null || continue
+
+            TRIEDDEVS="$TRIEDDEVS $DEVFILE"
+            if [ -f "${ROOTFS}/${MNTNV}/${SQUASHFS_BIN}" ] && mount_squash "$DEVFILE"; then
+                echo "Found root device ${DEVFILE}"
+                FOUNDDEV="${DEVFILE}"
+                break
             fi
+            umount "${ROOTFS}/${MNTNV}" || exec /bin/sh
         done
     fi
     [ "$FOUNDDEV" ] && break
@@ -110,18 +128,6 @@ while true; do
     [ $WAITTIME -gt 10000 ] && ( echo "Giving up..." && exec /bin/sh )
     RETRYCOUNT=$(($RETRYCOUNT+1))
 done
-
-# Mount squashed root filesystem
-mkdir "${ROOTFS}/${MNTSQUASH}"
-mount -t squashfs -o loop,ro "${ROOTFS}/${MNTNV}/${SQUASHFS_BIN}" "${ROOTFS}/${MNTSQUASH}"
-
-# Check TinyLinux version in the squashed root filesystem
-SQUASHFS_VERSION=$(head -n 1 "${ROOTFS}/${MNTSQUASH}/etc/release" | sed "s/.*version //")
-if [ "$VERSION" != "$SQUASHFS_VERSION" ]; then
-    echo "Installation error: initrd version $VERSION does not match squash.bin version $SQUASHFS_VERSION"
-    echo "Unable to continue booting"
-    exec /bin/sh
-fi
 
 # Create symlinks to the squashed root filesystem
 cd "${ROOTFS}"
