@@ -1,6 +1,6 @@
 #!/sbin/rc
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 DAEMON="/usr/sbin/automount"
@@ -8,6 +8,13 @@ PIDFILE="/var/run/autofs.pid"
 
 start()
 {
+    # /home is a symlink to /mnt/nv/home, change that to an empty dir
+    # if autofs uses /home
+    if [ -L /home ] && grep -q "^/home " /etc/autofs/auto.master; then
+        rm /home
+        mkdir /home
+    fi
+
     start-stop-daemon --start --exec "$DAEMON" -- -p "$PIDFILE"
 }
 
