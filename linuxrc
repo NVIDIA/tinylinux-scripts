@@ -155,7 +155,7 @@ mount_overlay()
         echo "Persistent configuration not found, storing configuration in tmpfs"
     fi
     mkdir -p "${ETCOVR}/etc" "${ETCOVR}/work"
-    if ! mount -t overlay -o lowerdir="${ROOTFS}/${MNTSQUASH}/etc",upperdir="${ETCOVR}/etc",workdir="${ETCOVR}/work" overlay etc; then
+    if ! mount -t overlay -o noatime,lowerdir="${ROOTFS}/${MNTSQUASH}/etc",upperdir="${ETCOVR}/etc",workdir="${ETCOVR}/work" overlay etc; then
         [ -f "$CONFIG_DIR/config" ] && umount "$ETCOVR"
         rm -rf "$ETCOVR"
         return 1
@@ -219,9 +219,6 @@ mknod dev/console c 5 1
 umount /dev
 umount /proc
 umount /sys
-
-# Copy mtab
-sed "s/\/mnt\/root\//\// ; s/\/mnt\/root /\/ /" </etc/mtab >etc/mtab
 
 # Store kernel boot time for reporting in /sbin/rc
 echo "$KERNEL_BOOT_TIME" > var/log/kernel_boot_time

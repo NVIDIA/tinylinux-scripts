@@ -839,7 +839,7 @@ build_newroot()
 
     # Copy TinyLinux scripts
     local FILE
-    ( cd "$BUILDSCRIPTS/scripts" && find ./ ! -type d ) | while read FILE; do
+    ( cd "$BUILDSCRIPTS/scripts" && find ./ ! -type d && find ./ -type f -name ".*" ) | while read FILE; do
         local SRC
         local DEST
         SRC="$BUILDSCRIPTS/scripts/$FILE"
@@ -880,6 +880,9 @@ build_newroot()
     # Copy /etc/services and /etc/protocols
     [[ -f $NEWROOT/etc/services  ]] || cp /etc/services  "$NEWROOT"/etc/
     [[ -f $NEWROOT/etc/protocols ]] || cp /etc/protocols "$NEWROOT"/etc/
+
+    # Create /etc/mtab
+    ln -s /proc/mounts "$NEWROOT"/etc/mtab
 
     # Create hosts file
     echo "127.0.0.1   tinylinux localhost" > "$NEWROOT/etc/hosts"
@@ -1104,9 +1107,9 @@ pack_config()
 {
     local CONFIG_FILE="$INSTALL/tiny/config.new"
 
-    dd if=/dev/zero of="$CONFIG_FILE" bs=1K count=256
+    dd if=/dev/zero of="$CONFIG_FILE" bs=1K count=512
     local ETCDEV=$(losetup --show -f "$CONFIG_FILE")
-    mke2fs -L etc -j "$ETCDEV"
+    mke2fs -L etc -b 1024 -i 1024 -j "$ETCDEV"
     losetup -d "$ETCDEV"
 
     local MNT="$(mktemp -d -t etc.XXXXXX)"
