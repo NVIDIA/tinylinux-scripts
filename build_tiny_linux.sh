@@ -763,7 +763,8 @@ build_newroot()
         rm -rf "$NEWROOT"/usr/lib
     fi
     install_package ncurses
-    install_package =sys-libs/ncurses-5.9*
+    ln -s libncurses.so.6  "$NEWROOT"/lib64/libncurses.so.5
+    ln -s libncursesw.so.6 "$NEWROOT"/lib64/libncursesw.so.5
     install_package pciutils
     rm -f "$NEWROOT/usr/share/misc"/*.gz # Remove compressed version of hwids
     install_package busybox "make-symlinks mdev nfs savedconfig"
