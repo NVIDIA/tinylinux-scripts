@@ -106,6 +106,7 @@ while true; do
         [ -z "$PARTNUMBER" ] || P_PARTNUMBER="p$PARTNUMBER"
         for DEVFILE in `find /dev/ -name "[sh]d[a-z]${PARTNUMBER}*" \
                                 -o -name "sr${PARTNUMBER}*"         \
+                                -o -name "mmcblk*${P_PARTNUMBER}*"  \
                                 -o -name "nvme*n*${P_PARTNUMBER}*"`; do
             echo "$TRIEDDEVS" | grep -q "$DEVFILE\>" && continue
             mount "$DEVFILE" "${ROOTFS}/${MNTNV}" 2>/dev/null || continue
