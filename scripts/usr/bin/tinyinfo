@@ -1,0 +1,39 @@
+#/bin/sh
+
+LOGFILE="/mnt/nv/tinyinfo.log"
+
+function dump()
+{
+    printf "%0.s-" {1..80} >> $LOGFILE
+    echo >> $LOGFILE
+    echo "% $@" >> $LOGFILE
+    "$@" >> $LOGFILE 2>&1
+}
+
+# Clear the output file
+echo > $LOGFILE
+
+# Execute all the dump commands
+dump head -n 2 /etc/release
+dump cat /proc/mounts
+dump cat /var/log/mounts
+NOCOLOR=1 dump rc status
+dump cat /var/rc/status/.order
+dump cat /var/log/messages
+dump cat /commands
+dump cat /etc/passwd
+dump ls -l /etc/
+dump ls -l /etc/conf.d
+dump cat /etc/conf.d/boot
+dump cat /etc/conf.d/net
+dump lspci -v
+dump lsusb
+dump ls -l /sys/class/net
+dump ifconfig -a
+dump ls -lR /mnt/nv/tiny
+dump dmesg
+
+# Sync so that file will be synced to drive
+sync
+
+echo "Logs are dumped to $LOGFILE"
