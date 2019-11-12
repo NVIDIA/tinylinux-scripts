@@ -1,7 +1,10 @@
 #!/sbin/rc
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
+
+# File to store the started interface name
+SAVED_IFACE_FILE="/var/run/net.iface"
 
 # Process kernel arguments
 parse_opt()
@@ -73,6 +76,9 @@ start()
                 /sbin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS
             fi
         fi
+
+        # Store the interface name to file
+        echo "$IFACE" > "$SAVED_IFACE_FILE"
     else
         echo -n " missing $IFACE" >&2
         return 1
@@ -81,6 +87,9 @@ start()
 
 stop()
 {
+    # Read the interface that was started using start
+    [ ! -f /var/run/net.iface ] || IFACE="$(cat "$SAVED_IFACE_FILE")"
+
     # Bring down networking
     if [ -d "/sys/class/net/$IFACE" ]; then
         ifconfig "$IFACE" down
