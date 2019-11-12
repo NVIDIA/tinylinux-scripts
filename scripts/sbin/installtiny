@@ -88,10 +88,7 @@ echo
 echo "Do you want to continue? [y|n]"
 RESPONSE=
 read RESPONSE
-if [[ $RESPONSE != y ]]; then
-    echo "Exiting"
-    exit 1
-fi
+[ "$RESPONSE" = "y" ] || die "Exiting"
 echo
 
 ##############################################################################
@@ -135,9 +132,17 @@ sync
 
 [ -z "$FS_REASON" ] || echo "$FS_REASON"
 
+# Detect partition devices
+PART1="$1"1
+PART2="$1"2
+[ -b $PART1 ] || PART1="$1"p1
+[ -b $PART2 ] || PART2="$1"p2
+[ -b $PART1 ] || die "Error: Boot partition not created as expected"
+[ -b $PART2 ] || die "Error: Root partition not created as expected"
+
 # Create filesystems in partitions
-mkfs.vfat -n BOOT "$1"1
-mkfs.$FS -f -l root "$1"2
+mkfs.vfat -n BOOT "$PART1"
+mkfs.$FS -f -l root "$PART2"
 
 # Write all data to the drive
 sync
@@ -155,7 +160,7 @@ done
 WAIT=10 # in seconds
 while true; do
     [ $WAIT -gt 0 ] || die "Failed to auto-mount created partitions"
-    grep -q "^${1}1 " /proc/mounts && grep -q "^${1}2 " /proc/mounts && break
+    grep -q "^$PART1 " /proc/mounts && grep -q "^$PART2 " /proc/mounts && break
     sleep 1
     WAIT=$(($WAIT - 1))
 done
@@ -172,8 +177,8 @@ else
     BOOT=/mnt/nv
 fi
 
-TARGET_BOOT="${1/dev/media}1"
-TARGET_ROOT="${1/dev/media}2"
+TARGET_BOOT="${PART1/dev/media}"
+TARGET_ROOT="${PART2/dev/media}"
 
 if [ "$PACKAGE" ] && [ -f "$PACKAGE" ]; then
     # Unpack TinyLinux package
