@@ -365,7 +365,7 @@ prepare_portage()
             dev-libs/libffi-3.2.1
             dev-util/valgrind-3.14.0
             net-dns/libidn2-2.0.5
-            net-fs/autofs-5.1.2
+            net-fs/autofs-5.1.6
             net-libs/libtirpc-1.0.2-r1
             net-nds/portmap-6.0
             net-nds/rpcbind-0.2.4-r1
@@ -414,6 +414,14 @@ prepare_portage()
         mkdir -p $PORTAGE/sys-boot/syslinux/files
         cp "$BUILDSCRIPTS/extra/syslinux-bios-free-mem.patch" $PORTAGE/sys-boot/syslinux/files/
         sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-bios-free-mem.patch\n\tepatch/" "$EBUILD"
+        ebuild "$EBUILD" digest
+    fi
+
+    # Patch compilation failure in autofs
+    local EBUILD=$PORTAGE/net-fs/autofs/autofs-5.1.6.ebuild
+    if [[ -f $EBUILD ]] && ! grep -q "gcc=strip" "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        sed -i '/Makefile.rules/ a\\tsed -i -e "/^STRIP.*strip-debug/s/strip/\\$(CC:gcc=strip)/" Makefile.rules' "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
