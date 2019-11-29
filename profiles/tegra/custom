@@ -26,7 +26,7 @@ if is64bit; then # glib fails to cross compile for armv7
     install_package dev-libs/libpcre                        # Dependency for glib
     install_package dev-libs/glib "" "--nodeps"             # Needed for bluez, avoid util-linux!
 
-    install_package net-wireless/bluez "" "--nodeps"        # Avoid pulling dbus
+    install_package net-wireless/bluez deprecated "--nodeps" # Avoid pulling dbus
     install_package net-wireless/rfkill
 fi
 
