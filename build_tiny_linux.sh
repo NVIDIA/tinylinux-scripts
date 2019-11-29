@@ -224,7 +224,7 @@ unpack_packages()
     # Unpack distfiles if available
     if [[ -f $DISTFILESPKG ]]; then
         boldecho "Unpacking distfiles"
-        tar_bz2 -xpf "$DISTFILESPKG" -C "$BUILDROOT/var/cache"
+        tar_bz2 -xpf "$DISTFILESPKG" -C "$BUILDROOT"
     fi
 }
 
@@ -549,12 +549,12 @@ install_tegra_toolchain()
 
     # Setup split glibc symbols for valgrind and remote debugging
     mkdir -p "$PORTAGECFG/package.env"
-    echo "sys-libs/glibc debug.conf"    > "$PORTAGECFG/package.env/glibc"
-    echo "dev-util/valgrind debug.conf" > "$PORTAGECFG/package.env/valgrind"
+    echo "sys-libs/glibc debug"         >  "$PORTAGECFG/package.env/glibc"
+    echo "dev-util/valgrind debug"      >  "$PORTAGECFG/package.env/valgrind"
     mkdir -p "$PORTAGECFG/env"
-    echo 'CFLAGS="${CFLAGS} -ggdb"'        >  "$PORTAGECFG/env/debug.conf"
-    echo 'CXXFLAGS="${CXXFLAGS} -ggdb"'    >> "$PORTAGECFG/env/debug.conf"
-    echo 'FEATURES="$FEATURES splitdebug"' >> "$PORTAGECFG/env/debug.conf"
+    echo 'CFLAGS="${CFLAGS} -ggdb"'     >  "$PORTAGECFG/env/debug"
+    echo 'CXXFLAGS="${CXXFLAGS} -ggdb"' >> "$PORTAGECFG/env/debug"
+    echo 'FEATURES="$FEATURES splitdebug compressdebug -nostrip"' >> "$PORTAGECFG/env/debug"
 
     touch "$INDICATOR"
 }
@@ -1114,6 +1114,8 @@ install_extra_packages()
 
 pack_config()
 {
+    [[ -z $TEGRABUILD ]] || return 0
+
     local CONFIG_FILE="$INSTALL/tiny/config.new"
 
     dd if=/dev/zero of="$CONFIG_FILE" bs=1K count=512
@@ -1262,7 +1264,9 @@ make_squashfs()
             find "/usr/$TEGRAABI/packages"/ -type f -newer "/$DISTFILESPKG" 2>/dev/null | grep -q . || \
             find /var/cache/binpkgs -type f -newer "/$DISTFILESPKG" | grep -q .; then
         boldecho "Compressing distfiles"
-        ( cd "/var/cache" && tar_bz2 -cf "/$DISTFILESPKG" distfiles binpkgs )
+        local DIRS=( /var/cache/distfiles /var/cache/binpkgs )
+        [[ -d "/usr/$TEGRAABI/packages" ]] && DIRS+=( "/usr/$TEGRAABI/packages" )
+        tar_bz2 -cf "$DISTFILESPKG" "${DIRS[@]}"
     fi
 }
 
@@ -1346,9 +1350,6 @@ make_tegra_image()
     ( cd "$NEWROOT" && tar cp etc ) | tar xp -C "$FILESYSTEM"
     rm -rf "$FILESYSTEM/etc/env.d" "$FILESYSTEM/etc/portage" "$FILESYSTEM/etc/profile.env"
 
-    # Create mtab
-    ln -s /proc/mounts "$FILESYSTEM"/etc/mtab
-
     # Create directories
     for DIR in dev proc sys tmp var var/tmp var/log mnt mnt/squash; do
         mkdir "$FILESYSTEM/$DIR"
@@ -1404,11 +1405,13 @@ make_tegra_image()
     rm -rf /tiny/debug.del
     mv /tiny/debug /tiny/debug.del
     mkdir -p /tiny/debug/$LIBDIR
-    local DEBUG_FILE
-    for DEBUG_FILE in "${DEBUG_FILES[@]}"; do
-        DEBUG_FILE=`find /tiny/debug.del/$LIBDIR/ -name "$DEBUG_FILE"`
-        mv "$DEBUG_FILE" "${DEBUG_FILE/debug.del/debug}"
-    done
+    if [ -e /tiny/debug.del/$LIBDIR ]; then
+        local DEBUG_FILE
+        for DEBUG_FILE in "${DEBUG_FILES[@]}"; do
+            DEBUG_FILE=`find /tiny/debug.del/$LIBDIR/ -name "$DEBUG_FILE"`
+            [[ -z $DEBUG_FILE ]] || mv "$DEBUG_FILE" "${DEBUG_FILE/debug.del/debug}"
+        done
+    fi
     rm -rf /tiny/debug.del
     mkdir -p /tiny/debug/mnt
     ln -s .. /tiny/debug/mnt/squash
