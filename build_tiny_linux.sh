@@ -335,7 +335,6 @@ prepare_portage()
         (
             echo "sys-kernel/gentoo-sources ~*"
             echo "sys-kernel/git-sources ~*"
-            echo "net-misc/r8168 ~*"
             echo "net-misc/ipsvd ~*"
             echo "sys-apps/hwids ~*"
             echo "=sys-devel/patch-2.7.1-r3 ~*"
@@ -598,16 +597,6 @@ compile_kernel()
 
     boldecho "Compiling kernel"
     genkernel --oldconfig --linuxrc="$BUILDSCRIPTS/linuxrc" --no-mountboot "$MAKEOPTS" kernel
-
-    local R8168_PKG="r8168-8.047.04.tar.bz2"
-    if [[ ! -f /var/cache/distfiles/$R8168_PKG ]]; then
-        curl -f -s https://fichiers.touslesdrivers.com/62050/$R8168_PKG -o /var/cache/distfiles/$R8168_PKG || \
-            die "Failed to fetch r8168 driver package"
-        [[ -f /var/cache/distfiles/$R8168_PKG ]] || die "Failed to fetch r8168 driver package"
-        echo "Fetched $R8168_PKG"
-    fi
-
-    emerge --quiet r8168
 
     boldecho "Creating initial ramdisk"
     local BBCFG="/tmp/init-busy-config"
