@@ -157,7 +157,8 @@ ls /sys/bus/pci/devices/*/uevent /sys/bus/usb/devices/*/uevent /sys/block/*/ueve
 done
 
 # Wait for partitions to appear
-WAIT=10 # in seconds
+echo "Waiting for partitions to be auto-mounted..."
+WAIT=30 # in seconds
 while true; do
     [ $WAIT -gt 0 ] || die "Failed to auto-mount created partitions"
     grep -q "^$PART1 " /proc/mounts && grep -q "^$PART2 " /proc/mounts && break
