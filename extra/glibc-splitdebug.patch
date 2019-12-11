@@ -1,0 +1,26 @@
+Fix splitdebug feature
+
+--- sys-libs/glibc/glibc-2.29-r2-orig.ebuild
++++ sys-libs/glibc/glibc-2.29-r2.ebuild
+@@ -1368,6 +1368,21 @@
+ 	fi
+ 
+ 	foreach_abi glibc_do_src_install
++	src_strip
++}
++
++src_strip() {
++	local pthread=$(has splitdebug ${FEATURES} && echo "libthread_db" || echo "lib{pthread,thread_db}")
++	env \
++		-uRESTRICT \
++		CHOST=${CTARGET} \
++		STRIP_MASK="/*/{,tls/}${pthread}*" \
++		prepallstrip
++	# if user has stripping enabled and does not have split debug turned on,
++	# then leave the debugging sections in libpthread.
++	if ! has nostrip ${FEATURES} && ! has splitdebug ${FEATURES} ; then
++		${STRIP:-${CTARGET}-strip} --strip-debug "${ED}"$(alt_prefix)/*/libpthread-*.so
++	fi
+ }
+ 
+ # Simple test to make sure our new glibc isn't completely broken.

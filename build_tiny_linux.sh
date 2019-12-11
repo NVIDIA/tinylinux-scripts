@@ -214,7 +214,7 @@ unpack_packages()
     # Unpack the root
     boldecho "Unpacking stage3 package"
     mkdir "$BUILDROOT"
-    tar_bz2 -xpf "$STAGE3PKG" --xattrs-include='*.*' -C "$BUILDROOT"
+    tar_bz2 -xpf "$STAGE3PKG" --xattrs-include='*.*' --numeric-owner -C "$BUILDROOT"
 
     # Unpack portage tree
     boldecho "Unpacking portage tree"
@@ -362,7 +362,7 @@ prepare_portage()
         local ACCEPT_PKGS
         ACCEPT_PKGS=(
             dev-libs/libffi-3.2.1
-            dev-util/valgrind-3.14.0
+            dev-util/valgrind-3.15.0
             net-dns/libidn2-2.0.5
             net-fs/autofs-5.1.6
             net-libs/libtirpc-1.0.2-r1
@@ -374,7 +374,6 @@ prepare_portage()
             net-wireless/rfkill-0.5-r3
             sys-apps/util-linux-2.30.1 # Only to compile this glib dependency on host
             sys-auth/libnss-nis-1.4
-            sys-libs/glibc-2.28-r3
             )
         local PKG
         for PKG in ${ACCEPT_PKGS[*]}; do
@@ -391,6 +390,9 @@ prepare_portage()
         local KERNELVER="4.9"
         echo ">cross-aarch64-unknown-linux-gnu/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
         echo ">cross-armv7a-softfp-linux-gnueabi/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
+
+        # Mask openssl newer than 1.0
+        echo ">=dev-libs/openssl-1.1" >> /etc/portage/package.mask/tegra
     fi
 
     # Lock on to dropbear version which we have a fix for
@@ -438,10 +440,20 @@ prepare_portage()
     fi
 
     # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-8.3.ebuild
+    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-8.3.1.ebuild
     if ! grep -q workaround "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
+        ebuild "$EBUILD" digest
+    fi
+
+    # Fix splitdebug feature in glibc
+    local EBUILD=$PORTAGE/sys-libs/glibc/glibc-2.29-r2.ebuild
+    if [[ $TEGRABUILD ]] && [[ -f $EBUILD ]] && ! grep -q src_strip "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        cd "$PORTAGE"
+        patch -p0 < "$BUILDSCRIPTS/extra/glibc-splitdebug.patch"
+        cd -
         ebuild "$EBUILD" digest
     fi
 }
@@ -553,7 +565,7 @@ install_tegra_toolchain()
     mkdir -p "$PORTAGECFG/env"
     echo 'CFLAGS="${CFLAGS} -ggdb"'     >  "$PORTAGECFG/env/debug"
     echo 'CXXFLAGS="${CXXFLAGS} -ggdb"' >> "$PORTAGECFG/env/debug"
-    echo 'FEATURES="$FEATURES splitdebug compressdebug -nostrip"' >> "$PORTAGECFG/env/debug"
+    echo 'FEATURES="$FEATURES splitdebug compressdebug"' >> "$PORTAGECFG/env/debug"
 
     touch "$INDICATOR"
 }
@@ -721,13 +733,17 @@ build_newroot()
     # Setup directories for valgrind and for debug symbols
     if [[ $TEGRABUILD ]]; then
         local NEWUSRLIB="$NEWROOT/usr/lib"
+        local NEWUSRLIB64="$NEWROOT/usr/lib64"
+        is64bit || NEWUSRLIB64=$NEWUSRLIB
         rm -rf /tiny/debug /tiny/valgrind
         mkdir -p /tiny/debug/mnt
         mkdir -p /tiny/valgrind
         mkdir -p "$NEWUSRLIB"
+        mkdir -p "$NEWUSRLIB64"
         mkdir -p "$NEWROOT/usr/share"
         ln -s /tiny/debug    "$NEWUSRLIB/debug"
-        ln -s /tiny/valgrind "$NEWUSRLIB/valgrind"
+        ln -s /tiny/debug    "$NEWUSRLIB64/debug"
+        ln -s /tiny/valgrind "$NEWUSRLIB64/valgrind"
     fi
 
     # Newer Portage requires that the target root (our NEWROOT) is set to
@@ -758,6 +774,8 @@ build_newroot()
         # Remove 32-bit glibc in 64-bit builds
         rm -rf "$NEWROOT"/lib
         rm -rf "$NEWROOT"/usr/lib
+        mkdir -p "$NEWROOT"/usr/lib
+        ln -s /tiny/debug "$NEWROOT/usr/lib/debug"
     fi
     install_package ncurses
     ln -s libncurses.so.6  "$NEWROOT"/lib64/libncurses.so.5
@@ -773,7 +791,7 @@ build_newroot()
     if [[ $TEGRABUILD ]]; then
         # nano pulls pkg-config, which pulls glib-utils for some reason.
         # Unfortunately this pulls a load of other, completely useless packages. :-(
-        NEWROOT="/usr/$TEGRAABI" install_package dev-lang/python # Host dependency for building glib-utils
+        NEWROOT="/usr/$TEGRAABI" install_package '<dev-lang/python-3.7' # Host dependency for building glib-utils
         NEWROOT="/usr/$TEGRAABI" install_package dev-util/glib-utils "python_targets_python3_6 python_single_target_python3_6" # Host dependency for glib
         NEWROOT="/usr/$TEGRAABI" install_package dev-libs/glib  # Host dependency for nano and bluez
     fi
@@ -1229,8 +1247,9 @@ make_squashfs()
 	lib*/udev
 	mnt
 	run
-        saved
+	saved
 	tmp
+	usr/aarch64-unknown-linux-gnu
 	usr/lib*/*.a
 	usr/lib*/*.o
 	usr/lib*/pkgconfig
