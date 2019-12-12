@@ -333,6 +333,9 @@ elif [ "$1" = "sysinit" ]; then
     touch /dev/mdev.seq
     echo "/sbin/mdev" > /proc/sys/kernel/hotplug
 
+    # Initialize device node ownership/permissions through mdev
+    /sbin/mdev -s
+
     # Coldplug devices
     if ! grep -q "nocoldplug" /proc/cmdline; then
         ls /sys/bus/pci/devices/*/uevent /sys/bus/usb/devices/*/uevent /sys/block/*/uevent /sys/block/*/*/uevent | while read UEVENT; do
