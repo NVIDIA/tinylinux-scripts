@@ -878,7 +878,7 @@ build_newroot()
     install_syslinux
 
     # Create /etc/passwd and /etc/group
-    echo "root:x:0:0:root:/:/bin/bash" > "$NEWROOT/etc/passwd"
+    echo "root:x:0:0:root:/root:/bin/bash" > "$NEWROOT/etc/passwd"
     echo "root::0:root" > "$NEWROOT/etc/group"
     echo "dhcp:x:101:101:dhcp:/:/bin/false" >> "$NEWROOT/etc/passwd"
     echo "dhcp::101:" >> "$NEWROOT/etc/group"
@@ -1359,7 +1359,7 @@ make_tegra_image()
     rm -rf "$FILESYSTEM/etc/env.d" "$FILESYSTEM/etc/portage" "$FILESYSTEM/etc/profile.env"
 
     # Create directories
-    for DIR in dev proc sys tmp var var/tmp var/log mnt mnt/squash; do
+    for DIR in dev proc root sys tmp var var/tmp var/log mnt mnt/squash; do
         mkdir "$FILESYSTEM/$DIR"
     done
     chmod 1777 "$FILESYSTEM/tmp" "$FILESYSTEM/var/tmp"

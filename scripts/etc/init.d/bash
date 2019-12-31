@@ -1,21 +1,21 @@
 #!/sbin/rc
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 start()
 {
     # Prepare .bashrc
-    if [ ! -e /.bashrc ]; then
+    if [ ! -e /root/.bashrc ]; then
         if [ -f "$TINYLINUXDIR/bashrc" ]; then
-            tr -d '\r' <"$TINYLINUXDIR/bashrc" >/.bashrc
+            tr -d '\r' <"$TINYLINUXDIR/bashrc" >/root/.bashrc
         else
-            ln -s /etc/bash/bashrc /.bashrc
+            ln -s /etc/bash/bashrc /root/.bashrc
         fi
     fi
 
     # Create .bash_profile
-    [ -e /.bash_profile ] || echo "[[ -f ~/.bashrc ]] && . ~/.bashrc" >/.bash_profile
+    [ -e /root/.bash_profile ] || echo "[[ -f ~/.bashrc ]] && . ~/.bashrc" >/root/.bash_profile
 
     # Create lastlog to be able to handle login log
     touch /var/log/lastlog
