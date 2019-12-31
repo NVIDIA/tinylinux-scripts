@@ -1,5 +1,20 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Improved installtiny script to support UEFI (only), MMC and NVMe
+ * Added support for F2FS, now used by default in installtiny script
+ * Added parted and file tools in full profile
+ * Added overlayfs for preserving user modifications in /etc across reboots
+ * Added dnspython in full profile
+ * Improved squash.bin scan if an older version of TinyLinux is found
+ * Disabled automounting of partitions listed in /etc/fstab
+ * Added bashrc skeleton for new users
+ * Added tinyinfo script which dumps system info for debugging
+ * Fixed /etc/init.d/net stop action
+ * Replaced out-of-tree r8168 driver with r8169 from the kernel
+ * Restored hciconfig tool in tegra profile
+ * Fixed setting device permissions on boot
+ * Added /root as home directory for root user instead of /
+-------------------------------------------------------------------------------
 19.08
  * Updated kernel to 5.2.8
  * Updated MODS kernel driver to 3.94
