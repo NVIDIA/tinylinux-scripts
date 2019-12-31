@@ -12,6 +12,7 @@ MNTETC="mnt/etc"
 SQUASHFS_BIN="tiny/squash.bin"
 NFSSHARE=""
 NET="eth0"
+OVRCFG="1"
 COLDPLUG="1"
 
 # Clear input and output
@@ -54,6 +55,7 @@ for ARG in `cat /proc/cmdline`; do
         partno\=*)   PARTNUMBER=`parse_opt "$ARG"` ;;
         nfsshare\=*) NFSSHARE=`parse_opt "$ARG"` ;;
         net\=*)      NET=`parse_opt "$ARG"` ;;
+        ovrcfg\=*)   OVRCFG=`parse_opt "$ARG"` ;;
         nocoldplug)  COLDPLUG="" ;;
     esac
 done
@@ -138,58 +140,106 @@ rm -f etc
 # Create symlink to home dir
 ln -s "${MNTNV}/home" home
 
-# Set up etc
+# Determine location of upper /etc filesystem for overlayfs
 CONFIG_DIR="${ROOTFS}/${MNTNV}/`dirname "$SQUASHFS_BIN"`"
-if [ ! -f "$CONFIG_DIR/config" ] && [ -f "$CONFIG_DIR/config.new" ]; then
-    cp "$CONFIG_DIR/config.new" "$CONFIG_DIR/config" || echo "Error: Failed to copy config.new"
-fi
+
+# Mounts /etc using overlayfs
 mount_overlay()
+{
+    mount -t overlay -o noatime,lowerdir="${ROOTFS}/${MNTSQUASH}/etc",upperdir="$1/etc",workdir="$1/work" overlay etc
+}
+
+# Mounts /etc overlayfs using upper filesystem from config file
+mount_overlay_from_config()
 {
     local ETCOVR
     if [ -f "$CONFIG_DIR/config" ]; then
         ETCOVR="${ROOTFS}/${MNTETC}"
         mkdir -p "$ETCOVR"
-        mount -o loop "$CONFIG_DIR/config" "$ETCOVR" || return 1
+        mount -o loop "$CONFIG_DIR/config" "$ETCOVR" || return $?
     else
         ETCOVR=etc_overlay
         mkdir -p "$ETCOVR"
         echo "Persistent configuration not found, storing configuration in tmpfs"
     fi
+
     mkdir -p "${ETCOVR}/etc" "${ETCOVR}/work"
-    if ! mount -t overlay -o noatime,lowerdir="${ROOTFS}/${MNTSQUASH}/etc",upperdir="${ETCOVR}/etc",workdir="${ETCOVR}/work" overlay etc; then
-        [ -f "$CONFIG_DIR/config" ] && umount "$ETCOVR"
-        rm -rf "$ETCOVR"
-        return 1
-    fi
-    if [ -f "$CONFIG_DIR/config" ]; then
-        cp "$CONFIG_DIR/config" "$CONFIG_DIR/config.bak"
-    fi
+
+    local RET
+    RET=0
+    mount_overlay "${ETCOVR}" || RET=$?
+
+    [ $RET -eq 0 ] || umount "$ETCOVR"
+
+    return $RET
 }
+
+# Creates a clean configuration in upper filesystem
+restore_previous_config()
+{
+    echo "Restoring previous configuration"
+
+    local ETCOVR
+    ETCOVR="${ROOTFS}/${MNTETC}"
+    mkdir -p "$ETCOVR"
+    mount -o loop "$CONFIG_DIR/config" "$ETCOVR" || return $?
+
+    mkdir -p /bak
+    cp -ar "${ETCOVR}/etc" /bak/
+    rm -rf "${ETCOVR}/etc" "${ETCOVR}/work"
+    mkdir -p "${ETCOVR}/etc" "${ETCOVR}/work"
+
+    local RET
+    RET=0
+    mount_overlay "${ETCOVR}" || RET=$?
+
+    if [ $RET -ne 0 ]; then
+        umount "$ETCOVR"
+        return $RET
+    fi
+
+    cp -arv /bak/etc /
+    rm -rf /bak
+
+    return 0
+}
+
+# Set up /etc
+OVROK=0
 mkdir etc
-if ! mount_overlay; then
-    echo "Error: Failed to mount configuration overlay"
-    OVROK=0
-    if [ -f "$CONFIG_DIR/config" ]; then
-        mv "$CONFIG_DIR/config" "$CONFIG_DIR/config.bad"
-        if [ -f "$CONFIG_DIR/config.bak" ]; then
-            echo "Trying config.bak"
-            cp "$CONFIG_DIR/config.bak" "$CONFIG_DIR/config"
-        elif [ -f "$CONFIG_DIR/config.new" ]; then
-            echo "Trying config.new"
-            cp "$CONFIG_DIR/config.new" "$CONFIG_DIR/config"
-        else
-            echo "Trying config in ramdisk"
-        fi
-        if mount_overlay; then
-            OVROK=1
-        else
-            echo "Error: Failed to mount backup configuration overlay"
+ln -s /proc/mounts etc/mtab
+if [ "$OVRCFG" != "0" ]; then
+    if [ ! -f "$CONFIG_DIR/config" ] && [ -f "$CONFIG_DIR/config.new" ]; then
+        cp "$CONFIG_DIR/config.new" "$CONFIG_DIR/config" || echo "Error: Failed to copy config.new"
+    fi
+    if mount_overlay_from_config; then
+        OVROK=1
+    else
+        echo "Error: Failed to mount configuration overlay"
+        if [ -f "$CONFIG_DIR/config" ]; then
+            if restore_previous_config; then
+                OVROK=1
+            else
+                echo "Error: Failed to restore previous configuration"
+                mv "$CONFIG_DIR/config" "$CONFIG_DIR/config.bad"
+                if [ -f "$CONFIG_DIR/config.new" ]; then
+                    echo "Trying config.new"
+                    cp "$CONFIG_DIR/config.new" "$CONFIG_DIR/config"
+                else
+                    echo "Trying config in ramdisk"
+                fi
+                if mount_overlay_from_config; then
+                    OVROK=1
+                else
+                    echo "Error: Failed to mount backup configuration overlay"
+                fi
+            fi
         fi
     fi
-    if [ "$OVROK" != "1" ]; then
-        echo "Copying configuration to ramdisk"
-        cp -a "${ROOTFS}/${MNTSQUASH}"/etc/* etc/
-    fi
+fi
+if [ "$OVROK" != "1" ]; then
+    echo "Copying configuration to ramdisk"
+    cp -a "${ROOTFS}/${MNTSQUASH}"/etc/* etc/
 fi
 
 # Mount boot partition
@@ -204,6 +254,7 @@ fi
 # Create necessary directories
 mkdir dev
 mkdir proc
+mkdir root
 mkdir sys
 mkdir tmp
 chmod 1777 tmp
