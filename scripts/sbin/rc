@@ -312,6 +312,26 @@ elif [ "$1" = "disable" ]; then
     # Prevent losing data during accidental reboot
     sync
 
+# Start/stop/restart/zap services
+elif [ "$1" = "start" ] || [ "$1" = "stop" ] || [ "$1" = "restart" ] || [ "$1" = "zap" ]; then
+
+    ACTION="$1"
+    shift
+    while [ $# -gt 0 ]; do
+
+        # Check if such service exists
+        if [ ! -f "/etc/init.d/$1" ]; then
+            echo "Service $1 not found!"
+            exit 1
+        fi
+
+        # Attempt to stop the service
+        /etc/init.d/$1 "$ACTION"
+
+        # Next service
+        shift
+    done
+
 # System init
 elif [ "$1" = "sysinit" ]; then
 
