@@ -66,7 +66,7 @@ From Windows - legacy boot (SBIOS)
    - For USB sticks, right click the drive icon and choose "Format...".
    - For non-removable drives (such as SATA), go to Control Panel ->
      Administrative Tools -> Computer Management -> Storage -> Disk Management
-     and crete a partition smaller than 32GB (which is the maximum size for
+     and create a partition smaller than 32GB (which is the maximum size for
      FAT32), then format it.
 
 2. Unpack the contents of the chosen profile package (e.g. full.zip) directly
@@ -77,26 +77,25 @@ From Windows - legacy boot (SBIOS)
 
 3. Open command prompt with *Administrator privileges*.
 
-   - On Windows XP, go to Start -> Run... and type `cmd<ENTER>`
-   - On Windows Vista, Windows 7 and later, click on the Start button, then in
+   - On Windows Vista and Windows 7, click on the Start button, then in
      a small box in the lower-left corner type `cmd<CTRL+SHIFT+ENTER>`.
-     On Windows 10, just start typing the command after clicking on the Start
-     button.
-     It is important to press ENTER when holding both CTRL and SHIFT.
-     It will ask you to confirm, click Yes. CTRL+SHIFT+ENTER runs the cmd shell
+   - On Windows 10, just start typing the `cmd` command after clicking on
+     the Start button.
+   - It is important to press ENTER when holding both CTRL and SHIFT.
+     It will ask you to confirm, click Yes.  CTRL+SHIFT+ENTER runs the cmd shell
      in Administrative mode.
 
 4. Go to the target drive by typing drive letter of the target drive and
    pressing ENTER (e.g. `e:<ENTER>`).
 
-5. Install the boot loader.  The below example assumes that e: is the target
+5. Install the boot loader.  The example below assumes that e: is the target
    drive.  Make sure to use the proper drive letter!  For non-removable drives,
    also add the -f switch.
 
         E:\> syslinux -m -a e:
 
-From Linux - GRUB
------------------
+From Linux - GRUB 1
+-------------------
 
 If you have an existing Linux installation and want to add NVIDIA TinyLinux as
 a boot option, edit GRUB config file (typically `menu.lst`) and add the
@@ -110,7 +109,7 @@ following section:
 Replace `(hd0,0)` with the hard drive and partition numbers corresponding to
 the partition where you unpack the NVIDIA TinyLinux package.
 
-The instructions for GRUB 2 configuration may vary.
+For GRUB 2, follow GRUB 2 manual from your Linux distribution.
 
 It is recommended to unpack NVIDIA TinyLinux into its own partition.
 
@@ -128,16 +127,22 @@ After determining the location of the target drive, run:
 Replace /dev/sdx with the actual drive where you want to install
 NVIDIA TinyLinux.
 
-The new partition created this way is only accessible from Linux.
+The new partitions created this way are only accessible from Linux.
+
+The `installtiny` script formats the target drive with GUID partition table
+(GPT) and creates two partitions.  The first, boot partition is formatted with
+FAT32 and contains the syslinux bootloader, kernel and initrd.  The second
+partition is formatted with F2FS by default (or ReiserFS if selected with
+the optional -r argument) and contains the `tiny` folder.
 
 
 Disk contents
 =============
 
-Directory              | Description
+Path                   | Description
 -----------------------|-------------------------------------------------------
 /ldlinux.sys           | Bootloader file used for legacy boot (SBIOS).
-/syslinux.exe          | Bootloader installer for Windows.
+/syslinux.exe          | Legacy bootloader installer for Windows.
 /syslinux/syslinux.cfg | Syslinux bootloader configuration file.
 /EFI/BOOT/bootx64.efi  | Bootloader file used by UEFI boot.
 /EFI/BOOT/ldlinux.e64  | Bootloader file used by UEFI boot.
@@ -145,7 +150,8 @@ Directory              | Description
 /tiny/initrd           | Compressed initial ramdisk.
 /tiny/squash.bin       | Compressed Linux filesystem.
 /tiny/config           | File containing persistent system configuration.
-/tiny/commands         | Editable script, executed on startup.
+/tiny/config.new       | Default (empty) system configuration fallback.
+/tiny/commands         | User-editable script, executed on startup.
 
 
 Filesystem structure after boot
@@ -154,14 +160,16 @@ Filesystem structure after boot
 The following table outlines the most notable directories visible after booting
 NVIDIA TinyLinux.
 
-Directory            | Description
+Path                 | Description
 ---------------------|---------------------------------------------------------
 /                    | The root filesystem is in a ramdisk (tmpfs).
 /mnt/nv              | Mount point of the boot disk, non-volatile.
 /mnt/squash          | Mount point of the compressed Linux filesystem.
+/mnt/etc             | Mount point of configuration from /mnt/nv/tiny/config.
 /media               | This is where all other partitions are automounted.
 /home                | Symbolic link to /mnt/nv/home.
 /bin /lib /sbin /usr | Symbolic links to the compressed Linux filesystem.
+/root                | Root user's home directory (in ramdisk).
 /etc                 | Runtime configuration.  Copied from /mnt/squash/etc.
 /commands            | The commands script, copied from /mnt/nv/tiny/.
 
@@ -175,6 +183,17 @@ Editing configuration files
 There are two editors available in NVIDIA TinyLinux:
 * nano - a simple editor, with usage familiar to most users.
 * vi - a simplified version of the vi editor, which comes with busybox.
+
+The configuration files in /etc can be edited and will be preserved across
+reboots as long as file buffers are flushed properly.  File buffers are
+normally flushed when gracefully rebooting (via `reboot`) or shutting down
+(via `poweroff`) the system.  File buffers can be flushed manually with
+the `sync` command.
+
+*Note:* /etc is mounted using overlayfs, which combines /mnt/etc and
+/mnt/squash/etc (read-only).  Under no circumstances should the user
+edit files under /mnt/etc directly.  Editing files in /mnt/etc can result
+in corruption of configuration files.
 
 Bootloader
 ----------
@@ -206,8 +225,13 @@ The following options are currently used by the boot scripts:
   not specified, the NVIDIA TinyLinux boot script will try to mount every
   partition it can find in search of squash.bin, until it finds it.  If this
   causes problems during boot, or if the booting is slow, it is recommended to
-  set the `partno` parameter to the number of the partition to restrict the
+  set the `partno` parameter to the index of the partition to restrict the
   search.
+
+* ovrcfg=0 - this optional parameter disables mounting /etc with overlayfs.
+  When this option is specified, configuration files will be copied from
+  /mnt/squash/etc to /etc.  User configuration will be ignored and
+  configuration will not be preserved across reboots.
 
 * nfsshare=1.2.3.4:/path - setting this optional parameter will make the boot
   script mount an NFS share and attempt to boot NVIDIA TinyLinux from that
@@ -230,12 +254,44 @@ Services
 There are multiple services available in NVIDIA TinyLinux.  The configuration
 files for each service live in `/etc/conf.d` directory.
 
-Any modifications to system configuration in `/etc` are automatically saved
-in `/mnt/nv/tiny/config`.
-
 There is also a special configuration file `/etc/conf.d/boot`, which specifies
 the boot order of services.  If more services need to be started at boot, they
 need to be listed there.
+
+To list all the services and their status (started/stopped), use the following
+command:
+
+    rc status
+
+To query status of an individual service, run (replace SERVICE with the actual
+service name):
+
+    rc SERVICE status
+
+To start a service and enable it to be started at boot, run:
+
+    rc enable SERVICE
+
+To stop a service and disable it so that it is not started at boot, run:
+
+    rc disable SERVICE
+
+To start a service once (but not enable it at boot), run:
+
+    rc start SERVICE
+
+To stop a service once (but not disable it at boot), run:
+
+    rc stop SERVICE
+
+To restart a running service or start it once if it's stopped, run:
+
+    rc restart SERVICE
+
+If a service has crashed but TinyLinux still thinks it is running, you can
+reset its status using the following command:
+
+    rc zap SERVICE
 
 Networking
 ----------
@@ -244,7 +300,7 @@ To set up networking, perform the following steps:
 
 1. Stop the networking service, if it is currently started:
 
-        rc net stop
+        rc stop net
 
 2. Configure networking in `/etc/conf.d/net`
 
