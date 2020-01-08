@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2020, NVIDIA CORPORATION.  All rights reserved.
 # See LICENSE file for details.
 
 set -e
@@ -583,11 +583,11 @@ compile_kernel()
     fi
 
     # Skip compilation if kernel has already been built
-    [ ! -f /boot/kernel-genkernel-* ] || [[ $REBUILDKERNEL = 1 ]] || return 0
+    [ ! -f /boot/vmlinuz-* ] || [[ $REBUILDKERNEL = 1 ]] || return 0
 
     # Delete old kernel
-    rm -rf /boot/kernel-genkernel-*
-    rm -rf /boot/initramfs-genkernel-*
+    rm -rf /boot/vmlinuz-*
+    rm -rf /boot/initramfs-*
     rm -f "$INSTALL/tiny/kernel"
     rm -f "$INSTALL/tiny/initrd"
 
@@ -948,8 +948,8 @@ prepare_installation()
     mkdir -p "$INSTALL/home"
     mkdir -p "$INSTALL/tiny"
     if [[ ! -f $INSTALL/tiny/kernel && -z $TEGRABUILD ]] ; then
-        cp /boot/kernel-genkernel-* "$INSTALL/tiny/kernel"
-        cp /boot/initramfs-genkernel-* "$INSTALL/tiny/initrd"
+        cp /boot/vmlinuz-* "$INSTALL/tiny/kernel"
+        cp /boot/initramfs-* "$INSTALL/tiny/initrd"
     fi
 
     [[ $INSTALLEXISTED = 1 ]] && return 0
