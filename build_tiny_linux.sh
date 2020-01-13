@@ -347,6 +347,7 @@ prepare_portage()
     echo "dev-libs/openssl asm bindist tls-heartbeat zlib" >> /etc/portage/package.use/tinylinux
     echo "net-fs/autofs libtirpc" >> /etc/portage/package.use/tinylinux
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
+    echo "sys-fs/quota rpc" >> /etc/portage/package.use/tinylinux
     echo "sys-fs/squashfs-tools xz" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
 
