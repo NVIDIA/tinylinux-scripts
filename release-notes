@@ -1,8 +1,11 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+20.01
+ * Updated kernel to 5.4.11
+ * Updated MODS kernel driver to 3.96
  * Improved installtiny script to support UEFI (only), MMC and NVMe
  * Added support for F2FS, now used by default in installtiny script
- * Added parted and file tools in full profile
+ * Added parted, i2c-tools and file tools in full profile
  * Added overlayfs for preserving user modifications in /etc across reboots
  * Added dnspython in full profile
  * Improved squash.bin scan if an older version of TinyLinux is found
