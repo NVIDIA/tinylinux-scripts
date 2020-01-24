@@ -32,6 +32,7 @@ yes | ROOT=/newroot etc-update --automode -7 # Clean up autofs script changes
 install_package ipmitool "openipmi python"
 install_package ipmiutil
 install_package dmidecode
+install_package sys-apps/i2c-tools
 install_package net-misc/curl
 install_package rsync
 install_package sys-apps/lm-sensors
