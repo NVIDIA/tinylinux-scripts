@@ -27,8 +27,12 @@ dump ls -l /etc/conf.d
 dump cat /etc/conf.d/boot
 dump cat /etc/conf.d/net
 dump lspci -v
+dump lspci -n
 dump lsusb
+dump lsmod
 dump ls -l /sys/class/net
+dump ls -ld /sys/class/net/*/device/driver
+dump cat /sys/class/net/*/carrier
 dump ifconfig -a
 dump ls -lR /mnt/nv/tiny
 dump dmesg
