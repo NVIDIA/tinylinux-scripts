@@ -1,5 +1,7 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Added ability to auto-detect active network interfaces
+-------------------------------------------------------------------------------
 20.01
  * Updated kernel to 5.4.11
  * Updated MODS kernel driver to 3.96

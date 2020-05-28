@@ -311,7 +311,10 @@ To set up networking, perform the following steps:
 The networking configuration file `/etc/conf.d/net` contains the following
 settings:
 
-* net=eth0 - specifies which Ethernet interface should be configured.
+* net=auto - specifies which Ethernet interface should be configured.  `auto`
+  indicates that the networking service will look for the first interface
+  which has cable connected.  This can be changed to a specific interface,
+  such as `eth0`, so that only this interface is used.
 
 * staticip=192.168.0.1/255.255.255.0 - IP and netmask for static IP.  If it is
   not specified (empty), DHCP is used.

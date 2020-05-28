@@ -1,6 +1,6 @@
 #!/sbin/rc
 
-# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2020, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 # File to store the started interface name
@@ -23,16 +23,78 @@ for ARG in `cat /proc/cmdline`; do
     esac
 done
 
+bring_down_ifaces()
+{
+    local IIFACE
+    # Bring down all the interfaces brought up
+    for IIFACE in $1; do
+        if [ "$IIFACE" != "$2" ]; then
+            ifconfig "$IIFACE" down
+        fi
+    done
+}
+
 start()
 {
+    if [ $IFACE = "auto" ]; then
+        local LOOP=0
+        local FOUND_IFACE
+        local IFACES_BROUGHT_UP
+        while [ $LOOP -lt $((TIMEOUT * 2)) ]; do
+            local IIFACE
+            for IIFACE in $(ls /sys/class/net); do
+                [ "$IIFACE" != 'lo' ] || continue
+                [ -f "/sys/class/net/$IIFACE/carrier" ] || continue
+                local IFACELINKSTATUS
+                IFACELINKSTATUS=$(cat "/sys/class/net/$IIFACE/carrier" 2>/dev/null)
+                if [ $? = 1 ]; then
+                    # Exit code 1 indicates that interface is not up, so bring it up
+                    if ! echo "$IFACES_BROUGHT_UP" | grep -w -q "$IIFACE"; then
+                        ifconfig "$IIFACE" up
+                        IFACES_BROUGHT_UP="$IFACES_BROUGHT_UP $IIFACE"
+                        # Reset timeout timer every time we detect a new interface
+                        [ $LOOP -le 2 ] || LOOP=2
+                    fi
+                elif [ "$IFACELINKSTATUS" = 1 ]; then
+                    # If the interface was already brought up by linuxrc, use it
+                    if ifconfig "$IIFACE" | grep -q "inet addr"; then
+                        echo "$IIFACE" > "$SAVED_IFACE_FILE"
+                        bring_down_ifaces "$IFACES_BROUGHT_UP" "$IIFACE"
+                        return 0
+                    fi
+
+                    FOUND_IFACE="$IIFACE"
+                    echo -n " auto-detected $FOUND_IFACE" >&2
+                    break
+                fi
+            done
+
+            # Break if the IFACE has been found
+            [ -z $FOUND_IFACE ] || break
+
+            [ $LOOP = 1 ] && echo -n " waiting for link" >&2
+            [ $LOOP -gt 1 ] && echo -n "." >&2
+            sleep 0.5
+            LOOP=$(($LOOP + 1))
+        done
+
+        bring_down_ifaces "$IFACES_BROUGHT_UP" "$FOUND_IFACE"
+
+        if [ -z "$FOUND_IFACE" ]; then
+            echo -n " no cable detected on$IFACES_BROUGHT_UP" >&2
+            return 1
+        fi
+        IFACE="$FOUND_IFACE"
+    fi
+
     # Wait for the network interface if it does not exist
     if [ ! -d "/sys/class/net/$IFACE" -a -n "$TIMEOUT" ]; then
         echo -n " waiting for $IFACE" >&2
         local LOOP=0
-        while [ $LOOP -lt $TIMEOUT ]; do
+        while [ $LOOP -lt $((TIMEOUT * 2)) ]; do
             [ ! -d "/sys/class/net/$IFACE" ] || break
             LOOP=$(($LOOP + 1))
-            sleep 1
+            sleep 0.5
             echo -n "." >&2
         done
     fi
@@ -92,6 +154,9 @@ stop()
 
     # Bring down networking
     if [ -d "/sys/class/net/$IFACE" ]; then
+        # Clear the IP address set, IFACE=auto mode shouldn't use the previous IP and return
+        # Sometimes the user may want to change the IP, so user may run restart
+        ifconfig "$IFACE" 0.0.0.0
         ifconfig "$IFACE" down
         /sbin/start-stop-daemon --stop --exec /sbin/udhcpc
         true
