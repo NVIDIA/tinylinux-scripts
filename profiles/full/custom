@@ -5,10 +5,10 @@ install_package dev-libs/openssl
 ROOT="$NEWROOT" emerge --unmerge -q debianutils
 
 install_package expat
-install_package =python-3.6* "" "--nodeps"
-rm -rf "$NEWROOT"/usr/lib64/python*/test
+install_package =python-${PYTHON_VER}* "" "--nodeps"
+rm -rf "$NEWROOT"/usr/lib*/python*/test
 install_package dev-lang/python-exec
-ROOT="$NEWROOT" eselect python set python3.6
+ROOT="$NEWROOT" eselect python set python${PYTHON_VER}
 
 USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads
 install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn pulls too much
@@ -56,8 +56,8 @@ install_package dev-python/pip
 
 # PERL modules
 mkdir -p /etc/portage/package.unmask
-echo "perl-core/Thread-Semaphore **" >> /etc/portage/package.keywords/full
-echo "perl-core/Time-HiRes **"       >> /etc/portage/package.keywords/full
+echo "perl-core/Thread-Semaphore **" >> /etc/portage/package.accept_keywords/full
+echo "perl-core/Time-HiRes **"       >> /etc/portage/package.accept_keywords/full
 install_package dev-perl/JSON
 install_package dev-perl/Getopt-Long-Descriptive
 install_package perl-core/Thread-Semaphore
@@ -69,9 +69,5 @@ install_package dev-perl/Net-SNMP
 install_package perl-cleaner "" "--unmerge"
 
 # Tidy up
-remove_gentoo_services pydoc-2.7 pydoc-3.6 ipmievd fancontrol lm_sensors rsyncd
+remove_gentoo_services pydoc-2.7 pydoc-${PYTHON_VER} ipmievd fancontrol lm_sensors rsyncd
 remove_gentoo_services opentmpfiles-dev opentmpfiles-setup
-[[ -f "$NEWROOT/usr/bin/python-wrapper" ]] || (
-    cd "$NEWROOT/usr/bin"
-    ln -s python3 python-wrapper
-)

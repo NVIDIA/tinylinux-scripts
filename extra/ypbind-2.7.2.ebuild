@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2020 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -8,12 +8,12 @@ MY_P=${PN}-mt-${PV}
 S="${WORKDIR}/${MY_P}"
 
 DESCRIPTION="Multithreaded NIS bind service (ypbind-mt)"
-HOMEPAGE="http://www.linux-nis.org/nis/ypbind-mt/index.html"
-SRC_URI="http://www.linux-nis.org/download/ypbind-mt/${MY_P}.tar.xz"
+HOMEPAGE="http://github.com/thkukuk/ypbind-mt"
+SRC_URI="http://github.com/thkukuk/ypbind-mt/releases/download/v${PV}/${MY_P}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm hppa ia64 ~mips ppc ppc64 sparc x86"
+KEYWORDS="amd64 arm64"
 IUSE="debug dbus nls slp systemd"
 
 RDEPEND="

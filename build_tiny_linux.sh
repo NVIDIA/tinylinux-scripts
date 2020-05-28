@@ -17,6 +17,7 @@ INSTALL="/install"
 SQUASHFS="/tiny/squash.bin"
 MAKECONF="/etc/portage/make.conf"
 NICE="ionice -c 3 nice -n 19"
+PYTHON_VER=3.7
 
 # Inherit TEGRAABI from parent process
 TEGRAABI="${TEGRAABI:-aarch64-unknown-linux-gnu}"
@@ -322,12 +323,12 @@ prepare_portage()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo 'PORTAGE_NICENESS="15"'
-        echo 'USE="-* ipv6 readline syslog unicode python_targets_python3_6 python_single_target_python3_6"'
+        echo "USE=\"-* ipv6 readline syslog unicode python_targets_python${PYTHON_VER/./_} python_single_target_python${PYTHON_VER/./_}\""
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
 
-    local KEYWORDS="/etc/portage/package.keywords/tinylinux"
-    mkdir -p /etc/portage/package.keywords
+    local KEYWORDS="/etc/portage/package.accept_keywords/tinylinux"
+    mkdir -p /etc/portage/package.accept_keywords
     mkdir -p /etc/portage/package.use
     mkdir -p /etc/portage/package.mask
     mkdir -p /etc/portage/package.unmask
@@ -359,7 +360,6 @@ prepare_portage()
 
     # Enable some packages on 64-bit ARM (temporary, until enabled in Gentoo)
     if [[ $TEGRABUILD ]]; then
-        mkdir -p /etc/portage/package.accept_keywords
         local ACCEPT_PKGS
         ACCEPT_PKGS=(
             dev-libs/libffi-3.2.1
@@ -369,7 +369,6 @@ prepare_portage()
             net-libs/libtirpc-1.0.2-r1
             net-nds/portmap-6.0
             net-nds/rpcbind-0.2.4-r1
-            net-nds/ypbind-2.5
             net-nds/yp-tools-4.2.3
             net-wireless/bluez-5.50-r2
             net-wireless/rfkill-0.5-r3
@@ -397,15 +396,16 @@ prepare_portage()
     fi
 
     # Lock on to dropbear version which we have a fix for
-    echo "=net-misc/dropbear-2018.76 ~*" >> $KEYWORDS
-    echo ">net-misc/dropbear-2018.76" >> /etc/portage/package.mask/tinylinux
+    local DROPBEAR_VER="2019.78"
+    echo "=net-misc/dropbear-$DROPBEAR_VER ~*" >> $KEYWORDS
+    echo ">net-misc/dropbear-$DROPBEAR_VER" >> /etc/portage/package.mask/tinylinux
 
     # Install dropbear patch for pubkey authentication
-    local EBUILD=$PORTAGE/net-misc/dropbear/dropbear-2018.76.ebuild
+    local EBUILD=$PORTAGE/net-misc/dropbear/dropbear-$DROPBEAR_VER.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "pubkey\.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/extra/dropbear-pubkey.patch" $PORTAGE/net-misc/dropbear/files/
-        sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-pubkey.patch\n\tepatch/" "$EBUILD"
+        sed -i "/src_prepare()/ a\\epatch \"\${FILESDIR}\"\/\${PN}-pubkey.patch" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
@@ -428,20 +428,18 @@ prepare_portage()
     fi
 
     # Install ypbind ebuild
-    local SRC=ypbind-2.5.ebuild
+    local SRC=ypbind-2.7.2.ebuild
     local EBUILD=$PORTAGE/net-nds/ypbind/$SRC
-    local PKG=ypbind-mt-2.5.tar.xz
     if [[ ! -f $EBUILD ]]; then
         boldecho "Adding $EBUILD"
         mkdir -p $PORTAGE/net-nds/ypbind
         mkdir -p /var/cache/distfiles
         cp "$BUILDSCRIPTS/extra/$SRC" "$EBUILD"
-        cp "$BUILDSCRIPTS/extra/$PKG" /var/cache/distfiles/
         ebuild "$EBUILD" digest
     fi
 
     # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-8.3.1.ebuild
+    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-9.1.ebuild
     if ! grep -q workaround "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
@@ -547,7 +545,7 @@ install_tegra_toolchain()
         echo "USE=\"-* ipv6 readline syslog unicode \${ARCH}\""
     ) >> "$CFGROOT/$MAKECONF"
     local FILE
-    for FILE in package.use package.keywords package.mask package.unmask package.accept_keywords savedconfig; do
+    for FILE in package.use package.mask package.unmask package.accept_keywords savedconfig; do
         rm -f "$PORTAGECFG/$FILE"
         ln -s "/etc/portage/$FILE" "$PORTAGECFG/$FILE"
     done
@@ -797,8 +795,7 @@ build_newroot()
     if [[ $TEGRABUILD ]]; then
         # nano pulls pkg-config, which pulls glib-utils for some reason.
         # Unfortunately this pulls a load of other, completely useless packages. :-(
-        NEWROOT="/usr/$TEGRAABI" install_package '<dev-lang/python-3.7' # Host dependency for building glib-utils
-        NEWROOT="/usr/$TEGRAABI" install_package dev-util/glib-utils "python_targets_python3_6 python_single_target_python3_6" # Host dependency for glib
+        NEWROOT="/usr/$TEGRAABI" install_package dev-util/glib-utils "python_targets_python${PYTHON_VER/./_} python_single_target_python${PYTHON_VER/./_}" # Host dependency for glib
         NEWROOT="/usr/$TEGRAABI" install_package dev-libs/glib  # Host dependency for nano and bluez
     fi
 
@@ -1161,7 +1158,10 @@ restore_newroot()
     rm "$NEWROOT"/{lib,usr/lib}
     mv "$NEWROOT/saved/lib" "$NEWROOT/lib"
     mv "$NEWROOT/saved/usr_lib" "$NEWROOT/usr/lib"
-    [[ -d "$NEWROOT"/usr/lib64/python-exec ]] && mv "$NEWROOT"/usr/lib64/python-exec "$NEWROOT"/usr/lib/python-exec
+    local DIR
+    for DIR in python-exec python${PYTHON_VER}; do
+        [[ -d "$NEWROOT/usr/lib64/$DIR" ]] && mv "$NEWROOT/usr/lib64/$DIR" "$NEWROOT/usr/lib/$DIR"
+    done
     rmdir "$NEWROOT"/saved
 }
 
@@ -1233,7 +1233,10 @@ make_squashfs()
         # emerge can still work correctly.
         trap restore_newroot EXIT
         rm -rf "$NEWROOT/saved"
-        [[ -d $NEWROOT/usr/lib/python-exec ]] && mv "$NEWROOT/usr/lib/python-exec" "$NEWROOT/usr/lib64/python-exec"
+        local DIR
+        for DIR in python-exec python${PYTHON_VER}; do
+            [[ -d $NEWROOT/usr/lib/$DIR ]] && mv "$NEWROOT/usr/lib/$DIR" "$NEWROOT/usr/lib64/$DIR"
+        done
         mkdir "$NEWROOT/saved"
         mv "$NEWROOT/lib" "$NEWROOT/saved/lib"
         mv "$NEWROOT/usr/lib" "$NEWROOT/saved/usr_lib"
