@@ -13,6 +13,7 @@ install_package net-libs/libpcap ipv6
 install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
 emerge --quiet --noreplace dev-util/meson dev-util/ninja # needed for libdrm
 install_package x11-libs/libdrm
+install_package alsa-utils "ncurses libsamplerate"
 
 if is64bit; then # glib fails to cross compile for armv7
     # bluez dependencies
