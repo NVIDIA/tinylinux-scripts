@@ -492,11 +492,6 @@ emerge_basic_packages()
         # but for some reason the block is not page-aligned.  Bump default
         # size of reserved chunk to to 16KB.
         sed -i '/^#define PERCPU_MODULE_RESERVE\>.*\<8\>/s/8/16/' /usr/src/linux/include/linux/percpu.h
-
-        # Patch AMD I2C support
-        cd /usr/src/linux
-        patch -p0 < "$BUILDSCRIPTS/extra/amd-i2c.patch"
-        cd -
     fi
 }
 
