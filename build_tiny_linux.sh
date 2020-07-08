@@ -333,19 +333,25 @@ prepare_portage()
     mkdir -p /etc/portage/package.mask
     mkdir -p /etc/portage/package.unmask
     if [[ ! -f $KEYWORDS ]]; then
-        (
-            echo "sys-kernel/gentoo-sources ~*"
-            echo "sys-kernel/git-sources ~*"
-            echo "net-misc/ipsvd ~*"
-            echo "sys-apps/hwids ~*"
-            echo "=sys-devel/patch-2.7.1-r3 ~*"
-            echo "=sys-boot/gnu-efi-3.0u ~*"
-            echo "=sys-auth/libnss-nis-1.4 ~*"
-        ) > $KEYWORDS
+        local ACCEPT_PKGS
+        ACCEPT_PKGS=(
+            "sys-kernel/gentoo-sources"
+            "sys-kernel/git-sources"
+            "net-misc/ipsvd"
+            "sys-apps/hwids"
+            "=sys-devel/patch-2.7.1-r3"
+            "=sys-boot/gnu-efi-3.0u"
+            "=sys-auth/libnss-nis-3.1"
+            )
+        local PKG
+        for PKG in ${ACCEPT_PKGS[*]}; do
+            echo "${PKG} **" >> "$KEYWORDS"
+        done
     fi
     echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
     echo "dev-lang/python threads xml ssl ncurses readline" >> /etc/portage/package.use/tinylinux
     echo "dev-libs/openssl asm bindist tls-heartbeat zlib" >> /etc/portage/package.use/tinylinux
+    echo "dev-vcs/git curl" >> /etc/portage/package.use/tinylinux
     echo "net-fs/autofs libtirpc" >> /etc/portage/package.use/tinylinux
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
     echo "sys-fs/quota rpc" >> /etc/portage/package.use/tinylinux
@@ -373,7 +379,6 @@ prepare_portage()
             net-wireless/bluez-5.50-r2
             net-wireless/rfkill-0.5-r3
             sys-apps/util-linux-2.30.1 # Only to compile this glib dependency on host
-            sys-auth/libnss-nis-1.4
             )
         local PKG
         for PKG in ${ACCEPT_PKGS[*]}; do
@@ -405,7 +410,7 @@ prepare_portage()
     if [[ -f $EBUILD ]] && ! grep -q "pubkey\.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/extra/dropbear-pubkey.patch" $PORTAGE/net-misc/dropbear/files/
-        sed -i "/src_prepare()/ a\\epatch \"\${FILESDIR}\"\/\${PN}-pubkey.patch" "$EBUILD"
+        sed -i "s/PATCHES=(/PATCHES=( \"\${FILESDIR}\"\/\${PN}-pubkey.patch/" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 

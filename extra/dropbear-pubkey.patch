@@ -1,31 +1,40 @@
-Add support for pubkey auth for users whose home dir is on a NFS share with root squash.
+Fix pubkey auth for users whose home dir is on a NFS share with root squash.
 
---- svr-auth.c.orig
-+++ svr-auth.c
-@@ -205,7 +205,26 @@
- 			strncmp(methodname, AUTH_METHOD_PUBKEY,
- 				AUTH_METHOD_PUBKEY_LEN) == 0) {
- 		if (valid_user) {
-+			uid_t uid;
-+			gid_t gid;
+--- a/svr-authpubkey.c
++++ b/svr-authpubkey.c
+@@ -415,9 +415,21 @@
+ 	char* filename = NULL; 
+ 	int ret = DROPBEAR_FAILURE;
+ 	unsigned int len;
++	uid_t origuid;
++	gid_t origgid;
+ 
+ 	TRACE(("enter checkpubkeyperms"))
+ 
++#if DROPBEAR_SVR_MULTIUSER
++	/* check file permissions as the authenticating user. */
++	origuid = getuid();
++	origgid = getgid();
++	if ((setegid(ses.authstate.pw_gid)) < 0 ||
++		(seteuid(ses.authstate.pw_uid)) < 0) {
++		dropbear_exit("Failed to set euid");
++	}
++#endif
 +
-+			/* Perform pubkey authentication as the user.
-+			 * Pubkey authentication reads user's keys from user's home dir.
-+			 * Doing this as the user allows authentication even if user's
-+			 * home dir is on an NFS share with root squash attribute. */
-+			uid = getuid();
-+			gid = getgid();
-+			if ((setegid(ses.authstate.pw_gid)) < 0 ||
-+				(seteuid(ses.authstate.pw_uid)) < 0) {
-+				dropbear_exit("Failed to set euid");
-+			}
+ 	if (ses.authstate.pw_dir == NULL) {
+ 		goto out;
+ 	}
+@@ -455,6 +467,13 @@
+ out:
+ 	m_free(filename);
+ 
++#if DROPBEAR_SVR_MULTIUSER
++	if ((seteuid(origuid)) < 0 ||
++		(setegid(origgid)) < 0) {
++		dropbear_exit("Failed to revert euid");
++	}
++#endif
 +
- 			svr_auth_pubkey();
-+
-+			if ((seteuid(uid)) < 0 ||
-+				(setegid(gid)) < 0) {
-+				dropbear_exit("Failed to revert euid");
-+			}
- 		} else {
- 			/* pubkey has no failure delay */
- 			send_msg_userauth_failure(0, 0);
+ 	TRACE(("leave checkpubkeyperms"))
+ 	return ret;
+ }
