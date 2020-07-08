@@ -1,5 +1,8 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+20.07.1
+ * Fixed pubkey authentication in ssh
+-------------------------------------------------------------------------------
 20.07
  * Updated kernel to 5.7.7
  * Updated MODS kernel driver to 3.98
