@@ -358,9 +358,6 @@ prepare_portage()
     echo "sys-fs/squashfs-tools xz" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
 
-    # Fix for stage3 bug
-    echo ">=sys-apps/util-linux-2.30.2-r1 static-libs" >> /etc/portage/package.use/tinylinux
-
     # Enable the latest iasl tool
     echo "sys-power/iasl ~*" >> $KEYWORDS
 
@@ -378,7 +375,6 @@ prepare_portage()
             net-nds/yp-tools-4.2.3
             net-wireless/bluez-5.50-r2
             net-wireless/rfkill-0.5-r3
-            sys-apps/util-linux-2.30.1 # Only to compile this glib dependency on host
             )
         local PKG
         for PKG in ${ACCEPT_PKGS[*]}; do
@@ -386,7 +382,8 @@ prepare_portage()
         done
 
         # Enable rpc use flag, needed for rpcbind's dependency
-        echo "cross-aarch64-unknown-linux-gnu/glibc rpc" >> /etc/portage/package.use/tegra
+        # crypt flag is needed for util-linux
+        echo "cross-aarch64-unknown-linux-gnu/glibc rpc crypt" >> /etc/portage/package.use/tegra
 
         # Enable gold and plugins in binutils to fix binutils build failure
         echo "cross-aarch64-unknown-linux-gnu/binutils gold plugins" >> /etc/portage/package.use/tegra
@@ -1263,12 +1260,19 @@ make_squashfs()
 	usr/lib*/*.o
 	usr/lib*/pkgconfig
 	usr/lib*/systemd
+        usr/libexec/valgrind
+        usr/share/aclocal
 	usr/share/doc
+        usr/share/et
+        usr/share/glib-2.0
 	usr/share/gtk-doc
 	usr/share/i18n
 	usr/share/locale/*
 	usr/share/man
+	usr/share/sounds
+        usr/share/ss
 	usr/share/X11
+        usr/share/zsh
 	var
 	EOF
     find "$NEWROOT"/usr/include/ -mindepth 1 -maxdepth 1 | sed "s/^\/newroot\/// ; /^usr\/include\/python/d" >> /tmp/excludelist
