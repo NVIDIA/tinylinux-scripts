@@ -1,6 +1,6 @@
 #!/tiny/busybox sh
 
-# Copyright (c) 2009-2018, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2020, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 SQUASHFS_BIN="tiny/squash.bin"
@@ -11,9 +11,6 @@ UUID="6cbfd9d7-fdea-487f-87fa-b521bfa4d71a"
 NET="eth0"
 NFSSHARE=""
 BB="/tiny/busybox"
-
-# Prevent kernel logs from being sent to the console
-$BB dmesg -n1
 
 # Display startup info
 echo "Booting TinyLinux"

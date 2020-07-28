@@ -7,6 +7,7 @@ TinyLinux release history
  * Updated kernel to 5.7.7
  * Updated MODS kernel driver to 3.98
  * Added ability to auto-detect active network interfaces
+ * Re-enabled kernel log on UART in tegra profile
 -------------------------------------------------------------------------------
 20.01
  * Updated kernel to 5.4.11
