@@ -842,6 +842,7 @@ build_newroot()
 
     # Update ns switch
     sed -i "s/compat/db files nis/" "$NEWROOT/etc/nsswitch.conf"
+    sed -i "/^[ #]*initgroups *:/s/^[ #]*//" "$NEWROOT/etc/nsswitch.conf"
 
     # Remove unneeded scripts
     remove_gentoo_services autofs dropbear fuse mdev nfsclient nscd pciparm ypbind
