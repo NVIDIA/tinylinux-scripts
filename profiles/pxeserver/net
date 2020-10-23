@@ -3,6 +3,11 @@
 # Overriden by kernel argument net=
 IFACE="auto"
 
+# Time in seconds, how long to wait for the IFACE to appear before giving up.
+# With some drivers it can take some time for the kernel to finish initializing
+# the device, so the network interface may not be present immediately.
+TIMEOUT="20"
+
 # Static IP to assign in form of IP/NETMASK (e.g. 10.0.0.1/255.255.255.0)
 # Overriden by kernel argument staticip=
 # Leave empty for DHCP
@@ -22,7 +27,7 @@ DNS=""
 DNSDOMAIN=""
 
 # Options for udhcpc
-UDHCPC_OPTIONS="-b"
+UDHCPC_OPTIONS="-b -S -O 119"
 
 # If set to 1, udhcpc will not wait for lease before backgrounding
 BACKGROUND_UDHCPC="1"
