@@ -901,7 +901,7 @@ build_newroot()
     ln -s /proc/mounts "$NEWROOT"/etc/mtab
 
     # Create hosts file
-    echo "127.0.0.1   tinylinux localhost" > "$NEWROOT/etc/hosts"
+    echo "127.0.0.1   localhost tinylinux" > "$NEWROOT/etc/hosts"
     echo "::1         localhost" >> "$NEWROOT/etc/hosts"
 
     # Create syslog.conf
