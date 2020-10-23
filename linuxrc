@@ -6,6 +6,7 @@
 VERSION="TINYLINUX_VERSION"
 CONSOLE="/dev/console"
 ROOTFS="/mnt/root"
+MNT_TIMEOUT="10"
 MNTNV="mnt/nv"
 MNTSQUASH="mnt/squash"
 MNTETC="mnt/etc"
@@ -51,12 +52,13 @@ parse_opt()
 }
 for ARG in `cat /proc/cmdline`; do
     case "$ARG" in
-        squash\=*)   SQUASHFS_BIN=`parse_opt "$ARG"` ;;
-        partno\=*)   PARTNUMBER=`parse_opt "$ARG"` ;;
-        nfsshare\=*) NFSSHARE=`parse_opt "$ARG"` ;;
-        net\=*)      NET=`parse_opt "$ARG"` ;;
-        ovrcfg\=*)   OVRCFG=`parse_opt "$ARG"` ;;
-        nocoldplug)  COLDPLUG="" ;;
+        squash\=*)        SQUASHFS_BIN=`parse_opt "$ARG"` ;;
+        partno\=*)        PARTNUMBER=`parse_opt "$ARG"` ;;
+        nfsshare\=*)      NFSSHARE=`parse_opt "$ARG"` ;;
+        net\=*)           NET=`parse_opt "$ARG"` ;;
+        ovrcfg\=*)        OVRCFG=`parse_opt "$ARG"` ;;
+        mount_timeout\=*) MNT_TIMEOUT=`parse_opt "$ARG"` ;;
+        nocoldplug)       COLDPLUG="" ;;
     esac
 done
 
@@ -128,7 +130,7 @@ while true; do
         [ -z "$NFSSHARE" ] && echo "Partition with root filesystem not found. Waiting..."
     fi
     WAITTIME=$(($(awk '{print $1*1000}' /proc/uptime) - $KERNEL_BOOT_TIME))
-    [ $WAITTIME -gt 10000 ] && ( echo "Giving up..." && exec /bin/sh )
+    [ $WAITTIME -gt $(($MNT_TIMEOUT * 1000)) ] && ( echo "Giving up..." && exec /bin/sh )
     RETRYCOUNT=$(($RETRYCOUNT+1))
 done
 
