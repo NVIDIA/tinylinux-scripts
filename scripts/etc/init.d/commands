@@ -1,6 +1,6 @@
 #!/sbin/rc
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2020, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 LOUDSERVICE="1"
@@ -11,6 +11,10 @@ start()
     if [ -f "$TINYLINUXDIR/commands" ]; then
         tr -d '\r' <"$TINYLINUXDIR/commands" >/commands
         chmod a+x /commands
-        /commands
+        if [ "$(uname -m)" = "x86_64" ]; then
+            /sbin/getty -n -l /sbin/commands_login 38400 tty1 linux
+        else
+            /commands
+        fi
     fi
 }
