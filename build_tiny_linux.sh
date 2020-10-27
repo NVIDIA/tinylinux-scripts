@@ -46,7 +46,7 @@ if [[ $# -eq 0 || $1 = "-h" || $1 = "--help" ]]; then
 fi
 
 # Auto-detect number of CPUs
-JOBS="${JOBS:-$(grep processor /proc/cpuinfo | wc -l)}"
+JOBS="${JOBS:-$(grep -c ^processor /proc/cpuinfo)}"
 
 # Parse options
 while [[ $# -gt 1 ]]; do
@@ -398,7 +398,7 @@ prepare_portage()
     fi
 
     # Lock on to dropbear version which we have a fix for
-    local DROPBEAR_VER="2019.78"
+    local DROPBEAR_VER="2020.80-r1"
     echo "=net-misc/dropbear-$DROPBEAR_VER ~*" >> $KEYWORDS
     echo ">net-misc/dropbear-$DROPBEAR_VER" >> /etc/portage/package.mask/tinylinux
 
@@ -441,7 +441,7 @@ prepare_portage()
     fi
 
     # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-9.1.ebuild
+    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-9.2.ebuild
     if ! grep -q workaround "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
