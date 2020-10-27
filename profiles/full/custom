@@ -32,7 +32,8 @@ yes | ROOT=/newroot etc-update --automode -7 # Clean up autofs script changes
 install_package ipmitool "openipmi python"
 install_package ipmiutil
 install_package dmidecode
-install_package sys-apps/i2c-tools
+install_package sys-apps/i2c-tools "python"
+install_package app-arch/zstd # curl dependency (missing in curl ebuild)
 install_package net-misc/curl
 install_package rsync
 install_package sys-apps/lm-sensors
@@ -45,6 +46,7 @@ yes | ROOT=/newroot etc-update --automode -7 # Clean up acpid script changes
 install_package app-admin/sudo
 install_package sys-apps/file "python zlib"
 install_package sys-fs/f2fs-tools
+install_package app-arch/xz-utils # Needed by lzma module in Python
 install_package sys-block/parted "" --nodeps
 cp -a /lib64/lib{uuid,blkid}.so.* "$NEWROOT"/lib64/ # Needed by parted, but we don't want entire util-linux
 
