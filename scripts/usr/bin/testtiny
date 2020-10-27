@@ -280,11 +280,19 @@ if [[ $PROFILE = full ]]; then
     python3 -c "import xml" > output.txt 2>&1 | true
     check_exit_code ${PIPESTATUS[0]}
     OUTPUT=$(cat output.txt)
+    echo -n " xml"
     [[ $OUTPUT = "" ]] || fail_test "error"
 
     python3 -c "import zipfile" > output.txt 2>&1 | true
     check_exit_code ${PIPESTATUS[0]}
     OUTPUT=$(cat output.txt)
+    echo -n " zipfile"
+    [[ $OUTPUT = "" ]] || fail_test "error"
+
+    python3 -c "import lzma" > output.txt 2>&1 | true
+    check_exit_code ${PIPESTATUS[0]}
+    OUTPUT=$(cat output.txt)
+    echo -n " lzma"
     [[ $OUTPUT = "" ]] || fail_test "error"
 
     end_test
@@ -380,7 +388,7 @@ MISSING_LIBS=0
 for DIR in /bin /sbin /usr/bin /usr/sbin; do
     for FILE in $(find $DIR -type f); do
         if test -x "$FILE"; then
-            if ldd "$FILE" | grep -q "not found"; then
+            if ldd "$FILE" 2>&1 | grep -q "not found"; then
                 echo -n " $FILE"
                 MISSING_LIBS=1
             fi
