@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2020, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 VERSION="TINYLINUX_VERSION"
@@ -104,7 +104,7 @@ while true; do
             ifconfig "$NET" up || exec /bin/sh
             udhcpc -n -T 1 -t 60 -q -i "$NET" || exec /bin/sh
             mount -t nfs -o nolock "$NFSSHARE" "${ROOTFS}/${MNTNV}" || exec /bin/sh
-            mount_squash "$NFSSHARE" || exit /bin/sh
+            mount_squash "$NFSSHARE" || exec /bin/sh
         fi
     else
         [ -z "$PARTNUMBER" ] || P_PARTNUMBER="p$PARTNUMBER"
@@ -271,11 +271,16 @@ mknod dev/console c 5 1
 
 # Unmount filesystems
 umount /dev
-umount /proc
 umount /sys
+rm /etc/mtab
+cp /proc/mounts /etc/mtab
+umount /proc
 
 # Store kernel boot time for reporting in /sbin/rc
 echo "$KERNEL_BOOT_TIME" > var/log/kernel_boot_time
 
 # Switch to the new root filesystem
-exec /sbin/switch_root -c /dev/console "${ROOTFS}" /sbin/init
+exec /bin/busybox switch_root -c /dev/console "${ROOTFS}" /sbin/init
+
+# Fallback - enter shell
+exec /bin/busybox sh
