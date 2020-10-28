@@ -380,6 +380,13 @@ elif [ "$1" = "boot" ]; then
     # Remove stale files from before boot
     rm -f /var/run/*
 
+    # Create lock directory
+    if [ ! -d /run/lock ]; then
+        mkdir /run/lock
+        chmod 1777 /run/lock
+    fi
+    ln -s /run/lock /var/lock
+
     # Create firmware directory if needed
     VAR_FIRMWARE="$(readlink /lib/firmware)"
     [ "$VAR_FIRMWARE" != "/var/firmware" ] || mkdir -p /var/firmware
