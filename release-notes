@@ -1,5 +1,16 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+20.10
+ * Updated kernel to 5.9.1
+ * Updated MODS kernel driver to 4.0
+ * Added /var/lock directory
+ * Added lzma used by Python
+ * Updated commands service to use tty and root login when executing script
+ * Added option to override rootfs mount timeout
+ * Enabled syslog support in udhcpc
+ * Put localhost first for 127.0.0.1 in /etc/hosts
+ * Default to IFACE=auto in pxeserver profile
+-------------------------------------------------------------------------------
 20.07.1
  * Fixed pubkey authentication in ssh
 -------------------------------------------------------------------------------
