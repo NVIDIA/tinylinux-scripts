@@ -1148,7 +1148,7 @@ get_mods_driver_version()
     MAJOR=`grep "define MODS_DRIVER_VERSION_MAJOR" /tmp/driver/mods.h | cut -f 3 -d ' '`
     MINOR=`grep "define MODS_DRIVER_VERSION_MINOR" /tmp/driver/mods.h | cut -f 3 -d ' '`
     rm -rf /tmp/driver
-    echo "${MAJOR}.${MINOR}"
+    printf "%d.%02d" "$MAJOR" "$MINOR"
 }
 
 restore_newroot()
