@@ -204,7 +204,7 @@ directly to the kernel and can later be recognized by boot scripts.
 
 The following options are currently used by the boot scripts:
 
-* /tiny/kernel - this is the first option.  It specifices the location of the
+* /tiny/kernel - this is the first option.  It specifies the location of the
   Linux kernel.  If the kernel is stored elsewhere, this path has to be
   adjusted.
 
