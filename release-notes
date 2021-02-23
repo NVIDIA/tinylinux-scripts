@@ -1,5 +1,8 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+20.10.1
+ * Updated MODS kernel driver to 4.1
+-------------------------------------------------------------------------------
 20.10
  * Updated kernel to 5.9.1
  * Updated MODS kernel driver to 4.0
