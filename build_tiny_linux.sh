@@ -17,7 +17,7 @@ INSTALL="/install"
 SQUASHFS="/tiny/squash.bin"
 MAKECONF="/etc/portage/make.conf"
 NICE="ionice -c 3 nice -n 19"
-PYTHON_VER=3.7
+PYTHON_VER=3.9
 
 # Inherit TEGRAABI from parent process
 TEGRAABI="${TEGRAABI:-aarch64-unknown-linux-gnu}"
@@ -350,13 +350,19 @@ prepare_portage()
     fi
     echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
     echo "dev-lang/python threads xml ssl ncurses readline" >> /etc/portage/package.use/tinylinux
+    echo "dev-libs/libtomcrypt libtommath" >> /etc/portage/package.use/tinylinux
     echo "dev-libs/openssl asm bindist tls-heartbeat zlib" >> /etc/portage/package.use/tinylinux
     echo "dev-vcs/git curl" >> /etc/portage/package.use/tinylinux
+    echo "media-libs/libv4l jpeg" >> /etc/portage/package.use/tinylinux
     echo "net-fs/autofs libtirpc" >> /etc/portage/package.use/tinylinux
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
     echo "sys-fs/quota rpc" >> /etc/portage/package.use/tinylinux
-    echo "sys-fs/squashfs-tools xz" >> /etc/portage/package.use/tinylinux
+    echo "sys-fs/squashfs-tools lzma" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
+    echo "dev-libs/libxml2 python" >> /etc/portage/package.use/tinylinux
+
+    # Mask systemd-tmpfiles pulled by virtual/tmpfiles, pulled e.g. by screen
+    echo "sys-apps/systemd-tmpfiles" >> /etc/portage/package.mask/tinylinux
 
     # Enable the latest iasl tool
     echo "sys-power/iasl ~*" >> $KEYWORDS
@@ -398,7 +404,7 @@ prepare_portage()
     fi
 
     # Lock on to dropbear version which we have a fix for
-    local DROPBEAR_VER="2020.80-r1"
+    local DROPBEAR_VER="2020.81-r2"
     echo "=net-misc/dropbear-$DROPBEAR_VER ~*" >> $KEYWORDS
     echo ">net-misc/dropbear-$DROPBEAR_VER" >> /etc/portage/package.mask/tinylinux
 
@@ -441,7 +447,7 @@ prepare_portage()
     fi
 
     # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-9.2.ebuild
+    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-10.2.ebuild
     if ! grep -q workaround "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
@@ -482,7 +488,7 @@ emerge_basic_packages()
     local KERNELPKG=gentoo-sources
     [[ $RCKERNEL = 1 ]] && KERNELPKG=git-sources
     if [[ -z $TEGRABUILD ]]; then
-        if ! emerge --quiet $KERNELPKG syslinux grub; then
+        if ! USE=symlink emerge --quiet $KERNELPKG syslinux grub; then
             boldecho "Failed to emerge some packages"
             boldecho "Please complete installation manually"
             bash
@@ -802,7 +808,8 @@ build_newroot()
     test -e "$NEWROOT/bin/bash" || ln -s $(ls "$NEWROOT"/bin/bash-* | head -n 1 | xargs basename) "$NEWROOT/bin/bash"
 
     # Install NFS utils
-    install_package nfs-utils
+    install_package net-nds/rpcbind
+    install_package nfs-utils "" --nodeps
     remove_gentoo_services nfs nfsmount rpcbind rpc.statd
 
     # Additional x86-specific packages
@@ -810,7 +817,7 @@ build_newroot()
         install_package libusb-compat
         install_package numactl
         install_package efibootmgr
-        install_package ntfs3g "external-fuse xattr"
+        install_package ntfs3g "external-fuse xattr" --nodeps # nodeps to avoid util-linux
         remove_gentoo_services netmount
     fi
 
