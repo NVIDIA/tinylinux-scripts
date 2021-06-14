@@ -164,12 +164,14 @@ __migrate_config()
     fi
 }
 
-# Print services in boot order
-__get_boot_services()
+# Get boot order file
+__BOOT_ORDER_WARNING_PRINTED=0
+__get_boot_file()
 {
     local CMDLINE
     local BOOT_ORDER
     local FILE
+    local WARNING
 
     BOOT_ORDER="/etc/conf.d/boot"
 
@@ -178,13 +180,44 @@ __get_boot_services()
         FILE="$(echo "$CMDLINE" | sed "s/.*boot_order=// ; s/ .*//")"
         if [ -e "/etc/conf.d/$FILE" ]; then
             BOOT_ORDER="/etc/conf.d/$FILE"
-            echo "Using boot order override: $BOOT_ORDER" >&2
+            WARNING="Using boot order override: $BOOT_ORDER"
         else
-            echo "Boot order override /etc/conf.d/$FILE not found, using $BOOT_ORDER" >&2
+            WARNING="Boot order override /etc/conf.d/$FILE not found, using $BOOT_ORDER"
+        fi
+        if [ "$__BOOT_ORDER_WARNING_PRINTED" = "0" ]; then
+            echo "$WARNING" >&2
+            __BOOT_ORDER_WARNING_PRINTED=1
         fi
     fi
 
+    echo "$BOOT_ORDER"
+}
+
+# Print services in boot order
+__get_boot_services()
+{
+    local BOOT_ORDER
+    BOOT_ORDER="$(__get_boot_file)"
     cat "$BOOT_ORDER"
+}
+
+# Get service status on boot
+__get_boot_status()
+{
+    local __BOOT_STATUS
+    __BOOT_STATUS="enabled"
+    __get_boot_services | grep -q "^$1$" || __BOOT_STATUS="disabled"
+    echo "$__BOOT_STATUS"
+}
+
+# Change text color based on value, if colors are enabled
+__make_color()
+{
+    if [ "$1" = "$2" ] && [ "$NOCOLOR" != "1" ]; then
+        echo "\033[$3m$1\033[0m"
+    else
+        echo "$1"
+    fi
 }
 
 # Find TinyLinux configuration files
@@ -247,18 +280,23 @@ if [ -x "/etc/init.d/$__SVCNAME" -a "$2" -a "$#" = 2 ]; then
             ;;
 
         status)
-            echo "status: $__STATUS"
+            [ "$__STATUS" != "started" ] || __STATUS="running"
+            echo -e "status: $(__make_color $__STATUS running "1;32")"
+            echo -e "boot:   $(__make_color $(__get_boot_status $__SVCNAME) enabled "1")"
             ;;
     esac
 
 # Overall status
 elif [ "$1" = "status" ]; then
     find /etc/init.d/ -type f | sort | while read __SVC; do
-        __SVCNAME=`basename "$__SVC"`
-        __STATUS=`__getstatus "$__SVCNAME"`
-        [ "$__STATUS" = "stopped" ] || [ "$NOCOLOR" = "1" ] ||  __STATUS="\033[1;32m${__STATUS}\033[0m"
+        __SVCNAME=$(basename "$__SVC")
+        __STATUS=$(__getstatus "$__SVCNAME")
+        [ "$__STATUS" != "started" ] || __STATUS="running"
+        __BOOT_STATUS=$(__get_boot_status "$__SVCNAME")
+        __STATUS=$(__make_color "$__STATUS" running "1;32")
+        __BOOT_STATUS=$(__make_color "$__BOOT_STATUS" enabled "1")
         __PADDING="            "
-        echo -e "$__SVCNAME${__PADDING:${#__SVCNAME}} $__STATUS"
+        echo -e "$__SVCNAME${__PADDING:${#__SVCNAME}} $__STATUS    $__BOOT_STATUS"
     done
 
 # Enable services
@@ -277,7 +315,12 @@ elif [ "$1" = "enable" ]; then
         /etc/init.d/$1 start || exit $?
 
         # Add service to boot list
-        grep -q "^$1\$" /etc/conf.d/boot || echo "$1" >> /etc/conf.d/boot
+        if [ "$(__get_boot_status $1)" = "enabled" ]; then
+            echo "Service $1 is already enabled"
+        else
+            echo "$1" >> "$(__get_boot_file)"
+            echo "Enabled service $1"
+        fi
 
         # Next service
         shift
@@ -302,8 +345,12 @@ elif [ "$1" = "disable" ]; then
         /etc/init.d/$1 stop
 
         # Remove service from boot list
-        BOOT_ORDER="/etc/conf.d/boot"
-        sed -i "/^$1$/d" "$BOOT_ORDER"
+        if [ "$(__get_boot_status $1)" = "enabled" ]; then
+            sed -i "/^$1$/d" "$(__get_boot_file)"
+            echo "Disabled service $1"
+        else
+            echo "Service $1 is already disabled"
+        fi
 
         # Next service
         shift
