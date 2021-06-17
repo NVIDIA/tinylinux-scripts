@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2009-2020, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2021, NVIDIA CORPORATION.  All rights reserved.
 # See LICENSE file for details.
 
 set -e
@@ -374,7 +374,7 @@ prepare_portage()
             dev-libs/libffi-3.2.1
             dev-util/valgrind-3.15.0
             net-dns/libidn2-2.0.5
-            net-fs/autofs-5.1.6
+            net-fs/autofs-5.1.6-r1
             net-libs/libtirpc-1.0.2-r1
             net-nds/portmap-6.0
             net-nds/rpcbind-0.2.4-r1
@@ -390,6 +390,9 @@ prepare_portage()
         # Enable rpc use flag, needed for rpcbind's dependency
         # crypt flag is needed for util-linux
         echo "cross-aarch64-unknown-linux-gnu/glibc rpc crypt" >> /etc/portage/package.use/tegra
+
+        # Enable C++ (esp. libstdc++)
+        echo "cross-aarch64-unknown-linux-gnu/gcc cxx" >> /etc/portage/package.use/tegra
 
         # Enable gold and plugins in binutils to fix binutils build failure
         echo "cross-aarch64-unknown-linux-gnu/binutils gold plugins" >> /etc/portage/package.use/tegra
@@ -427,6 +430,17 @@ prepare_portage()
         ebuild "$EBUILD" digest
     fi
 
+    # Patch cross-compilation failure in libtomcrypt
+    local EBUILD=$PORTAGE/dev-libs/libtomcrypt/libtomcrypt-1.18.2-r2.ebuild
+    if [[ $TEGRABUILD ]] && [[ -f $EBUILD ]] && ! grep -q "cross.patch" "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        cp "$BUILDSCRIPTS/extra/libtomcrypt-cross.patch" $PORTAGE/dev-libs/libtomcrypt/files/
+        sed -i "s/slibtool.patch$/slibtool.patch \"\${FILESDIR}\"\/\${PN}-cross.patch/" "$EBUILD"
+        sed -i '/LIBPATH=\|INCPATH=/s:\${ESYSROOT}::' "$EBUILD"
+        ebuild "$EBUILD" digest
+        cp /usr/bin/libtool /tmp/crosslibtool
+    fi
+
     # Patch compilation failure in autofs
     local EBUILD=$PORTAGE/net-fs/autofs/autofs-5.1.6.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "gcc=strip" "$EBUILD"; then
@@ -447,7 +461,7 @@ prepare_portage()
     fi
 
     # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-10.2.ebuild
+    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-10.1.ebuild
     if ! grep -q workaround "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
@@ -698,6 +712,13 @@ remove_gentoo_services()
     done
 }
 
+prepare_libtool_for_libtomcrypt()
+{
+    # libtomcrypt (dependency of dropbear) fails to cross-compile
+    sed "s/x86_64-pc-linux-gnu/$TEGRAABI/g" < /usr/bin/libtool > /tmp/crosslibtool
+    chmod 755 /tmp/crosslibtool
+}
+
 build_newroot()
 {
     # Remove old build
@@ -773,7 +794,7 @@ build_newroot()
     fi
 
     # Install basic system packages
-    install_package sys-libs/glibc
+    install_package sys-libs/glibc "" --nodeps # Latest glibc pulls deps!!!
     ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read
     install_package sys-auth/libnss-nis
     rm -rf "$NEWROOT"/lib*/gentoo # Remove Gentoo scripts
@@ -792,15 +813,9 @@ build_newroot()
     install_package busybox "make-symlinks mdev nfs savedconfig"
     rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
     record_busybox_symlinks
+    [[ -z $TEGRABUILD ]] || prepare_libtool_for_libtomcrypt # WAR for cross compilation failure, dropbear dependency
     install_package dropbear "multicall"
     install_package sys-devel/bc
-
-    if [[ $TEGRABUILD ]]; then
-        # nano pulls pkg-config, which pulls glib-utils for some reason.
-        # Unfortunately this pulls a load of other, completely useless packages. :-(
-        NEWROOT="/usr/$TEGRAABI" install_package dev-util/glib-utils "python_targets_python${PYTHON_VER/./_} python_single_target_python${PYTHON_VER/./_}" # Host dependency for glib
-        NEWROOT="/usr/$TEGRAABI" install_package dev-libs/glib  # Host dependency for nano and bluez
-    fi
 
     # Install more basic packages
     install_package nano
@@ -1255,6 +1270,7 @@ make_squashfs()
     [[ $JOBS ]] && MSQJOBS="$JOBS"
     cat >/tmp/excludelist <<-EOF
 	etc/env.d
+	etc/environment.d
 	etc/portage
 	etc/systemd
 	lib*/systemd
@@ -1377,7 +1393,7 @@ make_tegra_image()
 
     # Copy etc
     ( cd "$NEWROOT" && tar cp etc ) | tar xp -C "$FILESYSTEM"
-    rm -rf "$FILESYSTEM/etc/env.d" "$FILESYSTEM/etc/portage" "$FILESYSTEM/etc/profile.env"
+    rm -rf "$FILESYSTEM/etc"/{env.d,environment.d,portage,profile.env,systemd}
 
     # Create directories
     for DIR in dev proc root sys tmp var var/tmp var/log mnt mnt/squash; do
