@@ -45,19 +45,23 @@ install_package acpid
 yes | ROOT=/newroot etc-update --automode -7 # Clean up acpid script changes
 install_package app-admin/sudo
 install_package sys-apps/file "python zlib"
-install_package sys-fs/f2fs-tools
 install_package app-arch/xz-utils # Needed by lzma module in Python
 install_package sys-block/parted "" --nodeps
 cp -a /lib64/lib{uuid,blkid}.so.* "$NEWROOT"/lib64/ # Needed by parted, but we don't want entire util-linux
+install_package media-tv/v4l-utils "jpeg"
 
 # Python modules
 install_package dev-python/cffi
 install_package dev-python/dnspython
 rm -rf "$NEWROOT"/usr/lib*/python*/site-packages/Crypto/SelfTest
 install_package dev-python/pip
+mkdir -p /etc/portage/package.accept_keywords
+echo "=dev-python/pyocr-0.8 **" >> /etc/portage/package.accept_keywords/full
+install_package app-arch/libarchive
+install_package dev-python/pyocr "tesseract"
 
 # PERL modules
-mkdir -p /etc/portage/package.unmask
+mkdir -p /etc/portage/package.accept_keywords
 echo "perl-core/Thread-Semaphore **" >> /etc/portage/package.accept_keywords/full
 echo "perl-core/Time-HiRes **"       >> /etc/portage/package.accept_keywords/full
 install_package dev-perl/JSON

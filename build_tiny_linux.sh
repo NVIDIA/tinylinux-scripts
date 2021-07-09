@@ -360,6 +360,7 @@ prepare_portage()
     echo "sys-fs/squashfs-tools lzma" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
     echo "dev-libs/libxml2 python" >> /etc/portage/package.use/tinylinux
+    echo "media-libs/leptonica jpeg zlib" >> /etc/portage/package.use/tinylinux
 
     # Mask systemd-tmpfiles pulled by virtual/tmpfiles, pulled e.g. by screen
     echo "sys-apps/systemd-tmpfiles" >> /etc/portage/package.mask/tinylinux
