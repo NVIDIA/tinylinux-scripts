@@ -1,5 +1,13 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+21.07
+ * Updated kernel to 5.13.1
+ * Updated MODS kernel driver to 4.6
+ * Improved rc enable/disable commands
+ * Increased default sshd buffer size to 1MB to speed up scp
+ * Added v4l-utils and pyocr in full profile
+ * Removed f2fs-utils from full profile
+-------------------------------------------------------------------------------
 20.10.1
  * Updated MODS kernel driver to 4.1
 -------------------------------------------------------------------------------
