@@ -379,7 +379,7 @@ prepare_portage()
             net-libs/libtirpc-1.0.2-r1
             net-nds/portmap-6.0
             net-nds/rpcbind-0.2.4-r1
-            net-nds/yp-tools-4.2.3
+            net-nds/yp-tools-4.2.3-r1
             net-wireless/bluez-5.50-r2
             net-wireless/rfkill-0.5-r3
             )
@@ -408,7 +408,7 @@ prepare_portage()
     fi
 
     # Lock on to dropbear version which we have a fix for
-    local DROPBEAR_VER="2020.81-r2"
+    local DROPBEAR_VER="2020.81-r3"
     echo "=net-misc/dropbear-$DROPBEAR_VER ~*" >> $KEYWORDS
     echo ">net-misc/dropbear-$DROPBEAR_VER" >> /etc/portage/package.mask/tinylinux
 
@@ -763,16 +763,18 @@ build_newroot()
     if [[ $TEGRABUILD ]]; then
         local NEWUSRLIB="$NEWROOT/usr/lib"
         local NEWUSRLIB64="$NEWROOT/usr/lib64"
+        local NEWUSRLIBEXEC="$NEWROOT/usr/libexec"
         is64bit || NEWUSRLIB64=$NEWUSRLIB
         rm -rf /tiny/debug /tiny/valgrind
         mkdir -p /tiny/debug/mnt
         mkdir -p /tiny/valgrind
         mkdir -p "$NEWUSRLIB"
         mkdir -p "$NEWUSRLIB64"
+        mkdir -p "$NEWUSRLIBEXEC"
         mkdir -p "$NEWROOT/usr/share"
         ln -s /tiny/debug    "$NEWUSRLIB/debug"
         ln -s /tiny/debug    "$NEWUSRLIB64/debug"
-        ln -s /tiny/valgrind "$NEWUSRLIB64/valgrind"
+        ln -s /tiny/valgrind "$NEWUSRLIBEXEC/valgrind"
     fi
 
     # Newer Portage requires that the target root (our NEWROOT) is set to
@@ -1285,7 +1287,7 @@ make_squashfs()
 	usr/lib*/*.o
 	usr/lib*/pkgconfig
 	usr/lib*/systemd
-        usr/libexec/valgrind
+        usr/lib*/valgrind/*.a
         usr/share/aclocal
 	usr/share/doc
         usr/share/et

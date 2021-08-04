@@ -40,10 +40,10 @@ install_package sys-apps/lm-sensors
 install_package smartmontools
 install_package p7zip
 install_package zip
-install_package app-misc/screen
+install_package app-misc/screen "" "--nodeps"
 install_package acpid
 yes | ROOT=/newroot etc-update --automode -7 # Clean up acpid script changes
-install_package app-admin/sudo
+install_package app-admin/sudo "" "--nodeps"
 install_package sys-apps/file "python zlib"
 install_package app-arch/xz-utils # Needed by lzma module in Python
 install_package sys-block/parted "" --nodeps
@@ -57,7 +57,7 @@ rm -rf "$NEWROOT"/usr/lib*/python*/site-packages/Crypto/SelfTest
 install_package dev-python/pip
 mkdir -p /etc/portage/package.accept_keywords
 echo "=dev-python/pyocr-0.8 **" >> /etc/portage/package.accept_keywords/full
-install_package app-arch/libarchive
+install_package app-arch/libarchive "zlib bzip2 e2fsprogs expat threads"
 install_package dev-python/pyocr "tesseract"
 
 # PERL modules
