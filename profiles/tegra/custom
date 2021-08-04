@@ -20,7 +20,6 @@ if is64bit; then # glib fails to cross compile for armv7
     NEWROOT=/ install_package docbook-xml-dtd:4.4           # Host dependency for building dbus
     NEWROOT=/ install_package app-text/xmlto                # Host dependency for building dbus
     NEWROOT="/usr/$TEGRAABI" install_package sys-apps/dbus  # Host dependency for bluez
-    install_package virtual/libffi                          # Dependency for glib
     install_package virtual/libiconv                        # Dependency for glib
     install_package virtual/libintl                         # Dependency for glib
     install_package dev-libs/libpcre                        # Dependency for glib
