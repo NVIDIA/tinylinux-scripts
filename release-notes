@@ -1,5 +1,7 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Added numactl, pixman, kexec-utils, util-linux in tegra profile
+-------------------------------------------------------------------------------
 21.07
  * Updated kernel to 5.13.1
  * Updated MODS kernel driver to 4.6

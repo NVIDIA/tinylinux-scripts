@@ -323,7 +323,7 @@ prepare_portage()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo 'PORTAGE_NICENESS="15"'
-        echo "USE=\"-* ipv6 readline syslog unicode python_targets_python${PYTHON_VER/./_} python_single_target_python${PYTHON_VER/./_}\""
+        echo "USE=\"-* ipv6 ncurses readline syslog threads unicode python_targets_python${PYTHON_VER/./_} python_single_target_python${PYTHON_VER/./_}\""
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
 
@@ -348,8 +348,7 @@ prepare_portage()
             echo "${PKG} **" >> "$KEYWORDS"
         done
     fi
-    echo "app-arch/xz-utils threads" >> /etc/portage/package.use/tinylinux
-    echo "dev-lang/python threads xml ssl ncurses readline" >> /etc/portage/package.use/tinylinux
+    echo "dev-lang/python xml ssl" >> /etc/portage/package.use/tinylinux
     echo "dev-libs/libtomcrypt libtommath" >> /etc/portage/package.use/tinylinux
     echo "dev-libs/openssl asm bindist tls-heartbeat zlib" >> /etc/portage/package.use/tinylinux
     echo "dev-vcs/git curl" >> /etc/portage/package.use/tinylinux
@@ -358,7 +357,7 @@ prepare_portage()
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
     echo "sys-fs/quota rpc" >> /etc/portage/package.use/tinylinux
     echo "sys-fs/squashfs-tools lzma" >> /etc/portage/package.use/tinylinux
-    echo "sys-libs/glibc rpc" >> /etc/portage/package.use/tinylinux
+    echo "sys-libs/glibc crypt rpc" >> /etc/portage/package.use/tinylinux
     echo "dev-libs/libxml2 python" >> /etc/portage/package.use/tinylinux
     echo "media-libs/leptonica jpeg zlib" >> /etc/portage/package.use/tinylinux
 
@@ -375,13 +374,14 @@ prepare_portage()
             dev-libs/libffi-3.2.1
             dev-util/valgrind-3.15.0
             net-dns/libidn2-2.0.5
-            net-fs/autofs-5.1.6-r1
+            net-fs/autofs-5.1.6-r2
             net-libs/libtirpc-1.0.2-r1
             net-nds/portmap-6.0
             net-nds/rpcbind-0.2.4-r1
             net-nds/yp-tools-4.2.3-r1
             net-wireless/bluez-5.50-r2
             net-wireless/rfkill-0.5-r3
+            sys-apps/kexec-tools-2.0.22
             )
         local PKG
         for PKG in ${ACCEPT_PKGS[*]}; do
@@ -560,7 +560,7 @@ install_tegra_toolchain()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo "PORTAGE_NICENESS=\"15\""
-        echo "USE=\"-* ipv6 readline syslog unicode \${ARCH}\""
+        echo "USE=\"-* ipv6 ncurses readline syslog threads unicode \${ARCH}\""
     ) >> "$CFGROOT/$MAKECONF"
     local FILE
     for FILE in package.use package.mask package.unmask package.accept_keywords savedconfig; do
@@ -657,7 +657,7 @@ target_emerge()
 {
     if [[ $TEGRABUILD && $NEWROOT != / ]]; then
         if [[ $4 != sys-libs/glibc && $NEWROOT != "/usr/$TEGRAABI" ]]; then
-            "$TEGRAABI-emerge" "$@"
+            "$TEGRAABI-emerge" --noreplace "$@"
         fi
         ROOT="$NEWROOT" SYSROOT="$NEWROOT" PORTAGE_CONFIGROOT="/usr/$TEGRAABI" "$TEGRAABI-emerge" "$@"
     else
@@ -827,6 +827,10 @@ build_newroot()
 
     # Install NFS utils
     install_package net-nds/rpcbind
+    if [[ -n $TEGRABUILD ]]; then
+        NEWROOT="/usr/$TEGRAABI" install_package sys-apps/util-linux
+        COLLISION_IGNORE="/bin /sbin" install_package sys-apps/util-linux "" --nodeps
+    fi
     install_package nfs-utils "" --nodeps
     remove_gentoo_services nfs nfsmount rpcbind rpc.statd
 

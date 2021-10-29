@@ -13,20 +13,21 @@ install_package net-libs/libpcap ipv6
 install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
 emerge --quiet --noreplace dev-util/meson dev-util/ninja # needed for libdrm
 install_package x11-libs/libdrm
+install_package x11-libs/pixman
 install_package alsa-utils "ncurses libsamplerate"
+install_package sys-apps/kexec-tools "zlib"
+install_package sys-process/numactl
+install_package media-sound/sox "alsa ao"
 
 if is64bit; then # glib fails to cross compile for armv7
     # bluez dependencies
     NEWROOT=/ install_package docbook-xml-dtd:4.4           # Host dependency for building dbus
     NEWROOT=/ install_package app-text/xmlto                # Host dependency for building dbus
     NEWROOT="/usr/$TEGRAABI" install_package sys-apps/dbus  # Host dependency for bluez
-    install_package virtual/libiconv                        # Dependency for glib
-    install_package virtual/libintl                         # Dependency for glib
-    install_package dev-libs/libpcre                        # Dependency for glib
-    install_package dev-libs/glib "" "--nodeps"             # Needed for bluez, avoid util-linux!
+    install_package dev-libs/glib ""                        # Needed for bluez
 
+    emerge --quiet --noreplace dev-python/docutils # needed for bluez
     install_package net-wireless/bluez deprecated "--nodeps" # Avoid pulling dbus
-    install_package net-wireless/rfkill
 fi
 
 # Set timezone
