@@ -8,6 +8,7 @@ install_package expat
 install_package =python-${PYTHON_VER}* "" "--nodeps"
 rm -rf "$NEWROOT"/usr/lib*/python*/test
 install_package dev-lang/python-exec
+NEWROOT=/ install_package app-eselect/eselect-python
 ROOT="$NEWROOT" eselect python set python${PYTHON_VER}
 
 USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads

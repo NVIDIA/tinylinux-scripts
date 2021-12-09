@@ -151,6 +151,7 @@ find_stage3()
 
     PARSEFILELIST="s/<[^>]*>/ /g ; s/^ *// ; s/ .*//"
 
+    echo "Trying $URL" >&2
     FILELIST=$(curl -f "$URL" | sed "$PARSEFILELIST")
     if echo "$FILELIST" | grep -q "$GREPSTAGE"; then
         FILELIST=`echo "$FILELIST" | grep "$GREPSTAGE"`
@@ -182,9 +183,9 @@ download_packages()
     if [[ ! -f $STAGE3PKG ]]; then
         local GREPSTAGE
         local STAGE3PATH
-        GREPSTAGE="^stage3-$STAGE3ARCH-[0-9TZ].*\.tar\.xz$"
+        GREPSTAGE="^stage3-$STAGE3ARCH-openrc-[0-9TZ].*\.tar\.xz$"
         boldecho "Downloading stage3 file list from the server"
-        STAGE3PATH="$MIRROR/releases/${STAGE3ARCH/i?86/x86}/autobuilds/current-stage3-$STAGE3ARCH/"
+        STAGE3PATH="$MIRROR/releases/${STAGE3ARCH/i?86/x86}/autobuilds/current-stage3-$STAGE3ARCH-openrc/"
         STAGE3PKG=`find_stage3 "$GREPSTAGE" "$STAGE3PATH"`
         download "$STAGE3PKG"
         STAGE3PKG=`basename "$STAGE3PKG"`
@@ -462,7 +463,7 @@ prepare_portage()
     fi
 
     # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-10.1.ebuild
+    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-11.1.ebuild
     if ! grep -q workaround "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
@@ -1068,15 +1069,6 @@ install_mods()
         tar xzf "$DRVPKG" -C "$TMPMODS"
         [[ ! -f $BUILDSCRIPTS/mods.tgz ]] || tar xzf "$TMPMODS"/driver.tgz -C "$TMPMODS"
         compile_driver "$TMPMODS"/driver
-        rm -rf "$TMPMODS"
-
-        # Install PPC driver
-        boldecho "Installing PPC drivers"
-        mkdir "$TMPMODS"
-        tar xzf "$BUILDSCRIPTS/mods/ppc.tgz" -C "$TMPMODS"
-        compile_driver "$TMPMODS"/drivers/i2c/busses
-        compile_driver "$TMPMODS"/drivers/usb/serial
-        compile_driver "$TMPMODS"/drivers/usb/typec
         rm -rf "$TMPMODS"
 
         # Force regeneration of squashfs
