@@ -28,6 +28,11 @@ if is64bit; then # glib fails to cross compile for armv7
 
     emerge --quiet --noreplace dev-python/docutils # needed for bluez
     install_package net-wireless/bluez deprecated "--nodeps" # Avoid pulling dbus
+
+    NEWROOT="/usr/$TEGRAABI" PYTHON_TARGETS=python3_10 install_package dev-util/perf "zlib" # need deps to build perf
+    install_package dev-libs/elfutils                       # Needed by perf
+    install_package sys-libs/binutils-libs "" "--nodeps"    # Needed by perf
+    PYTHON_TARGETS=python3_10 install_package dev-util/perf "zlib" "--nodeps"
 fi
 
 # Set timezone
