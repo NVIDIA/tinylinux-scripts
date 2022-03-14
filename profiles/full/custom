@@ -63,12 +63,10 @@ install_package dev-python/pyocr "tesseract"
 
 # PERL modules
 mkdir -p /etc/portage/package.accept_keywords
-echo "perl-core/Thread-Semaphore **" >> /etc/portage/package.accept_keywords/full
-echo "perl-core/Time-HiRes **"       >> /etc/portage/package.accept_keywords/full
+echo "dev-perl/DateTime-HiRes **" >> /etc/portage/package.accept_keywords/full
 install_package dev-perl/JSON
 install_package dev-perl/Getopt-Long-Descriptive
-install_package perl-core/Thread-Semaphore
-install_package perl-core/Time-HiRes
+install_package dev-perl/DateTime-HiRes
 install_package dev-perl/Text-Iconv
 install_package dev-perl/Spreadsheet-ParseExcel
 install_package dev-perl/Archive-Zip

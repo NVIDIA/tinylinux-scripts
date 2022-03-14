@@ -391,7 +391,7 @@ prepare_portage()
 
         # Enable rpc use flag, needed for rpcbind's dependency
         # crypt flag is needed for util-linux
-        echo "cross-aarch64-unknown-linux-gnu/glibc rpc crypt" >> /etc/portage/package.use/tegra
+        echo "cross-aarch64-unknown-linux-gnu/glibc rpc crypt static-libs" >> /etc/portage/package.use/tegra
 
         # Enable C++ (esp. libstdc++)
         echo "cross-aarch64-unknown-linux-gnu/gcc cxx" >> /etc/portage/package.use/tegra
@@ -433,7 +433,7 @@ prepare_portage()
     fi
 
     # Patch cross-compilation failure in libtomcrypt
-    local EBUILD=$PORTAGE/dev-libs/libtomcrypt/libtomcrypt-1.18.2-r2.ebuild
+    local EBUILD=$PORTAGE/dev-libs/libtomcrypt/libtomcrypt-1.18.2-r3.ebuild
     if [[ $TEGRABUILD ]] && [[ -f $EBUILD ]] && ! grep -q "cross.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/extra/libtomcrypt-cross.patch" $PORTAGE/dev-libs/libtomcrypt/files/
@@ -463,10 +463,19 @@ prepare_portage()
     fi
 
     # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-11.1.ebuild
+    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-11.2.ebuild
     if ! grep -q workaround "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
+        ebuild "$EBUILD" digest
+    fi
+
+    # Fix perf tool cross compilation
+    local EBUILD=$PORTAGE/dev-util/perf/perf-5.15-r1.ebuild
+    if ! grep -q cross_compile "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        sed -i '/current-system-vm/ a\\tlocal cross_compile=""\n\t[[ $(tc-getCC) = $(tc-getBUILD_CC) ]] || cross_compile=CROSS_COMPILE=aarch64-unknown-linux-gnu-' "$EBUILD"
+        sed -i '/tc-getNM/ a\\t        $cross_compile \\' "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
@@ -664,6 +673,16 @@ target_emerge()
     else
         ROOT="$NEWROOT" emerge "$@"
     fi
+
+    local NEWS="var/lib/gentoo/news/news-gentoo.unread"
+    if test -s "$NEWROOT/$NEWS"; then
+        echo "Erasing news from $NEWROOT/$NEWS"
+        echo -n > "$NEWROOT/$NEWS"
+    fi
+    if [[ $TEGRABUILD ]] && test -s "/usr/$TEGRAABI/$NEWS"; then
+        echo "Erasing news from /usr/$TEGRAABI/$NEWS"
+        echo -n > "/usr/$TEGRAABI/$NEWS"
+    fi
 }
 
 install_package()
@@ -735,7 +754,6 @@ build_newroot()
 
     # Handle Gentoo news items
     eselect news read
-    [[ -z $TEGRABUILD ]] || ROOT="/usr/$TEGRAABI" eselect news read
 
     boldecho "Building TinyLinux root filesystem"
 
@@ -799,7 +817,6 @@ build_newroot()
 
     # Install basic system packages
     install_package sys-libs/glibc "" --nodeps # Latest glibc pulls deps!!!
-    ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read
     install_package sys-auth/libnss-nis
     rm -rf "$NEWROOT"/lib*/gentoo # Remove Gentoo scripts
     if is64bit; then
@@ -820,6 +837,11 @@ build_newroot()
     [[ -z $TEGRABUILD ]] || prepare_libtool_for_libtomcrypt # WAR for cross compilation failure, dropbear dependency
     install_package dropbear "multicall"
     install_package sys-devel/bc
+
+    # Install libxcrypt with static libs, needed for busybox
+    if [[ $TEGRABUILD ]]; then
+        NEWROOT="/usr/$TEGRAABI" install_package sys-libs/libxcrypt "static-libs"
+    fi
 
     # Install more basic packages
     install_package nano
