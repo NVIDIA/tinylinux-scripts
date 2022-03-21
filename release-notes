@@ -1,6 +1,13 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+22.03
+ * Updated kernel to 5.16.16
+ * Updated MODS kernel driver to 4.8
+ * Added kernel workaround for some Micron NVMe SSDs
+ * Added perf tool in tegra profile
  * Added numactl, pixman, kexec-utils, util-linux in tegra profile
+ * Removed USB PPC driver
+ * Enabled USB-C support in the Linux kernel
 -------------------------------------------------------------------------------
 21.07
  * Updated kernel to 5.13.1
