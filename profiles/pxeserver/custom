@@ -17,7 +17,7 @@ cp /usr/share/syslinux/{pxelinux.0,ldlinux.c32} "$INSTALL/client"/
 echo "default tiny/kernel initrd=tiny/initrd nfsshare=10.0.0.1:/mnt/nv/client" > "$INSTALL/client/pxelinux.cfg/default"
 
 # Install libblkid/libuuid required by nfs-utils
-cp -d /lib64/libblkid.so* /lib64/libuuid.so* "$NEWROOT/lib"/
+cp -a /lib64/lib{uuid,blkid}.so.* "$NEWROOT"/lib64/
 
 # Remove home directory
 rm -rf "$INSTALL/home"
