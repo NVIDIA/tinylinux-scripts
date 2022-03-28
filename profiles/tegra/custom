@@ -18,22 +18,24 @@ install_package alsa-utils "ncurses libsamplerate"
 install_package sys-apps/kexec-tools "zlib"
 install_package sys-process/numactl
 install_package media-sound/sox "alsa ao"
+install_package sys-block/fio "numa zlib"
+install_package sys-apps/nvme-cli "uuid"
+install_package sys-apps/ethtool
+install_package net-misc/iperf
 
-if is64bit; then # glib fails to cross compile for armv7
-    # bluez dependencies
-    NEWROOT=/ install_package docbook-xml-dtd:4.4           # Host dependency for building dbus
-    NEWROOT=/ install_package app-text/xmlto                # Host dependency for building dbus
-    NEWROOT="/usr/$TEGRAABI" install_package sys-apps/dbus  # Host dependency for bluez
-    install_package dev-libs/glib ""                        # Needed for bluez
+# bluez dependencies
+NEWROOT=/ install_package docbook-xml-dtd:4.4           # Host dependency for building dbus
+NEWROOT=/ install_package app-text/xmlto                # Host dependency for building dbus
+NEWROOT="/usr/$TEGRAABI" install_package sys-apps/dbus  # Host dependency for bluez
+install_package dev-libs/glib ""                        # Needed for bluez
 
-    emerge --quiet --noreplace dev-python/docutils # needed for bluez
-    install_package net-wireless/bluez deprecated "--nodeps" # Avoid pulling dbus
+emerge --quiet --noreplace dev-python/docutils # needed for bluez
+install_package net-wireless/bluez deprecated "--nodeps" # Avoid pulling dbus
 
-    NEWROOT="/usr/$TEGRAABI" PYTHON_TARGETS=python3_10 install_package dev-util/perf "zlib" # need deps to build perf
-    install_package dev-libs/elfutils                       # Needed by perf
-    install_package sys-libs/binutils-libs "" "--nodeps"    # Needed by perf
-    PYTHON_TARGETS=python3_10 install_package dev-util/perf "zlib" "--nodeps"
-fi
+NEWROOT="/usr/$TEGRAABI" PYTHON_TARGETS=python3_10 install_package dev-util/perf "zlib" # need deps to build perf
+install_package dev-libs/elfutils                       # Needed by perf
+install_package sys-libs/binutils-libs "" "--nodeps"    # Needed by perf
+PYTHON_TARGETS=python3_10 install_package dev-util/perf "zlib" "--nodeps"
 
 # Set timezone
 sed -i "/TZ/s/UTC/PST8PDT/" "$NEWROOT/etc/bash/bashrc"

@@ -383,6 +383,7 @@ prepare_portage()
             net-wireless/bluez-5.50-r2
             net-wireless/rfkill-0.5-r3
             sys-apps/kexec-tools-2.0.22
+            sys-block/fio-3.27-r3
             )
         local PKG
         for PKG in ${ACCEPT_PKGS[*]}; do
@@ -476,6 +477,14 @@ prepare_portage()
         boldecho "Patching $EBUILD"
         sed -i '/current-system-vm/ a\\tlocal cross_compile=""\n\t[[ $(tc-getCC) = $(tc-getBUILD_CC) ]] || cross_compile=CROSS_COMPILE=aarch64-unknown-linux-gnu-' "$EBUILD"
         sed -i '/tc-getNM/ a\\t        $cross_compile \\' "$EBUILD"
+        ebuild "$EBUILD" digest
+    fi
+
+    # Fix iperf tool cross compilation
+    local EBUILD=$PORTAGE/net-misc/iperf/iperf-3.10.1.ebuild
+    if ! grep -q "newroot.*$TEGRAABI" "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        sed -i '/src_configure/ a\\tsed -i "/^LDFLAGS.*newroot/ s:newroot:usr/aarch64-unknown-linux-gnu:" src/Makefile' "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 

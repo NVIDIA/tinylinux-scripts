@@ -4,6 +4,7 @@ TinyLinux release history
  * Updated kernel to 5.16.16
  * Updated MODS kernel driver to 4.8
  * Added kernel workaround for some Micron NVMe SSDs
+ * Added fio, nvme-cli, iperf, ethtool in tegra profile
  * Added perf tool in tegra profile
  * Added numactl, pixman, kexec-utils, util-linux in tegra profile
  * Removed USB PPC driver
