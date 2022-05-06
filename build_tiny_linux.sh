@@ -878,7 +878,7 @@ build_newroot()
         install_package libusb-compat
         install_package numactl
         install_package efibootmgr
-        install_package ntfs3g "external-fuse xattr" --nodeps # nodeps to avoid util-linux
+        install_package ntfs3g "fuse mount-ntfs ntfsprogs xattr" --nodeps # nodeps to avoid util-linux
         remove_gentoo_services netmount
     fi
 
