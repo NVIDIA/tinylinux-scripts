@@ -481,7 +481,7 @@ prepare_portage()
     fi
 
     # Fix iperf tool cross compilation
-    local EBUILD=$PORTAGE/net-misc/iperf/iperf-3.10.1.ebuild
+    local EBUILD=$PORTAGE/net-misc/iperf/iperf-3.11.ebuild
     if ! grep -q "newroot.*$TEGRAABI" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/src_configure/ a\\tsed -i "/^LDFLAGS.*newroot/ s:newroot:usr/aarch64-unknown-linux-gnu:" src/Makefile' "$EBUILD"

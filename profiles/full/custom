@@ -57,7 +57,7 @@ install_package dev-python/dnspython
 rm -rf "$NEWROOT"/usr/lib*/python*/site-packages/Crypto/SelfTest
 install_package dev-python/pip
 mkdir -p /etc/portage/package.accept_keywords
-echo "=dev-python/pyocr-0.8 **" >> /etc/portage/package.accept_keywords/full
+echo "=dev-python/pyocr-0.8.2 **" >> /etc/portage/package.accept_keywords/full
 install_package app-arch/libarchive "zlib bzip2 e2fsprogs expat threads"
 install_package dev-python/pyocr "tesseract"
 

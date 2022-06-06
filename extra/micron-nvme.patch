@@ -1,11 +1,11 @@
 --- drivers/nvme/host/pci.c.orig
 +++ drivers/nvme/host/pci.c
-@@ -3398,6 +3398,8 @@
- 				NVME_QUIRK_128_BYTES_SQES |
- 				NVME_QUIRK_SHARED_TAGS |
- 				NVME_QUIRK_SKIP_CID_GEN },
+@@ -3432,6 +3432,8 @@
+ 				NVME_QUIRK_IGNORE_DEV_SUBNQN, },
+ 	{ PCI_DEVICE(0x1987, 0x5016),	/* Phison E16 */
+ 		.driver_data = NVME_QUIRK_IGNORE_DEV_SUBNQN, },
 +	{ PCI_DEVICE(0x1344, 0x5407),   /* Micron NVMe SSD */
 +		.driver_data = NVME_QUIRK_IGNORE_DEV_SUBNQN, },
- 
- 	{ PCI_DEVICE_CLASS(PCI_CLASS_STORAGE_EXPRESS, 0xffffff) },
- 	{ 0, }
+ 	{ PCI_DEVICE(0x1b4b, 0x1092),	/* Lexar 256 GB SSD */
+ 		.driver_data = NVME_QUIRK_NO_NS_DESC_LIST |
+ 				NVME_QUIRK_IGNORE_DEV_SUBNQN, },
