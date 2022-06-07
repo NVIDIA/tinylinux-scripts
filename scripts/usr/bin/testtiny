@@ -303,7 +303,7 @@ fi
 if [[ $PROFILE = full ]]; then
     start_test "ALSA"
     rm -f alsaout.txt alsaerr.txt
-    arecord -d 1 2>alsaerr.txt | head -c 100 > alsaout.txt
+    arecord -d 1 -f S16_LE 2>alsaerr.txt | head -c 100 > alsaout.txt
     EC=${PIPESTATUS[0]}
     if [[ $EC != 141 ]]; then
         echo -n " exit code $EC"
