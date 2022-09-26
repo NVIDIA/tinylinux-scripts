@@ -17,7 +17,7 @@ INSTALL="/install"
 SQUASHFS="/tiny/squash.bin"
 MAKECONF="/etc/portage/make.conf"
 NICE="ionice -c 3 nice -n 19"
-PYTHON_VER=3.9
+PYTHON_VER=3.10
 
 # Inherit TEGRAABI from parent process
 TEGRAABI="${TEGRAABI:-aarch64-unknown-linux-gnu}"
@@ -372,10 +372,11 @@ prepare_portage()
     if [[ $TEGRABUILD ]]; then
         local ACCEPT_PKGS
         ACCEPT_PKGS=(
+            cross-aarch64-unknown-linux-gnu/gcc-12.2.0
             dev-libs/libffi-3.2.1
-            dev-util/valgrind-3.15.0
+            dev-util/valgrind-3.19.0
             net-dns/libidn2-2.0.5
-            net-fs/autofs-5.1.6-r2
+            net-fs/autofs-5.1.8-r1
             net-libs/libtirpc-1.0.2-r1
             net-nds/portmap-6.0
             net-nds/rpcbind-0.2.4-r1
@@ -384,6 +385,7 @@ prepare_portage()
             net-wireless/rfkill-0.5-r3
             sys-apps/kexec-tools-2.0.22
             sys-block/fio-3.27-r3
+            sys-libs/glibc-2.36
             )
         local PKG
         for PKG in ${ACCEPT_PKGS[*]}; do
@@ -434,7 +436,7 @@ prepare_portage()
     fi
 
     # Patch cross-compilation failure in libtomcrypt
-    local EBUILD=$PORTAGE/dev-libs/libtomcrypt/libtomcrypt-1.18.2-r3.ebuild
+    local EBUILD=$PORTAGE/dev-libs/libtomcrypt/libtomcrypt-1.18.2-r4.ebuild
     if [[ $TEGRABUILD ]] && [[ -f $EBUILD ]] && ! grep -q "cross.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/extra/libtomcrypt-cross.patch" $PORTAGE/dev-libs/libtomcrypt/files/
@@ -1343,11 +1345,11 @@ make_squashfs()
     # Compress distfiles for future use
     if [[ ! -f /$DISTFILESPKG ]] || \
             find /var/cache/distfiles -type f -newer "/$DISTFILESPKG" | grep -q . || \
-            find "/usr/$TEGRAABI/packages"/ -type f -newer "/$DISTFILESPKG" 2>/dev/null | grep -q . || \
+            find "/usr/$TEGRAABI/cache/binpkgs"/ -type f -newer "/$DISTFILESPKG" 2>/dev/null | grep -q . || \
             find /var/cache/binpkgs -type f -newer "/$DISTFILESPKG" | grep -q .; then
         boldecho "Compressing distfiles"
-        local DIRS=( /var/cache/distfiles /var/cache/binpkgs )
-        [[ -d "/usr/$TEGRAABI/packages" ]] && DIRS+=( "/usr/$TEGRAABI/packages" )
+        local DIRS=( /var/cache/distfiles /var/cache/binpkgs)
+        [[ -d /usr/$TEGRAABI/cache/binpkgs ]] && DIRS+=( "/usr/$TEGRAABI/cache/binpkgs" )
         tar_bz2 -cf "$DISTFILESPKG" "${DIRS[@]}"
     fi
 }
@@ -1477,12 +1479,12 @@ make_tegra_image()
     local LIBDIR=lib64
     is64bit || LIBDIR=lib
     local DEBUG_FILES=(
-        ld-*.so.debug
-        libc-*.so.debug
-        libdl-*.so.debug
-        libm-*.so.debug
-        libpthread-*.so.debug
-        librt-*.so.debug
+        ld-linux-aarch64.so*.debug
+        libc.so*.debug
+        libdl.so*.debug
+        libm.so*.debug
+        libpthread.so*.debug
+        librt.so*.debug
     )
     rm -rf /tiny/debug.del
     mv /tiny/debug /tiny/debug.del
@@ -1494,6 +1496,7 @@ make_tegra_image()
             [[ -z $DEBUG_FILE ]] || mv "$DEBUG_FILE" "${DEBUG_FILE/debug.del/debug}"
         done
     fi
+    echo "Deleting files:" ; find /tiny/debug.del -type f
     rm -rf /tiny/debug.del
     mkdir -p /tiny/debug/mnt
     ln -s .. /tiny/debug/mnt/squash
