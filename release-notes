@@ -1,5 +1,8 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+22.06.1
+ * Enabled mpt3sas driver in the kernel
+-------------------------------------------------------------------------------
 22.06
  * Updated kernel to 5.18.1
  * Updated MODS kernel driver to 4.9
