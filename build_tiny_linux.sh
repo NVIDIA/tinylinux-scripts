@@ -645,13 +645,6 @@ compile_kernel()
     rm -rf /lib/{modules,firmware}
     cp "$BUILDSCRIPTS/kernel-config" /usr/src/linux/.config
 
-    if ! grep -q "Micron NVMe SSD" /usr/src/linux/drivers/nvme/host/pci.c; then
-        boldecho "Patching kernel"
-        cd /usr/src/linux
-        patch -p0 < "$BUILDSCRIPTS"/extra/micron-nvme.patch
-        cd -
-    fi
-
     if [[ $KERNELMENUCONFIG = 1 ]]; then
         boldecho "Configuring kernel"
         make -C /usr/src/linux menuconfig
