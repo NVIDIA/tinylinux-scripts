@@ -349,18 +349,22 @@ prepare_portage()
             echo "${PKG} **" >> "$KEYWORDS"
         done
     fi
+    echo "app-alternatives/bc gnu" >> /etc/portage/package.use/tinylinux
+    echo "app-alternatives/bzip2 lbzip2" >> /etc/portage/package.use/tinylinux
+    echo "app-alternatives/cpio gnu" >> /etc/portage/package.use/tinylinux
     echo "dev-lang/python xml ssl" >> /etc/portage/package.use/tinylinux
     echo "dev-libs/libtomcrypt libtommath" >> /etc/portage/package.use/tinylinux
+    echo "dev-libs/libxml2 python" >> /etc/portage/package.use/tinylinux
     echo "dev-libs/openssl asm bindist tls-heartbeat zlib" >> /etc/portage/package.use/tinylinux
     echo "dev-vcs/git curl" >> /etc/portage/package.use/tinylinux
+    echo "media-libs/leptonica jpeg zlib" >> /etc/portage/package.use/tinylinux
     echo "media-libs/libv4l jpeg" >> /etc/portage/package.use/tinylinux
     echo "net-fs/autofs libtirpc" >> /etc/portage/package.use/tinylinux
     echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
+    echo "sys-boot/syslinux bios efi" >> /etc/portage/package.use/tinylinux
     echo "sys-fs/quota rpc" >> /etc/portage/package.use/tinylinux
     echo "sys-fs/squashfs-tools lzma" >> /etc/portage/package.use/tinylinux
     echo "sys-libs/glibc crypt rpc" >> /etc/portage/package.use/tinylinux
-    echo "dev-libs/libxml2 python" >> /etc/portage/package.use/tinylinux
-    echo "media-libs/leptonica jpeg zlib" >> /etc/portage/package.use/tinylinux
 
     # Mask systemd-tmpfiles pulled by virtual/tmpfiles, pulled e.g. by screen
     echo "sys-apps/systemd-tmpfiles" >> /etc/portage/package.mask/tinylinux
@@ -426,12 +430,12 @@ prepare_portage()
     fi
 
     # Patch uninitialized variable in syslinux
-    local EBUILD=$PORTAGE/sys-boot/syslinux/syslinux-6.04_pre1.ebuild
+    local EBUILD=$PORTAGE/sys-boot/syslinux/syslinux-6.04_pre1-r5.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "bios-free-mem" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         mkdir -p $PORTAGE/sys-boot/syslinux/files
         cp "$BUILDSCRIPTS/extra/syslinux-bios-free-mem.patch" $PORTAGE/sys-boot/syslinux/files/
-        sed -i "0,/epatch/ s//epatch \"\${FILESDIR}\"\/\${PN}-bios-free-mem.patch\n\tepatch/" "$EBUILD"
+        sed -i "s/PATCHES=(/PATCHES=( \"\${FILESDIR}\"\/\${PN}-bios-free-mem.patch/" "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
@@ -466,7 +470,7 @@ prepare_portage()
     fi
 
     # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-11.2.ebuild
+    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-12.1-r3.ebuild
     if ! grep -q workaround "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
@@ -474,7 +478,7 @@ prepare_portage()
     fi
 
     # Fix perf tool cross compilation
-    local EBUILD=$PORTAGE/dev-util/perf/perf-5.15-r1.ebuild
+    local EBUILD=$PORTAGE/dev-util/perf/perf-5.19.ebuild
     if ! grep -q cross_compile "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/current-system-vm/ a\\tlocal cross_compile=""\n\t[[ $(tc-getCC) = $(tc-getBUILD_CC) ]] || cross_compile=CROSS_COMPILE=aarch64-unknown-linux-gnu-' "$EBUILD"
@@ -483,7 +487,7 @@ prepare_portage()
     fi
 
     # Fix iperf tool cross compilation
-    local EBUILD=$PORTAGE/net-misc/iperf/iperf-3.11.ebuild
+    local EBUILD=$PORTAGE/net-misc/iperf/iperf-3.12.ebuild
     if ! grep -q "newroot.*$TEGRAABI" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/src_configure/ a\\tsed -i "/^LDFLAGS.*newroot/ s:newroot:usr/aarch64-unknown-linux-gnu:" src/Makefile' "$EBUILD"
@@ -516,7 +520,7 @@ emerge_basic_packages()
 
     boldecho "Compiling basic host packages"
 
-    if ! emerge --quiet squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel bc less libtirpc rpcbind rpcsvc-proto dev-libs/glib; then
+    if ! emerge --quiet squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel sys-devel/bc less libtirpc rpcbind rpcsvc-proto dev-libs/glib; then
         boldecho "Failed to emerge some packages"
         boldecho "Please complete installation manually"
         bash
@@ -1003,6 +1007,30 @@ ignore_busybox_symlinks()
     done
 }
 
+get_legacy_syslinux_installer()
+{
+    local INSTALLED_EXE="/usr/share/syslinux/syslinux.exe"
+    local DIR=""
+    if [[ ! -f $INSTALLED_EXE ]]; then
+
+        local PKG="$(ls /var/cache/distfiles/syslinux*tar.xz 2>/dev/null | head -n 1 || true)"
+        [[ -n $PKG ]] || die "Could not find /var/cache/distfiles/syslinux*tar.xz"
+        [[ -f $PKG ]] || die "Could not find $PKG"
+
+        tar xJf "$PKG" -C /tmp
+        DIR="/tmp/$(basename "${PKG%.tar.xz}")"
+
+        local ORIG_PATH="bios/win32/syslinux.exe"
+        INSTALLED_EXE="$DIR/$ORIG_PATH"
+        [[ -f $INSTALLED_EXE ]] || die "$ORIG_PATH not found in $PKG"
+    fi
+
+    echo "Using $INSTALLED_EXE"
+    cp "$INSTALLED_EXE" "$1"/
+
+    [[ -z $DIR ]] || rm -rf "$DIR"
+}
+
 prepare_installation()
 {
     # Skip if the install directory already exists
@@ -1021,7 +1049,7 @@ prepare_installation()
     if [[ -z $TEGRABUILD ]]; then
         mkdir -p "$INSTALL/syslinux"
         echo "default /tiny/kernel initrd=/tiny/initrd quiet" > "$INSTALL/syslinux/syslinux.cfg"
-        cp /usr/share/syslinux/syslinux.exe "$INSTALL"/
+        get_legacy_syslinux_installer "$INSTALL"
 
         local EFI_BOOT="$INSTALL/EFI/BOOT"
         mkdir -p "$EFI_BOOT"

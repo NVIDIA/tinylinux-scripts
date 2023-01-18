@@ -122,10 +122,22 @@ end_test
 
 #==============================================================================
 
-start_test "eth0"
-echo -n " /sys/class/net/eth0"
-[[ -d /sys/class/net/eth0 ]] || fail_test "missing"
-IPADDR=$(ifconfig eth0 2>&1 | grep "inet addr: *[0-9]\+" | sed "s/.*inet addr: *// ; s/ .*//")
+ETH=""
+for ETH_PATH in /sys/class/net/eth*/carrier; do
+    echo "$ETH_PATH" | grep -q "eth\*" && break
+    if [[ "$(cat "$ETH_PATH" 2>/dev/null || true)" = "1" ]]; then
+        ETH="${ETH_PATH#/sys/class/net/}"
+        ETH="${ETH%/carrier}"
+        break
+    fi
+done
+
+[[ -n $ETH ]] || ETH=eth0
+
+start_test "$ETH"
+echo -n " /sys/class/net/$ETH"
+[[ -d /sys/class/net/$ETH ]] || fail_test "missing"
+IPADDR=$(ifconfig $ETH 2>&1 | grep "inet addr: *[0-9]\+" | sed "s/.*inet addr: *// ; s/ .*//")
 if [[ -n $IPADDR ]]; then
     echo -n " $IPADDR"
 else
@@ -269,13 +281,13 @@ if [[ $PROFILE = full ]]; then
     check_exit_code ${PIPESTATUS[0]}
     OUTPUT=$(cat output.txt)
     echo -n " ${OUTPUT#Python }"
-    [[ $OUTPUT =~ ^Python.3.9 ]] || fail_test "incorrect"
+    [[ $OUTPUT =~ ^Python.3.10 ]] || fail_test "incorrect"
 
     python3 --version > output.txt 2>&1 | true
     check_exit_code ${PIPESTATUS[0]}
     OUTPUT=$(cat output.txt)
     echo -n " ${OUTPUT#Python }"
-    [[ $OUTPUT =~ ^Python.3.9 ]] || fail_test "incorrect"
+    [[ $OUTPUT =~ ^Python.3.10 ]] || fail_test "incorrect"
 
     python3 -c "import xml" > output.txt 2>&1 | true
     check_exit_code ${PIPESTATUS[0]}
@@ -303,7 +315,12 @@ fi
 if [[ $PROFILE = full ]]; then
     start_test "ALSA"
     rm -f alsaout.txt alsaerr.txt
-    arecord -d 1 -f S16_LE 2>alsaerr.txt | head -c 100 > alsaout.txt
+
+    CAPTURE_DEV=$(grep capture /proc/asound/pcm | sed 's/:.*// ; s/-/,/' | head -n 1)
+    [[ -n $CAPTURE_DEV ]] || CAPTURE_DEV="default"
+    echo -n " hw:$CAPTURE_DEV"
+
+    arecord -D "hw:$CAPTURE_DEV" -c 2 -r 44100 -d 1 -f S16_LE 2>alsaerr.txt | head -c 100 > alsaout.txt
     EC=${PIPESTATUS[0]}
     if [[ $EC != 141 ]]; then
         echo -n " exit code $EC"
