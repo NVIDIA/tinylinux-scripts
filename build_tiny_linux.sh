@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2009-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2023, NVIDIA CORPORATION.  All rights reserved.
 # See LICENSE file for details.
 
 set -e
@@ -349,22 +349,37 @@ prepare_portage()
             echo "${PKG} **" >> "$KEYWORDS"
         done
     fi
-    echo "app-alternatives/bc gnu" >> /etc/portage/package.use/tinylinux
-    echo "app-alternatives/bzip2 lbzip2" >> /etc/portage/package.use/tinylinux
-    echo "app-alternatives/cpio gnu" >> /etc/portage/package.use/tinylinux
-    echo "dev-lang/python xml ssl" >> /etc/portage/package.use/tinylinux
-    echo "dev-libs/libtomcrypt libtommath" >> /etc/portage/package.use/tinylinux
-    echo "dev-libs/libxml2 python" >> /etc/portage/package.use/tinylinux
-    echo "dev-libs/openssl asm bindist tls-heartbeat zlib" >> /etc/portage/package.use/tinylinux
-    echo "dev-vcs/git curl" >> /etc/portage/package.use/tinylinux
-    echo "media-libs/leptonica jpeg zlib" >> /etc/portage/package.use/tinylinux
-    echo "media-libs/libv4l jpeg" >> /etc/portage/package.use/tinylinux
-    echo "net-fs/autofs libtirpc" >> /etc/portage/package.use/tinylinux
-    echo "sys-apps/hwids net pci usb" >> /etc/portage/package.use/tinylinux
-    echo "sys-boot/syslinux bios efi" >> /etc/portage/package.use/tinylinux
-    echo "sys-fs/quota rpc" >> /etc/portage/package.use/tinylinux
-    echo "sys-fs/squashfs-tools lzma" >> /etc/portage/package.use/tinylinux
-    echo "sys-libs/glibc crypt rpc" >> /etc/portage/package.use/tinylinux
+
+    local USE_FLAGS=(
+        "app-alternatives/awk busybox"
+        "app-alternatives/bc gnu"
+        "app-alternatives/bzip2 lbzip2"
+        "app-alternatives/cpio gnu"
+        "app-alternatives/gzip pigz"
+        "dev-lang/python xml ssl"
+        "dev-libs/libtomcrypt libtommath"
+        "dev-libs/libverto libev"
+        "dev-libs/libxml2 python"
+        "dev-libs/openssl asm bindist tls-heartbeat zlib"
+        "dev-vcs/git curl"
+        "media-libs/leptonica jpeg zlib"
+        "media-libs/libv4l jpeg"
+        "net-fs/autofs libtirpc"
+        "net-misc/dropbear pam"
+        "sys-apps/hwids net pci usb"
+        "sys-auth/pambase pam_krb5 nullok"
+        "sys-boot/syslinux bios efi"
+        "sys-fs/quota rpc"
+        "sys-fs/squashfs-tools lzma"
+        "sys-libs/glibc crypt rpc"
+        "sys-libs/pam nis"
+    )
+
+    touch /etc/portage/package.use/tinylinux
+    local IDX
+    for IDX in $(seq 0 $((${#USE_FLAGS[@]} - 1))); do
+        grep -q "${USE_FLAGS[$IDX]}" /etc/portage/package.use/tinylinux || echo "${USE_FLAGS[$IDX]}" >> /etc/portage/package.use/tinylinux
+    done
 
     # Mask systemd-tmpfiles pulled by virtual/tmpfiles, pulled e.g. by screen
     echo "sys-apps/systemd-tmpfiles" >> /etc/portage/package.mask/tinylinux
