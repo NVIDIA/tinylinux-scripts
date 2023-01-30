@@ -76,3 +76,4 @@ install_package perl-cleaner "" "--unmerge"
 # Tidy up
 remove_gentoo_services pydoc-2.7 pydoc-${PYTHON_VER} ipmievd fancontrol lm_sensors rsyncd
 remove_gentoo_services opentmpfiles-dev opentmpfiles-setup
+remove_gentoo_services exchange-bmc-os-info log_bmc

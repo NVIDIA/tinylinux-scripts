@@ -927,7 +927,7 @@ build_newroot()
     sed -i "/^[ #]*initgroups *:/s/^[ #]*//" "$NEWROOT/etc/nsswitch.conf"
 
     # Remove unneeded scripts
-    remove_gentoo_services autofs dropbear fuse mdev nfsclient nscd pciparm ypbind
+    remove_gentoo_services autofs dropbear fuse mdev mit-krb5kadmind mit-krb5kdc mit-krb5kpropd nfsclient nscd pciparm ypbind
     rm -f "$NEWROOT/etc"/{init.d,conf.d}/busybox-*
     rm -rf "$NEWROOT/etc/systemd"
 
