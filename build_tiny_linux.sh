@@ -275,9 +275,30 @@ exit_chroot()
 run_in_chroot()
 {
     local LINUX32
+    local QEMUEXE
 
     # Don't do anything if we are inside the host tree already
     [[ -d ./$BUILDSCRIPTS ]] && return 0
+
+    if [[ $(uname -m) = "x86_64" && $STAGE3ARCH = "arm64" ]]; then
+        boldecho "Preparing qemu"
+
+        QEMUEXE="qemu-aarch64-static"
+        local QEMUPATH="$(which "$QEMUEXE" 2>/dev/null || true)"
+        if [[ -z $QEMUPATH ]]; then
+            [[ -f /etc/debian_version ]] && apt-get install qemu-user-static
+            QEMUPATH="$(which "$QEMUEXE" 2>/dev/null || true)"
+        fi
+
+        [[ -n $QEMUPATH ]] || die "$QEMUEXE not found!"
+
+        if [[ ! -f "$BUILDROOT/$QEMUEXE" ]]; then
+            local QEMUDIR="$(dirname "$QEMUPATH")"
+            mkdir "$BUILDROOT/$QEMUDIR"
+            cp "$QEMUPATH" "$BUILDROOT/$QEMUEXE"
+        fi
+        QEMUEXE="./$QEMUEXE"
+    fi
 
     boldecho "Entering build environment"
 
@@ -297,7 +318,7 @@ run_in_chroot()
     LINUX32=""
     [[ `uname -m` = "x86_64" && ${STAGE3ARCH/i?86/x86} = "x86" ]] && LINUX32="linux32"
 
-    $NICE $LINUX32 chroot "$BUILDROOT" "$BUILDSCRIPTS/`basename $0`" "$PROFILE"
+    $NICE $LINUX32 chroot "$BUILDROOT" $QEMUEXE "$BUILDSCRIPTS/`basename $0`" "$PROFILE"
 
     if [ -s "$BUILDROOT/$DISTFILESPKG" ]; then
         mv "$BUILDROOT/$DISTFILESPKG" ./
@@ -431,7 +452,7 @@ prepare_portage()
     fi
 
     # Lock on to dropbear version which we have a fix for
-    local DROPBEAR_VER="2020.81-r3"
+    local DROPBEAR_VER="2022.83"
     echo "=net-misc/dropbear-$DROPBEAR_VER ~*" >> $KEYWORDS
     echo ">net-misc/dropbear-$DROPBEAR_VER" >> /etc/portage/package.mask/tinylinux
 
@@ -540,6 +561,7 @@ emerge_basic_packages()
         boldecho "Please complete installation manually"
         bash
     fi
+
     local KERNELPKG=gentoo-sources
     [[ $RCKERNEL = 1 ]] && KERNELPKG=git-sources
     if [[ -z $TEGRABUILD ]]; then
