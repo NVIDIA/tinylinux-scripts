@@ -1,4 +1,5 @@
 modules
+sysctl
 mount
 syslogd
 acpid

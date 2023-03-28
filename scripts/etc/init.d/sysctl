@@ -1,0 +1,26 @@
+#!/sbin/rc
+
+# Copyright (c) 2009-2023, NVIDIA CORPORATION.  All rights reserved.
+# See /etc/LICENSE file for details.
+
+start()
+{
+    local LINE
+    local KEY
+    local FILE
+    local VALUE
+    if [ -f /etc/sysctl.conf ]; then
+        sed 's/#.*// ; s/^[ \t]*\|[ \t]*$// ; /^$/d ; s/[ \t]*=[ \t]*/=/' < /etc/sysctl.conf | while read LINE; do
+            KEY="${LINE%=*}"
+            FILE="/proc/sys/${KEY//.//}"
+            VALUE="${LINE#*=}"
+
+            if [ ! -f "$FILE" ]; then
+                echo -n " missing $KEY" >&2
+                continue
+            fi
+
+            sysctl -w "${KEY}=${VALUE}"
+        done
+    fi
+}
