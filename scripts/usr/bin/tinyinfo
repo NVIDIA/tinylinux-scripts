@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/usr/bin/bash
 
 LOGFILE="/mnt/nv/tinyinfo.log"
 
@@ -26,8 +26,6 @@ dump ls -l /etc/
 dump ls -l /etc/conf.d
 dump cat /etc/conf.d/boot
 dump cat /etc/conf.d/net
-dump lspci -v
-dump lspci -n
 dump lsusb
 dump lsmod
 dump ls -l /sys/class/net
@@ -36,6 +34,9 @@ dump cat /sys/class/net/*/carrier
 dump ifconfig -a
 dump iwconfig
 dump ls -lR /mnt/nv/tiny
+dump ps aux
+dump lspci -n
+dump lspci -v
 dump dmesg
 
 # Sync so that file will be synced to drive
