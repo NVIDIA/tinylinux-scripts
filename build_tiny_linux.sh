@@ -886,6 +886,7 @@ build_newroot()
     install_package dropbear "multicall"
     ignore_busybox_symlinks /usr/bin/bc
     install_package sys-devel/bc
+    install_package net-wireless/wireless-tools
 
     # Install libxcrypt with static libs, needed for busybox
     if [[ $TEGRABUILD ]]; then

@@ -34,6 +34,7 @@ dump ls -l /sys/class/net
 dump ls -ld /sys/class/net/*/device/driver
 dump cat /sys/class/net/*/carrier
 dump ifconfig -a
+dump iwconfig
 dump ls -lR /mnt/nv/tiny
 dump dmesg
 

@@ -31,3 +31,15 @@ UDHCPC_OPTIONS="-b -S -O 119"
 
 # If set to 1, udhcpc will not wait for lease before backgrounding
 BACKGROUND_UDHCPC="1"
+
+# SSID of the network to connect to, used for wireless interfaces
+WIRELESS_NETWORK=""
+
+# Password for the wireless network, used for wireless interfaces
+WIRELESS_PASSWORD=""
+
+# Hexadecimal key for the wireless, used when WIRELESS_PASSWORD is empty
+WIRELESS_KEY=""
+
+# Mode used by the wireless interface
+WIRELESS_MODE="managed"

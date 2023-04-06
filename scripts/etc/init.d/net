@@ -23,6 +23,21 @@ for ARG in `cat /proc/cmdline`; do
     esac
 done
 
+WIRELESS_UP=""
+
+setup_wlan()
+{
+    [ -z "$WIRELESS_UP" ]] || return
+    [ -n "$WIRELESS_NETWORK" ]] || return
+    [ -d "/sys/class/net/$1/wireless" ] || return
+
+    echo -n " connecting $1 to $WIRELESS_NETWORK" >&2
+    [ -z "$WIRELESS_PASSWORD" ] || WIRELESS_KEY="s:$WIRELESS_PASSWORD"
+    iwconfig "$1" essid "$WIRELESS_NETWORK" key "$WIRELESS_KEY" mode "$WIRELESS_MODE"
+
+    WIRELESS_UP="$1"
+}
+
 bring_down_ifaces()
 {
     local IIFACE
@@ -44,6 +59,7 @@ start()
             local IIFACE
             for IIFACE in $(ls /sys/class/net); do
                 [ "$IIFACE" != 'lo' ] || continue
+                setup_wlan "$IIFACE"
                 [ -f "/sys/class/net/$IIFACE/carrier" ] || continue
                 local IFACELINKSTATUS
                 IFACELINKSTATUS=$(cat "/sys/class/net/$IIFACE/carrier" 2>/dev/null)
@@ -106,6 +122,7 @@ start()
             STATICIP=`echo "$STATICIP" | cut -f 1 -d '/'`
             [ "$NETMASK" ] || STATICIP=""
         fi
+        setup_wlan "$IFACE"
         if [ "$STATICIP" ]; then
             echo -n " static IP $STATICIP" >&2
 
