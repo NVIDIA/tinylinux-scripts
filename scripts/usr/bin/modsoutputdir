@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/sh
 
 # Copyright (c) 2009-2020, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -16,7 +16,7 @@ if grep -qs nfsshare /proc/cmdline; then
     else
         IFACE="eth0"
     fi
-    MACADDR=`/sbin/ifconfig "$IFACE" | grep "HWaddr" | sed "s/.*HWaddr *// ; s/  *.*// ; s/://g" | tr "ABCDEF" "abcdef"`
+    MACADDR=`/usr/bin/ifconfig "$IFACE" | grep "HWaddr" | sed "s/.*HWaddr *// ; s/  *.*// ; s/://g" | tr "ABCDEF" "abcdef"`
     if [ "$MACADDR" ]; then
         [ -d "$MNTNV/machines/$MACADDR" ] || mkdir -p "$MNTNV/machines/$MACADDR" 2> /dev/null
         echo "$MNTNV/machines/$MACADDR"
@@ -24,7 +24,7 @@ if grep -qs nfsshare /proc/cmdline; then
         echo "$MNTNV/machines/unknown"
     fi
 else
-    TINYDIR=`/bin/tinydir`
+    TINYDIR=`/usr/bin/tinydir`
     if [ -d "/home" ]; then
         echo "/home"
     elif [ -d "$TINYDIR/home" ]; then

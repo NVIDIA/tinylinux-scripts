@@ -1,4 +1,4 @@
-#!/sbin/rc
+#!/usr/bin/rc
 
 # Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -11,5 +11,5 @@ start()
 
 stop()
 {
-    /sbin/start-stop-daemon --stop --exec /usr/sbin/dropbear
+    /usr/bin/start-stop-daemon --stop --exec /usr/sbin/dropbear
 }

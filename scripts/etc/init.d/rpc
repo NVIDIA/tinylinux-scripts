@@ -1,4 +1,4 @@
-#!/sbin/rc
+#!/usr/bin/rc
 
 # Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -10,13 +10,13 @@ start()
     touch /var/lib/nfs/etab
     touch /var/lib/nfs/rmtab
 
-    /sbin/rpcbind || return $?
-    /usr/sbin/sm-notify || return $?
-    /sbin/rpc.statd --no-notify
+    /usr/bin/rpcbind || return $?
+    /usr/bin/sm-notify || return $?
+    /usr/bin/rpc.statd --no-notify
 }
 
 stop()
 {
-    /sbin/start-stop-daemon --stop --oknodo --exec /sbin/rpc.statd
-    /sbin/start-stop-daemon --stop --oknodo --exec /sbin/rpcbind
+    /usr/bin/start-stop-daemon --stop --oknodo --exec /usr/bin/rpc.statd
+    /usr/bin/start-stop-daemon --stop --oknodo --exec /usr/bin/rpcbind
 }

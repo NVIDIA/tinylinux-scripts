@@ -114,11 +114,11 @@ $BB losetup "$NEWROOT/$LOOP" "$NEWROOT/$SQUASHFS_BIN" || exec $BB sh
 # Mount squashed filesystem
 $BB mount -t squashfs -o ro "$NEWROOT/$LOOP" "$NEWROOT/$MNTSQUASH" || exec $BB sh
 
-# Store kernel boot time for reporting in /sbin/rc
+# Store kernel boot time for reporting in /usr/bin/rc
 echo "$KERNEL_BOOT_TIME" > "$NEWROOT/var/log/kernel_boot_time"
 
 # Switch root to the non-volatile partition
-exec $BB switch_root -c /dev/console "$NEWROOT" /sbin/init
+exec $BB switch_root -c /dev/console "$NEWROOT" /usr/bin/init
 
 # Fallback - enter shell
 exec $BB sh

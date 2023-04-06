@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/usr/bin/sh
 
 # Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
-exec /bin/login -f root
+exec /usr/bin/login -f root

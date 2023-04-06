@@ -1,4 +1,4 @@
-#!/sbin/rc
+#!/usr/bin/rc
 
 # Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -14,6 +14,6 @@ start()
 
 stop()
 {
-    /sbin/start-stop-daemon --stop --oknodo --exec /usr/sbin/rpc.mountd
+    /usr/bin/start-stop-daemon --stop --oknodo --exec /usr/sbin/rpc.mountd
     /usr/sbin/rpc.nfsd 0
 }

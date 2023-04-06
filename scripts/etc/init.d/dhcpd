@@ -1,4 +1,4 @@
-#!/sbin/rc
+#!/usr/bin/rc
 
 # Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -10,10 +10,10 @@ start()
     [ -f /var/lib/misc/udhcpd.leases ] || touch /var/lib/misc/udhcpd.leases
 
     # Launch udhcpd
-    /sbin/udhcpd $UDHCPD_OPTIONS
+    /usr/bin/udhcpd $UDHCPD_OPTIONS
 }
 
 stop()
 {
-    /sbin/start-stop-daemon --stop --exec /sbin/udhcpd
+    /usr/bin/start-stop-daemon --stop --exec /usr/bin/udhcpd
 }

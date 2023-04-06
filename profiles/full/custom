@@ -14,13 +14,14 @@ ROOT="$NEWROOT" eselect python set python${PYTHON_VER}
 USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads
 install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn pulls too much
 perl-cleaner -q --all -- -q
-ignore_busybox_symlinks /bin/bzip2 /bin/bunzip2 /bin/bzcat
+ignore_busybox_symlinks /usr/bin/bzip2 /usr/bin/bunzip2 /usr/bin/bzcat
 install_package perl "ithreads"
 ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read # Print news items from PERL
 install_package iasl
 install_package pmtools
 install_package sys-devel/gdb "client server"
 install_package dev-util/strace "aio"
+ignore_busybox_symlinks /usr/bin/xxd
 install_package vim-core minimal
 install_package vim minimal --nodeps
 sed -i '/skip_defaults_vim/s/^/"/' "$NEWROOT"/etc/vim/vimrc
@@ -33,6 +34,7 @@ yes | ROOT=/newroot etc-update --automode -7 # Clean up autofs script changes
 install_package ipmitool "openipmi python"
 install_package ipmiutil
 install_package dmidecode
+ignore_busybox_symlinks /usr/bin/i2cdetect /usr/bin/i2cset /usr/bin/i2cdump /usr/bin/i2cget /usr/bin/i2ctransfer
 install_package sys-apps/i2c-tools "python"
 install_package app-arch/zstd # curl dependency (missing in curl ebuild)
 install_package net-misc/curl
@@ -42,11 +44,14 @@ install_package smartmontools
 install_package p7zip
 install_package zip
 install_package app-misc/screen "" "--nodeps"
+ignore_busybox_symlinks /usr/bin/acpid
 install_package acpid
 yes | ROOT=/newroot etc-update --automode -7 # Clean up acpid script changes
 install_package app-admin/sudo "" "--nodeps"
 install_package sys-apps/file "python zlib"
+ignore_busybox_symlinks /usr/bin/lzcat /usr/bin/lzma /usr/bin/unlzma /usr/bin/unxz /usr/bin/xz /usr/bin/xzcat
 install_package app-arch/xz-utils # Needed by lzma module in Python
+ignore_busybox_symlinks /usr/bin/partprobe
 install_package sys-block/parted "" --nodeps
 cp -a /lib64/lib{uuid,blkid}.so.* "$NEWROOT"/lib64/ # Needed by parted, but we don't want entire util-linux
 install_package media-tv/v4l-utils "jpeg"
@@ -69,6 +74,7 @@ install_package dev-perl/Getopt-Long-Descriptive
 install_package dev-perl/DateTime-HiRes
 install_package dev-perl/Text-Iconv
 install_package dev-perl/Spreadsheet-ParseExcel
+ignore_busybox_symlinks /usr/bin/crc32
 install_package dev-perl/Archive-Zip
 install_package dev-perl/Net-SNMP
 install_package perl-cleaner "" "--unmerge"

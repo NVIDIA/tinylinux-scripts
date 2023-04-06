@@ -136,7 +136,11 @@ done
 
 # Create symlinks to the squashed root filesystem
 cd "${ROOTFS}"
-ln -s "${MNTSQUASH}"/* .
+ln -s "${MNTSQUASH}/usr" usr
+ln -s "${MNTSQUASH}/usr/bin" bin
+ln -s "${MNTSQUASH}/usr/bin" sbin
+ln -s "${MNTSQUASH}/usr/lib64" lib
+ln -s "${MNTSQUASH}/usr/lib64" lib64
 rm -f etc
 
 # Create symlink to home dir
@@ -276,11 +280,11 @@ rm /etc/mtab
 cp /proc/mounts /etc/mtab
 umount /proc
 
-# Store kernel boot time for reporting in /sbin/rc
+# Store kernel boot time for reporting in /usr/bin/rc
 echo "$KERNEL_BOOT_TIME" > var/log/kernel_boot_time
 
 # Switch to the new root filesystem
-exec /bin/busybox switch_root -c /dev/console "${ROOTFS}" /sbin/init
+exec /bin/busybox switch_root -c /dev/console "${ROOTFS}" /usr/bin/init
 
 # Fallback - enter shell
 exec /bin/busybox sh

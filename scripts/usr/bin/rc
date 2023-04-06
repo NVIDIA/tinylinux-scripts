@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/sh
 
 # Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -8,11 +8,11 @@ __STATUSDIR="/var/rc/status"
 # Dummy implementation for scripts which don't need either of these
 start()
 {
-    /bin/true
+    /usr/bin/true
 }
 stop()
 {
-    /bin/true
+    /usr/bin/true
 }
 
 # Helper functions for network services
@@ -221,8 +221,8 @@ __make_color()
 }
 
 # Find TinyLinux configuration files
-if [ -d "`/bin/tinydir`" ]; then
-    TINYLINUXDIR="`/bin/tinydir`"
+if [ -d "`/usr/bin/tinydir`" ]; then
+    TINYLINUXDIR="`/usr/bin/tinydir`"
     export TINYLINUXDIR
 fi
 
@@ -398,10 +398,10 @@ elif [ "$1" = "sysinit" ]; then
 
     # Setup hotplug
     touch /dev/mdev.seq
-    echo "/sbin/mdev" > /proc/sys/kernel/hotplug
+    echo "/usr/bin/mdev" > /proc/sys/kernel/hotplug
 
     # Initialize device node ownership/permissions through mdev
-    /sbin/mdev -s
+    /usr/bin/mdev -s
 
     # Coldplug devices
     if ! grep -q "nocoldplug" /proc/cmdline; then

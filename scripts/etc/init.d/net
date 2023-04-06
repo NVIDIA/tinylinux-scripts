@@ -1,4 +1,4 @@
-#!/sbin/rc
+#!/usr/bin/rc
 
 # Copyright (c) 2009-2020, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -133,9 +133,9 @@ start()
             [ -f /etc/resolv.conf ] && rm /etc/resolv.conf
             ifconfig "$IFACE" up
             if [ "$BACKGROUND_UDHCPC" = "1" ]; then
-                /sbin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS &
+                /usr/bin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS &
             else
-                /sbin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS
+                /usr/bin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS
             fi
         fi
 
@@ -158,7 +158,7 @@ stop()
         # Sometimes the user may want to change the IP, so user may run restart
         ifconfig "$IFACE" 0.0.0.0
         ifconfig "$IFACE" down
-        /sbin/start-stop-daemon --stop --exec /sbin/udhcpc
+        /usr/bin/start-stop-daemon --stop --exec /usr/bin/udhcpc
         true
     fi
 }

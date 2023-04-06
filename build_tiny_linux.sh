@@ -21,7 +21,6 @@ PYTHON_VER=3.10
 
 # Inherit TEGRAABI from parent process
 TEGRAABI="${TEGRAABI:-aarch64-unknown-linux-gnu}"
-TEGRAABI32="armv7a-softfp-linux-gnueabi"
 
 die()
 {
@@ -63,8 +62,8 @@ while [[ $# -gt 1 ]]; do
         -d) DEPLOY="$1" ; shift ;;
         --arch=*) ARCH="${OPT#--arch=}"
                   case "$ARCH" in
-                      arm|armv7) TEGRAABI="$TEGRAABI32" ;;
-                      armv8|arm64|aarch64|amd64|x86_64) ;;
+                      amd64|x86_64) ;;
+                      armv8|arm64|aarch64) STAGE3ARCH="arm64" ;;
                       *) die "Unrecognized arch - $ARCH" ;;
                   esac
                   ;;
@@ -183,9 +182,11 @@ download_packages()
     if [[ ! -f $STAGE3PKG ]]; then
         local GREPSTAGE
         local STAGE3PATH
-        GREPSTAGE="^stage3-$STAGE3ARCH-openrc-[0-9TZ].*\.tar\.xz$"
+        local FLAVOR
+        FLAVOR="openrc"
+        GREPSTAGE="^stage3-$STAGE3ARCH-$FLAVOR-[0-9TZ].*\.tar\.xz$"
         boldecho "Downloading stage3 file list from the server"
-        STAGE3PATH="$MIRROR/releases/${STAGE3ARCH/i?86/x86}/autobuilds/current-stage3-$STAGE3ARCH-openrc/"
+        STAGE3PATH="$MIRROR/releases/${STAGE3ARCH/i?86/x86}/autobuilds/current-stage3-$STAGE3ARCH-$FLAVOR/"
         STAGE3PKG=`find_stage3 "$GREPSTAGE" "$STAGE3PATH"`
         download "$STAGE3PKG"
         STAGE3PKG=`basename "$STAGE3PKG"`
@@ -274,7 +275,6 @@ exit_chroot()
 
 run_in_chroot()
 {
-    local LINUX32
     local QEMUEXE
 
     # Don't do anything if we are inside the host tree already
@@ -294,10 +294,10 @@ run_in_chroot()
 
         if [[ ! -f "$BUILDROOT/$QEMUEXE" ]]; then
             local QEMUDIR="$(dirname "$QEMUPATH")"
-            mkdir "$BUILDROOT/$QEMUDIR"
+            mkdir -p "$BUILDROOT/$QEMUDIR"
             cp "$QEMUPATH" "$BUILDROOT/$QEMUEXE"
         fi
-        QEMUEXE="./$QEMUEXE"
+        QEMUEXE="./$QEMUEXE /bin/bash"
     fi
 
     boldecho "Entering build environment"
@@ -315,10 +315,7 @@ run_in_chroot()
     mkdir -p "$BUILDROOT/dev/shm"
     mount -t tmpfs -o mode=1777,nodev none "$BUILDROOT/dev/shm"
 
-    LINUX32=""
-    [[ `uname -m` = "x86_64" && ${STAGE3ARCH/i?86/x86} = "x86" ]] && LINUX32="linux32"
-
-    $NICE $LINUX32 chroot "$BUILDROOT" $QEMUEXE "$BUILDSCRIPTS/`basename $0`" "$PROFILE"
+    $NICE chroot "$BUILDROOT" $QEMUEXE "$BUILDSCRIPTS/`basename $0`" "$PROFILE"
 
     if [ -s "$BUILDROOT/$DISTFILESPKG" ]; then
         mv "$BUILDROOT/$DISTFILESPKG" ./
@@ -345,9 +342,13 @@ prepare_portage()
     (
         [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
         echo 'PORTAGE_NICENESS="15"'
-        echo "USE=\"-* ipv6 ncurses readline syslog threads unicode python_targets_python${PYTHON_VER/./_} python_single_target_python${PYTHON_VER/./_}\""
+        echo "USE=\"-* ipv6 multicall ncurses readline syslog threads unicode python_targets_python${PYTHON_VER/./_} python_single_target_python${PYTHON_VER/./_}\""
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
+
+    if [[ $(uname -m) = aarch64 ]] && ! grep -q "pid-sandbox" "$MAKECONF"; then
+        echo 'FEATURES="-pid-sandbox"' >> "$MAKECONF"
+    fi
 
     local KEYWORDS="/etc/portage/package.accept_keywords/tinylinux"
     mkdir -p /etc/portage/package.accept_keywords
@@ -424,7 +425,7 @@ prepare_portage()
             net-wireless/bluez-5.50-r2
             net-wireless/rfkill-0.5-r3
             sys-apps/kexec-tools-2.0.22
-            sys-block/fio-3.27-r3
+            sys-block/fio-3.27-r4
             sys-libs/glibc-2.36
             )
         local PKG
@@ -445,24 +446,6 @@ prepare_portage()
         # Stick to the kernel we're officially using
         local KERNELVER="4.9"
         echo ">cross-aarch64-unknown-linux-gnu/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
-        echo ">cross-armv7a-softfp-linux-gnueabi/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
-
-        # Mask openssl newer than 1.0
-        echo ">=dev-libs/openssl-1.1" >> /etc/portage/package.mask/tegra
-    fi
-
-    # Lock on to dropbear version which we have a fix for
-    local DROPBEAR_VER="2022.83"
-    echo "=net-misc/dropbear-$DROPBEAR_VER ~*" >> $KEYWORDS
-    echo ">net-misc/dropbear-$DROPBEAR_VER" >> /etc/portage/package.mask/tinylinux
-
-    # Install dropbear patch for pubkey authentication
-    local EBUILD=$PORTAGE/net-misc/dropbear/dropbear-$DROPBEAR_VER.ebuild
-    if [[ -f $EBUILD ]] && ! grep -q "pubkey\.patch" "$EBUILD"; then
-        boldecho "Patching $EBUILD"
-        cp "$BUILDSCRIPTS/extra/dropbear-pubkey.patch" $PORTAGE/net-misc/dropbear/files/
-        sed -i "s/PATCHES=(/PATCHES=( \"\${FILESDIR}\"\/\${PN}-pubkey.patch/" "$EBUILD"
-        ebuild "$EBUILD" digest
     fi
 
     # Patch uninitialized variable in syslinux
@@ -580,12 +563,6 @@ emerge_basic_packages()
     fi
 }
 
-is64bit()
-{
-    [[ $TEGRABUILD ]] || return 0
-    [[ ${TEGRAABI%%-*} = "aarch64" ]]
-}
-
 install_tegra_toolchain()
 {
     [[ $TEGRABUILD ]] || return 0
@@ -632,7 +609,6 @@ install_tegra_toolchain()
     [ -e "$CFGROOT/tmp" ] || ln -s /tmp "$CFGROOT/tmp"
     rm -f "$PORTAGECFG/make.profile"
     local PROFILE_ARCH=arm64
-    is64bit || PROFILE_ARCH=arm
     local PROFILE=17.0
     ln -s "$PORTAGE/profiles/default/linux/$PROFILE_ARCH/$PROFILE" "$PORTAGECFG/make.profile"
 
@@ -718,9 +694,11 @@ compile_kernel()
 target_emerge()
 {
     if [[ $TEGRABUILD && $NEWROOT != / ]]; then
-        if [[ $4 != sys-libs/glibc && $NEWROOT != "/usr/$TEGRAABI" ]]; then
+        if [[ $5 != sys-libs/glibc && $NEWROOT != "/usr/$TEGRAABI" ]]; then
+            echo "$TEGRAABI-emerge" --noreplace "$@"
             "$TEGRAABI-emerge" --noreplace "$@"
         fi
+        echo ROOT="$NEWROOT" SYSROOT="$NEWROOT" PORTAGE_CONFIGROOT="/usr/$TEGRAABI" "$TEGRAABI-emerge" "$@"
         ROOT="$NEWROOT" SYSROOT="$NEWROOT" PORTAGE_CONFIGROOT="/usr/$TEGRAABI" "$TEGRAABI-emerge" "$@"
     else
         ROOT="$NEWROOT" emerge "$@"
@@ -761,7 +739,7 @@ install_syslinux()
     NEWROOT="$DESTDIR" target_emerge --quiet --nodeps --usepkg --buildpkg syslinux mtools
     NEWROOT="$SAVEROOT"
 
-    cp -p "$DESTDIR/sbin/extlinux" "$NEWROOT/usr/sbin/extlinux"
+    cp -p "$DESTDIR/sbin/extlinux" "$NEWROOT/usr/bin/extlinux"
     local FILE
     for FILE in syslinux mcopy mattrib; do
         cp -p "$DESTDIR/usr/bin/$FILE" "$NEWROOT/usr/bin/$FILE"
@@ -792,6 +770,14 @@ prepare_libtool_for_libtomcrypt()
     chmod 755 /tmp/crosslibtool
 }
 
+record_dir_symlinks()
+{
+    local SYMLINK
+    for SYMLINK in /bin /sbin /lib /lib64 /usr/sbin; do
+        record_symlink sys-libs/glibc "$SYMLINK"
+    done
+}
+
 build_newroot()
 {
     # Remove old build
@@ -812,10 +798,20 @@ build_newroot()
     mkdir -p "$NEWROOT"
     mkdir -p "$NEWROOT/var/lib/gentoo/news"
 
+    # Prepare merged dirs
+    # Note: this list is duplicated in record_dir_symlinks
+    mkdir -p "$NEWROOT/usr/bin"
+    mkdir -p "$NEWROOT/usr/lib"
+    mkdir -p "$NEWROOT/usr/lib64"
+    ln -sf usr/bin   "$NEWROOT/bin"
+    ln -sf usr/bin   "$NEWROOT/sbin"
+    ln -sf usr/lib   "$NEWROOT/lib"
+    ln -sf usr/lib64 "$NEWROOT/lib64"
+    ln -sf bin       "$NEWROOT/usr/sbin"
+
     # Prepare build configuration for Tegra target
     if [[ $TEGRABUILD ]]; then
         mkdir -p "$NEWROOT/etc/portage"
-        is64bit || sed -e "s/^CHOST=.*/CHOST=$TEGRAABI/ ; /^CFLAGS=/s/\"$/ -mcpu=cortex-a9 -mfpu=vfpv3-d16 -mfloat-abi=softfp\"/" <"$MAKECONF"  >"${NEWROOT}${MAKECONF}"
     fi
 
     # Restore busybox config file
@@ -832,18 +828,13 @@ build_newroot()
 
     # Setup directories for valgrind and for debug symbols
     if [[ $TEGRABUILD ]]; then
-        local NEWUSRLIB="$NEWROOT/usr/lib"
         local NEWUSRLIB64="$NEWROOT/usr/lib64"
         local NEWUSRLIBEXEC="$NEWROOT/usr/libexec"
-        is64bit || NEWUSRLIB64=$NEWUSRLIB
         rm -rf /tiny/debug /tiny/valgrind
         mkdir -p /tiny/debug/mnt
         mkdir -p /tiny/valgrind
-        mkdir -p "$NEWUSRLIB"
-        mkdir -p "$NEWUSRLIB64"
         mkdir -p "$NEWUSRLIBEXEC"
         mkdir -p "$NEWROOT/usr/share"
-        ln -s /tiny/debug    "$NEWUSRLIB/debug"
         ln -s /tiny/debug    "$NEWUSRLIB64/debug"
         ln -s /tiny/valgrind "$NEWUSRLIBEXEC/valgrind"
     fi
@@ -869,25 +860,31 @@ build_newroot()
 
     # Install basic system packages
     install_package sys-libs/glibc "" --nodeps # Latest glibc pulls deps!!!
+    record_dir_symlinks # Record directory symlinks with glibc
     install_package sys-auth/libnss-nis
     rm -rf "$NEWROOT"/lib*/gentoo # Remove Gentoo scripts
-    if is64bit; then
-        # Remove 32-bit glibc in 64-bit builds
-        rm -rf "$NEWROOT"/lib
-        rm -rf "$NEWROOT"/usr/lib
-        mkdir -p "$NEWROOT"/usr/lib
-        ln -s /tiny/debug "$NEWROOT/usr/lib/debug"
-    fi
+
+    # Remove 32-bit glibc in 64-bit builds
+    rm -rf "$NEWROOT"/lib
+    rm -rf "$NEWROOT"/usr/lib
+    mkdir -p "$NEWROOT"/usr/lib
+    ln -s usr/lib "$NEWROOT/lib"
+    ln -s /tiny/debug "$NEWROOT/usr/lib/debug"
+
     install_package ncurses
     ln -s libncurses.so.6  "$NEWROOT"/lib64/libncurses.so.5
     ln -s libncursesw.so.6 "$NEWROOT"/lib64/libncursesw.so.5
     install_package pciutils
     rm -f "$NEWROOT/usr/share/misc"/*.gz # Remove compressed version of hwids
-    install_package busybox "make-symlinks mdev nfs savedconfig"
+    install_package busybox "mdev nfs pam savedconfig"
+    rm -rf "${NEWROOT}-busybox"
+    mkdir "${NEWROOT}-busybox" # workaround for busybox symlinks clashing with merged bin/sbin/lib
+    NEWROOT="${NEWROOT}-busybox" install_package busybox "make-symlinks mdev nfs savedconfig" --nodeps
     rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
-    record_busybox_symlinks
+    create_busybox_symlinks
     [[ -z $TEGRABUILD ]] || prepare_libtool_for_libtomcrypt # WAR for cross compilation failure, dropbear dependency
     install_package dropbear "multicall"
+    ignore_busybox_symlinks /usr/bin/bc
     install_package sys-devel/bc
 
     # Install libxcrypt with static libs, needed for busybox
@@ -904,7 +901,7 @@ build_newroot()
     install_package net-nds/rpcbind
     if [[ -n $TEGRABUILD ]]; then
         NEWROOT="/usr/$TEGRAABI" install_package sys-apps/util-linux
-        COLLISION_IGNORE="/bin /sbin" install_package sys-apps/util-linux "" --nodeps
+        COLLISION_IGNORE="/bin /sbin /usr/bin /usr/sbin" install_package sys-apps/util-linux "" --nodeps
     fi
     install_package nfs-utils "" --nodeps
     remove_gentoo_services nfs nfsmount rpcbind rpc.statd
@@ -918,12 +915,6 @@ build_newroot()
         remove_gentoo_services netmount
     fi
 
-    # Add symlink to /bin/env in /usr/bin/env where most apps expect it
-    [[ -f $NEWROOT/usr/bin/env ]] || [[ ! -f $NEWROOT/bin/env ]] || ln -s /bin/env "$NEWROOT"/usr/bin/env
-
-    # Remove link to busybox's lspci so that lspci from pciutils is used
-    rm "$NEWROOT/bin/lspci"
-
     # Finish installing dropbear
     mkdir "$NEWROOT/etc/dropbear"
     dropbearkey -t dss -f "$NEWROOT/etc/dropbear/dropbear_dss_host_key"
@@ -934,9 +925,7 @@ build_newroot()
 
     # Copy libgcc and libstdc++ needed by some tools
     if [[ $TEGRABUILD ]]; then
-        local NEWLIB="$NEWROOT/lib64"
-        is64bit || NEWLIB="$NEWROOT/lib"
-        cp /usr/lib/gcc/"$TEGRAABI"/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWLIB"/
+        cp /usr/lib/gcc/"$TEGRAABI"/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWROOT/lib64"/
     else
         cp /usr/lib/gcc/*/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWROOT/lib64"/
     fi
@@ -956,7 +945,7 @@ build_newroot()
     # Build setdomainname tool
     local GCC=gcc
     [[ $TEGRABUILD ]] && GCC="$TEGRAABI-gcc"
-    "$GCC" -o "$NEWROOT/usr/sbin/setdomainname" "$BUILDSCRIPTS/extra/setdomainname.c"
+    "$GCC" -o "$NEWROOT/usr/bin/setdomainname" "$BUILDSCRIPTS/extra/setdomainname.c"
 
     # Copy TinyLinux scripts
     local FILE
@@ -964,8 +953,7 @@ build_newroot()
         local SRC
         local DEST
         SRC="$BUILDSCRIPTS/scripts/$FILE"
-        DEST="$NEWROOT/$FILE"
-        is64bit && DEST=$(sed 's:/lib/:/lib64/:' <<< "$DEST")
+        DEST=$(sed 's:/lib/:/lib64/:' <<< "$NEWROOT/$FILE")
         mkdir -p $(dirname "$DEST")
         cp -P "$SRC" "$DEST"
         if [[ ! -h $DEST ]]; then
@@ -983,11 +971,11 @@ build_newroot()
     install_syslinux
 
     # Create /etc/passwd and /etc/group
-    echo "root:x:0:0:root:/root:/bin/bash" > "$NEWROOT/etc/passwd"
+    echo "root:x:0:0:root:/root:/usr/bin/bash" > "$NEWROOT/etc/passwd"
     echo "root::0:root" > "$NEWROOT/etc/group"
-    echo "dhcp:x:101:101:dhcp:/:/bin/false" >> "$NEWROOT/etc/passwd"
+    echo "dhcp:x:101:101:dhcp:/:/usr/bin/false" >> "$NEWROOT/etc/passwd"
     echo "dhcp::101:" >> "$NEWROOT/etc/group"
-    echo "tftp:x:102:102:tftp:/:/bin/false" >> "$NEWROOT/etc/passwd"
+    echo "tftp:x:102:102:tftp:/:/usr/bin/false" >> "$NEWROOT/etc/passwd"
     echo "tftp::102:" >> "$NEWROOT/etc/group"
     echo "tty::5:" >> "$NEWROOT/etc/group"
     echo "disk::6:root" >> "$NEWROOT/etc/group"
@@ -996,7 +984,12 @@ build_newroot()
     echo "audio::107:" >> "$NEWROOT/etc/group"
 
     # Create /etc/shells so that root can log in remotely using bash
-    echo "/bin/bash" > "$NEWROOT"/etc/shells
+    local ASHELL
+    echo -n "" > "$NEWROOT"/etc/shells
+    for ASHELL in sh ash bash; do
+        echo "/bin/$ASHELL" >> "$NEWROOT"/etc/shells
+        echo "/usr/bin/$ASHELL" >> "$NEWROOT"/etc/shells
+    done
 
     # Copy /etc/services and /etc/protocols
     [[ -f $NEWROOT/etc/services  ]] || cp /etc/services  "$NEWROOT"/etc/
@@ -1013,30 +1006,50 @@ build_newroot()
     touch "$NEWROOT/etc/syslog.conf"
 }
 
-busybox_contents()
+package_contents()
 {
-    ls "$NEWROOT"/var/db/pkg/sys-apps/busybox-*/CONTENTS
+    ls "$NEWROOT"/var/db/pkg/$1-*/CONTENTS
 }
 
-record_busybox_symlinks()
+record_symlink()
 {
-    echo "*** Recording busybox symlinks"
-    local CONTENTS="$(busybox_contents)"
+    local SYMLINK="$2"
+    [ -h "$NEWROOT/$SYMLINK" ] || die "$SYMLINK is not a symlink!"
+
+    local CONTENTS="$(package_contents "$1")"
+
+    local TARGET="$(readlink "$NEWROOT/$SYMLINK")"
+    local TIMESTAMP="$(stat -c "%Y" "$NEWROOT/$SYMLINK")"
+    if ! grep -q "sym $(sed 's:\[:\\[:g' <<< "$SYMLINK") " "$CONTENTS"; then
+        echo "sym $SYMLINK -> $TARGET $TIMESTAMP" >> "$CONTENTS"
+    fi
+}
+
+create_busybox_symlinks()
+{
+    echo
+    echo "*** Installing busybox symlinks"
     local SYMLINK
-    find "$NEWROOT"/ -type l | while read SYMLINK; do
-        local RESOLV="$(stat -c "%N" "$SYMLINK" | sed "s/'//g ; s:$NEWROOT::")"
-        grep -q "busybox$" <<< "$RESOLV" || continue
-        local FILE="${RESOLV% ->*}"
-        local TIMESTAMP="$(stat -c "%Y" "$SYMLINK")"
-        if ! grep -q "sym $(sed 's:\[:\\[:g' <<< "$FILE")" "$CONTENTS"; then
-            echo "sym $RESOLV $TIMESTAMP" >> "$CONTENTS"
+    for SYMLINK in "${NEWROOT}-busybox"/{bin,sbin}/*; do
+        test -h "$SYMLINK" || continue
+        local TARGET="$(readlink "$SYMLINK")"
+        [[ $TARGET =~ busybox$ ]] || continue
+        local NAME="${SYMLINK##*/}"
+        SYMLINK="/usr/bin/$NAME"
+        [ -h "$NEWROOT/$SYMLINK" ] && continue # Ignore duplicate busybox symlinks
+        if [[ -f "$NEWROOT/$SYMLINK" ]]; then
+            echo "Skipping overwriting of existing $SYMLINK ($(stat -c "%s" "$NEWROOT/$SYMLINK") bytes)"
+            continue
         fi
+        ln -s busybox "$NEWROOT/$SYMLINK"
+        record_symlink sys-apps/busybox "$SYMLINK"
     done
+    echo
 }
 
 ignore_busybox_symlinks()
 {
-    local CONTENTS="$(busybox_contents)"
+    local CONTENTS="$(package_contents sys-apps/busybox)"
     while [[ $# -gt 0 ]]; do
         local FILE="$(sed 's:/:.:g' <<< "$1")"
         sed -i "/^sym $FILE/ d" "$CONTENTS"
@@ -1272,9 +1285,10 @@ get_mods_driver_version()
 
 restore_newroot()
 {
-    rm "$NEWROOT"/{lib,usr/lib}
-    mv "$NEWROOT/saved/lib" "$NEWROOT/lib"
+    rm "$NEWROOT/lib"
+    rm "$NEWROOT/usr/lib"
     mv "$NEWROOT/saved/usr_lib" "$NEWROOT/usr/lib"
+    ln -s usr/lib "$NEWROOT/lib"
     local DIR
     for DIR in python-exec python${PYTHON_VER}; do
         [[ -d "$NEWROOT/usr/lib64/$DIR" ]] && mv "$NEWROOT/usr/lib64/$DIR" "$NEWROOT/usr/lib/$DIR"
@@ -1293,7 +1307,6 @@ make_squashfs()
     # Install kernel modules and firmware
     boldecho "Copying kernel modules"
     local NEWROOT_LIB="$NEWROOT/lib64"
-    is64bit || NEWROOT_LIB="$NEWROOT/lib"
     rm -rf "$NEWROOT_LIB"/{modules,firmware}
     if [[ -z $TEGRABUILD ]]; then
         tar cp -C /lib modules | tar xp -C "$NEWROOT_LIB"/
@@ -1340,26 +1353,25 @@ make_squashfs()
     cp "$BUILDSCRIPTS"/{release-notes,LICENSE} "$NEWROOT"/etc/
 
     # Prepare lib dirs
-    if is64bit; then
-        # Unfortunately we can't just have a symlink lib -> lib64 in newroot,
-        # because emerge will fail complaining about 17.1 profile requirements
-        # not being satisified, because Gentoo now requires lib directory
-        # to contain 32-bit libs and lib64 64-bit libs.  This is not really
-        # true, stuff like python-exec is kept in /usr/lib for some reason.
-        # We have no choice than to workaround, so that on the next run
-        # emerge can still work correctly.
-        trap restore_newroot EXIT
-        rm -rf "$NEWROOT/saved"
-        local DIR
-        for DIR in python-exec python${PYTHON_VER}; do
-            [[ -d $NEWROOT/usr/lib/$DIR ]] && mv "$NEWROOT/usr/lib/$DIR" "$NEWROOT/usr/lib64/$DIR"
-        done
-        mkdir "$NEWROOT/saved"
-        mv "$NEWROOT/lib" "$NEWROOT/saved/lib"
-        mv "$NEWROOT/usr/lib" "$NEWROOT/saved/usr_lib"
-        ln -s lib64 "$NEWROOT/lib"
-        ln -s lib64 "$NEWROOT/usr/lib"
-    fi
+    # Unfortunately we can't just have a symlink lib -> lib64 in newroot,
+    # because emerge will fail complaining about 17.1 profile requirements
+    # not being satisified, because Gentoo now requires lib directory
+    # to contain 32-bit libs and lib64 64-bit libs.  This is not really
+    # true, stuff like python-exec is kept in /usr/lib for some reason.
+    # We have no choice than to workaround, so that on the next run
+    # emerge can still work correctly.
+    trap restore_newroot EXIT
+    rm -rf "$NEWROOT/saved"
+    local DIR
+    for DIR in python-exec python${PYTHON_VER}; do
+        [[ -d $NEWROOT/usr/lib/$DIR ]] && mv "$NEWROOT/usr/lib/$DIR" "$NEWROOT/usr/lib64/$DIR"
+    done
+    mkdir "$NEWROOT/saved"
+    mv "$NEWROOT/usr/lib" "$NEWROOT/saved/usr_lib"
+    ln -s lib64 "$NEWROOT/usr/lib"
+    test -h "$NEWROOT/lib" || die "$NEWROOT/lib is not a symlink!"
+    rm "$NEWROOT/lib"
+    ln -s usr/lib64 "$NEWROOT/lib"
 
     # Make squashfs
     boldecho "Compressing squashfs"
@@ -1475,7 +1487,6 @@ make_tegra_image()
 
     # Create output directory
     local OUTDIR=/aarch64
-    is64bit || OUTDIR=/armv7
     rm -rf "$OUTDIR"
     mkdir "$OUTDIR"
      
@@ -1535,7 +1546,6 @@ make_tegra_image()
 
     # Clean up debug directory - leave only files we need
     local LIBDIR=lib64
-    is64bit || LIBDIR=lib
     local DEBUG_FILES=(
         ld-linux-aarch64.so*.debug
         libc.so*.debug
@@ -1653,9 +1663,6 @@ deploy()
     umount "$DESTDIR"
     rmdir "$DESTDIR"
 }
-
-# Check system
-[[ `uname -m` = "x86_64" || $TEGRABUILD ]] || die "This script must be run on x86_64 architecture system"
 
 # Check privileges
 [[ `id -u` -eq 0 ]] || die "This script must be run with root privileges"

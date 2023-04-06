@@ -1,3 +1,3 @@
-#!/bin/sh
+#!/usr/bin/sh
 
-/sbin/poweroff
+/usr/bin/poweroff

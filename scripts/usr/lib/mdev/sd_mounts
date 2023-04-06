@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/sh
 
 # Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -17,7 +17,7 @@ shouldmount()
     fi
 
     # Skip boot partition
-    if [ -x /bin/tinydir ] && [ ! -f "`/bin/tinydir`/kernel" ]; then
+    if [ -x /usr/bin/tinydir ] && [ ! -f "`/usr/bin/tinydir`/kernel" ]; then
         if grep -q "2 /mnt/nv " /proc/mounts; then
             local INSTALL
             INSTALL=`grep " /mnt/nv " /proc/mounts | awk '{print $1}'`

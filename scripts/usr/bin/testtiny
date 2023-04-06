@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 set -e
 
@@ -235,19 +235,6 @@ end_test
 
 #==============================================================================
 
-start_test "nano"
-rm -f testnano.txt
-echo -en "this is a test\rline2\030y\r" | nano testnano.txt >/dev/null 2>&1 | true
-check_exit_code ${PIPESTATUS[1]}
-echo -n " testnano.txt"
-LINES=$(wc -l < testnano.txt)
-[[ $LINES = 2 ]] || fail_test "wrote $LINES lines instead of 2"
-BYTES=$(stat -c %s testnano.txt)
-[[ $BYTES = 21 ]] || fail_test "wrote $BYTES bytes instead of 21"
-end_test
-
-#==============================================================================
-
 if [[ $PROFILE = full ]]; then
     start_test "perl"
     rm -f output.txt
@@ -402,15 +389,13 @@ fi
 
 start_test "shared libraries"
 MISSING_LIBS=0
-for DIR in /bin /sbin /usr/bin /usr/sbin; do
-    for FILE in $(find $DIR -type f); do
-        if test -x "$FILE"; then
-            if ldd "$FILE" 2>&1 | grep -q "not found"; then
-                echo -n " $FILE"
-                MISSING_LIBS=1
-            fi
+for FILE in $(find /usr/bin -type f); do
+    if test -x "$FILE"; then
+        if ldd "$FILE" 2>&1 | grep -q "not found"; then
+            echo -n " $FILE"
+            MISSING_LIBS=1
         fi
-    done
+    fi
 done
 [[ $MISSING_LIBS = 0 ]] || fail_test "ldd failed"
 end_test

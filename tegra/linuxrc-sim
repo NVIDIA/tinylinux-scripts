@@ -14,7 +14,7 @@ MNTSQUASH="mnt/squash"
 /tiny/busybox mount -t squashfs -o ro "$LOOP" "$MNTSQUASH" || exec /tiny/busybox sh
 
 # Switch to the new root filesystem
-exec /sbin/init
+exec /usr/bin/init
 
 # Backup plan: start shell
 exec /tiny/busybox sh

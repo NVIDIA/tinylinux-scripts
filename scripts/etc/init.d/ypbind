@@ -1,4 +1,4 @@
-#!/sbin/rc
+#!/usr/bin/rc
 
 # Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -9,7 +9,7 @@ start()
 {
     [ -d /var/yp ] || mkdir /var/yp
     [ -e /var/yp/nicknames ] || ln -s /usr/share/ypbind/nicknames /var/yp/nicknames
-    start-stop-daemon --start --quiet --exec /usr/sbin/ypbind -- $YPBIND_OPTIONS
+    start-stop-daemon --start --quiet --exec /usr/bin/ypbind -- $YPBIND_OPTIONS
 
     local I
     for I in `seq 10`; do
@@ -25,6 +25,6 @@ start()
 
 stop()
 {
-    start-stop-daemon --stop --quiet --exec /usr/sbin/ypbind
+    start-stop-daemon --stop --quiet --exec /usr/bin/ypbind
     rm -f /var/yp/binding/*
 }

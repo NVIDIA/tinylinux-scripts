@@ -1,14 +1,14 @@
-#!/sbin/rc
+#!/usr/bin/rc
 
 # Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 start()
 {
-    /sbin/start-stop-daemon --start --background --exec /usr/bin/udpsvd -- $TFTPD_OPTS
+    /usr/bin/start-stop-daemon --start --background --exec /usr/bin/udpsvd -- $TFTPD_OPTS
 }
 
 stop()
 {
-    /sbin/start-stop-daemon --stop --exec /usr/bin/udpsvd
+    /usr/bin/start-stop-daemon --stop --exec /usr/bin/udpsvd
 }

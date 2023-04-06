@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/sh
 
 # Copyright (c) 2009-2019, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
@@ -30,9 +30,9 @@ check_tool()
     [ -x "$1" ] || die "Error: $1 not found"
 }
 
-check_tool /usr/sbin/parted
-check_tool /sbin/mkfs.vfat
-check_tool /sbin/mkfs.reiser
+check_tool /usr/bin/parted
+check_tool /usr/bin/mkfs.vfat
+check_tool /usr/bin/mkfs.reiser
 
 ##############################################################################
 # Handle command line args
