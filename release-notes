@@ -1,5 +1,10 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Merged bin and sbin directories into usr/bin
+ * Added /etc/sysctl.conf
+ * Added initial support for WiFi
+ * Added ps aux command in tinyinfo
+-------------------------------------------------------------------------------
 23.01
  * Updated kernel to 6.1.7
  * Updated MODS kernel driver to 4.13
