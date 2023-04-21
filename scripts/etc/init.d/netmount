@@ -35,7 +35,7 @@ start()
             if wait_reachable "$SERVER" 30; then
                 mount "$MOUNTPOINT"
             else
-                echo "!! Share $DRIVE is not reachable - Skipping." >&2
+                error "$DRIVE is unreachable"
             fi
         else
             mount "$MOUNTPOINT"
@@ -55,11 +55,12 @@ stop()
         ls /media | while read DRIVE; do
             grep -q "/media/$DRIVE" /proc/mounts || continue
             if ! umount "/media/$DRIVE"; then
-                echo "!! Failed to unmount /media/$DRIVE, forcing" >&2
                 if ! umount -f "/media/$DRIVE"; then
-                    echo "!! Failed to forcibly unmount /media/$DRIVE" >&2
+                    error "failed to unmount /media/$DRIVE"
                     umount -l "/media/$DRIVE"
                     continue
+                else
+                    error "forced unmount /media/$DRIVE"
                 fi
             fi
             rmdir "/media/$DRIVE"

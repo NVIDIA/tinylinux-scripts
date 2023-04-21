@@ -1,0 +1,8 @@
+# Set to 1 to enable kernel logging in syslog
+KLOGD_ENABLED=0
+
+# Options to pass to syslogd
+SYSLOGD_OPTIONS="-l 7"
+
+# Options to pass to klogd
+KLOGD_OPTIONS="-c 3"

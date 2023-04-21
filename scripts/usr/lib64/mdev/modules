@@ -1,0 +1,22 @@
+#!/usr/bin/sh
+
+# Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
+# See /etc/LICENSE file for details.
+
+log()
+{
+    local LEVEL="$1"
+    shift
+    logger -p 24.$LEVEL -t mdev.modules "$@"
+}
+
+if [ "$ACTION" = "add" ]; then
+    MODULE="$(modalias "$MODALIAS" 2>&1 || true)"
+
+    if [ -z "$MODULE" ] || [ ! -f /etc/modules.blacklist ] || ! grep -F -q "$MODULE" /etc/modules.blacklist; then
+        log 7 "load $MODULE for alias $MODALIAS"
+        modprobe "$MODALIAS"
+    else
+        log 5 "skipping blacklisted $MODULE for alias $MODALIAS"
+    fi
+fi

@@ -1,7 +1,7 @@
+syslogd
 modules
 sysctl
 mount
-syslogd
 acpid
 hostname
 bash

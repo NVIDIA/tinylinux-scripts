@@ -17,7 +17,7 @@ start()
         sleep "$I"
     done
     if ! ypwhich -m $YPBIND_MAP >/dev/null 2>/dev/null; then
-        echo -n " Unable to connect to NIS server" >&2
+        error "unable to connect to NIS server"
         killall ypbind
         return 1
     fi

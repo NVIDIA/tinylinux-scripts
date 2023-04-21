@@ -16,7 +16,6 @@ echo > $LOGFILE
 # Execute all the dump commands
 dump head -n 2 /etc/release
 dump cat /proc/mounts
-dump cat /var/log/mounts
 NOCOLOR=1 dump rc status
 dump cat /var/rc/status/.order
 dump cat /var/log/messages

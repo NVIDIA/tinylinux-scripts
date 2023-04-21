@@ -16,7 +16,7 @@ start()
             VALUE="${LINE#*=}"
 
             if [ ! -f "$FILE" ]; then
-                echo -n " missing $KEY" >&2
+                error "missing $KEY"
                 continue
             fi
 

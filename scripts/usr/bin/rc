@@ -69,6 +69,26 @@ time_in_s()
     echo "$(($TIME/10)).$(($TIME%10))"
 }
 
+# Functions callable from services to print information on the console
+info()
+{
+    logger -p 24.6 -t "rc.$__SVCNAME" "$@"
+    if [ "$LOUDSERVICE" = "1" ]; then
+        echo "$@"
+    else
+        echo -n " $@" >&3
+    fi
+}
+error()
+{
+    logger -p 24.3 -t "rc.$__SVCNAME" "$@"
+    if [ "$LOUDSERVICE" = "1" ]; then
+        echo "$@"
+    else
+        echo -n " $@" >&3
+    fi
+}
+
 # Start service
 __startservice()
 {
@@ -84,7 +104,7 @@ __startservice()
         start
     else
         echo -n "Starting $__SVCNAME..."
-        start > /dev/null
+        start 1> >(logger -p 24.6 -t "rc.$__SVCNAME") 2> >(tee >(logger -p 24.4 -t "rc.$__SVCNAME")) 3> >(cat)
     fi
     RC=$?
 
@@ -93,14 +113,16 @@ __startservice()
         echo "started" > "$__STATUSDIR/$__SVCNAME"
     fi
 
-    TIME="[$(time_in_s $(($(uptime_ms) - $START_TIME)))s]"
+    TIME="$(time_in_s $(($(uptime_ms) - $START_TIME)))"
 
     if [ "$LOUDSERVICE" = "1" ]; then
         [ $RC -eq 0 ] || echo "Service $__SVCNAME failed to start"
     elif [ $RC -eq 0 ]; then
-        echo " OK $TIME"
+        echo " OK [${TIME}s]"
+        logger -p 24.6 -t "rc.$__SVCNAME" "Started in ${TIME}s"
     else
-        echo -e " \033[1;31mFAILED\033[0m $TIME"
+        echo -e " \033[1;31mFAILED\033[0m [${TIME}s]"
+        logger -p 24.3 -t "rc.$__SVCNAME" "Failed after ${TIME}s with exit code $RC"
     fi
 
     return $RC
@@ -112,15 +134,17 @@ __stopservice()
     local RC
 
     echo -n "Stopping $__SVCNAME..."
-    stop > /dev/null
+    stop 1> >(logger -p 24.6 -t "rc.$__SVCNAME") 2> >(tee >(logger -p 24.4 -t "rc.$__SVCNAME")) 3> >(cat)
     RC=$?
 
     if [ $RC -eq 0 ]; then
         sed -i "/^$__SVCNAME\$/d" "$__STATUSDIR/.order"
         echo "stopped" > "$__STATUSDIR/$__SVCNAME"
         echo " OK"
+        logger -p 24.6 -t "rc.$__SVCNAME" "Stopped"
     else
         echo -e " \033[1;31mFAILED\033[0m"
+        logger -p 24.3 -t "rc.$__SVCNAME" "Failed to stop with exit code $RC"
     fi
 
     return $RC
@@ -186,6 +210,7 @@ __get_boot_file()
         fi
         if [ "$__BOOT_ORDER_WARNING_PRINTED" = "0" ]; then
             echo "$WARNING" >&2
+            logger -p 24.4 -t rc "$WARNING"
             __BOOT_ORDER_WARNING_PRINTED=1
         fi
     fi
@@ -220,11 +245,25 @@ __make_color()
     fi
 }
 
+# Add drivers for devices
+__coldplug()
+{
+    [ $# -eq 1 ] && echo "$1" | grep -q '/\*/uevent' && return 0
+
+    while [ $# -gt 0 ]; do
+        echo add > "$1"
+        shift
+    done
+}
+
 # Find TinyLinux configuration files
 if [ -d "`/usr/bin/tinydir`" ]; then
     TINYLINUXDIR="`/usr/bin/tinydir`"
     export TINYLINUXDIR
 fi
+
+# Kill children on exit
+trap "trap - SIGTERM && kill -- -$$ 2>/dev/null >/dev/null" SIGINT SIGTERM EXIT
 
 # Run a script
 __SVCNAME=`basename "$1"`
@@ -277,6 +316,7 @@ if [ -x "/etc/init.d/$__SVCNAME" -a "$2" -a "$#" = 2 ]; then
         zap)
             sed -i "/^$__SVCNAME\$/d" "$__STATUSDIR/.order"
             echo "stopped" > "$__STATUSDIR/$__SVCNAME"
+            logger -p 24.5 -t "rc.$__SVCNAME" "Zapped"
             ;;
 
         status)
@@ -307,7 +347,7 @@ elif [ "$1" = "enable" ]; then
 
         # Check if such service exists
         if [ ! -f "/etc/init.d/$1" ]; then
-            echo "Service $1 not found!"
+            echo "Service $1 not found!" >&2
             exit 1
         fi
 
@@ -316,7 +356,7 @@ elif [ "$1" = "enable" ]; then
 
         # Add service to boot list
         if [ "$(__get_boot_status $1)" = "enabled" ]; then
-            echo "Service $1 is already enabled"
+            echo "Service $1 is already enabled" >&2
         else
             echo "$1" >> "$(__get_boot_file)"
             echo "Enabled service $1"
@@ -337,7 +377,7 @@ elif [ "$1" = "disable" ]; then
 
         # Check if such service exists
         if [ ! -f "/etc/init.d/$1" ]; then
-            echo "Service $1 not found!"
+            echo "Service $1 not found!" >&2
             exit 1
         fi
 
@@ -349,7 +389,7 @@ elif [ "$1" = "disable" ]; then
             sed -i "/^$1$/d" "$(__get_boot_file)"
             echo "Disabled service $1"
         else
-            echo "Service $1 is already disabled"
+            echo "Service $1 is already disabled" >&2
         fi
 
         # Next service
@@ -368,7 +408,7 @@ elif [ "$1" = "start" ] || [ "$1" = "stop" ] || [ "$1" = "restart" ] || [ "$1" =
 
         # Check if such service exists
         if [ ! -f "/etc/init.d/$1" ]; then
-            echo "Service $1 not found!"
+            echo "Service $1 not found!" >&2
             exit 1
         fi
 
@@ -396,6 +436,12 @@ elif [ "$1" = "sysinit" ]; then
     [ -d /dev/shm ] || mkdir -m 1777 /dev/shm
     mount -t devpts -o "mode=0620,gid=5" devpts /dev/pts
 
+    # Create symlinks used by shell's redirection
+    ln -s /proc/self/fd /dev/fd
+    ln -s /proc/self/fd/0 /dev/stdin
+    ln -s /proc/self/fd/1 /dev/stdout
+    ln -s /proc/self/fd/2 /dev/stderr
+
     # Setup hotplug
     touch /dev/mdev.seq
     echo "/usr/bin/mdev" > /proc/sys/kernel/hotplug
@@ -405,9 +451,11 @@ elif [ "$1" = "sysinit" ]; then
 
     # Coldplug devices
     if ! grep -q "nocoldplug" /proc/cmdline; then
-        ls /sys/bus/pci/devices/*/uevent /sys/bus/usb/devices/*/uevent /sys/block/*/uevent /sys/block/*/*/uevent | while read UEVENT; do
-            echo "add" > "$UEVENT"
+        for BUS in $(cat /etc/coldplug); do
+            __coldplug /sys/bus/$BUS/devices/*/uevent
         done
+        __coldplug /sys/block/*/uevent
+        __coldplug /sys/block/*/*/uevent
     fi
 
 # Boot services
@@ -450,6 +498,7 @@ elif [ "$1" = "boot" ]; then
             "/etc/init.d/$__SVCNAME" silentstart
         else
             echo "Service $__SVCNAME not found"
+            logger -p 24.3 -t rc "Service $__SVCNAME not found"
         fi
     done
 
@@ -462,7 +511,9 @@ elif [ "$1" = "boot" ]; then
     fi
     INIT_TIME=$(($START_TIME - $KERNEL_BOOT_TIME))
     SERVICES_BOOT_TIME=$(($TOTAL_BOOT_TIME - $START_TIME))
-    echo "[kernel $(time_in_s $KERNEL_BOOT_TIME)s, init $(time_in_s $INIT_TIME)s, services $(time_in_s $SERVICES_BOOT_TIME)s, total $(time_in_s $TOTAL_BOOT_TIME)s]"
+    STATS="kernel $(time_in_s $KERNEL_BOOT_TIME)s, init $(time_in_s $INIT_TIME)s, services $(time_in_s $SERVICES_BOOT_TIME)s, total $(time_in_s $TOTAL_BOOT_TIME)s"
+    echo "[$STATS]"
+    logger -p 24.6 -t rc "System booted: $STATS"
 
 # Shutdown
 elif [ "$1" = "shutdown" ]; then
@@ -472,5 +523,5 @@ elif [ "$1" = "shutdown" ]; then
     sync
 
 else
-    echo "Invalid command"
+    echo "Invalid command: $1" >&2
 fi

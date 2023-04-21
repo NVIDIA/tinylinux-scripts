@@ -7,7 +7,6 @@ set -e
 
 MIRROR="http://gentoo.osuosl.org"
 PORTAGEPKG="portage-latest.tar.bz2"
-STAGE3ARCH="amd64"
 DISTFILESPKG="distfiles.tar.bz2"
 PORTAGE="/var/db/repos/gentoo"
 BUILDROOT="buildroot"
@@ -47,6 +46,13 @@ fi
 # Auto-detect number of CPUs
 JOBS="${JOBS:-$(grep -c ^processor /proc/cpuinfo)}"
 
+# Auto-detect architecture
+case "$(uname -m)" in
+    x86_64)  STAGE3ARCH="amd64" ;;
+    aarch64) STAGE3ARCH="arm64" ;;
+    *)       die "Unrecognized arch - $(uname -m)"
+esac
+
 # Parse options
 while [[ $# -gt 1 ]]; do
     OPT=$1
@@ -62,7 +68,7 @@ while [[ $# -gt 1 ]]; do
         -d) DEPLOY="$1" ; shift ;;
         --arch=*) ARCH="${OPT#--arch=}"
                   case "$ARCH" in
-                      amd64|x86_64) ;;
+                      amd64|x86_64) [[ $STAGE3ARCH = amd64 ]] || die "Cannot cross-compile x86_64 from ARM" ;;
                       armv8|arm64|aarch64) STAGE3ARCH="arm64" ;;
                       *) die "Unrecognized arch - $ARCH" ;;
                   esac
@@ -186,7 +192,7 @@ download_packages()
         FLAVOR="openrc"
         GREPSTAGE="^stage3-$STAGE3ARCH-$FLAVOR-[0-9TZ].*\.tar\.xz$"
         boldecho "Downloading stage3 file list from the server"
-        STAGE3PATH="$MIRROR/releases/${STAGE3ARCH/i?86/x86}/autobuilds/current-stage3-$STAGE3ARCH-$FLAVOR/"
+        STAGE3PATH="$MIRROR/releases/$STAGE3ARCH/autobuilds/current-stage3-$STAGE3ARCH-$FLAVOR/"
         STAGE3PKG=`find_stage3 "$GREPSTAGE" "$STAGE3PATH"`
         download "$STAGE3PKG"
         STAGE3PKG=`basename "$STAGE3PKG"`
@@ -325,6 +331,11 @@ run_in_chroot()
     exit
 }
 
+is_cross_compile()
+{
+    [[ $TEGRABUILD && $(uname -m) != aarch64 ]]
+}
+
 check_env()
 {
     if [[ -f /var/lib/misc/extra ]]; then
@@ -346,6 +357,7 @@ prepare_portage()
         echo 'GRUB_PLATFORMS="efi-64"'
     ) >> "$MAKECONF"
 
+    # Needed in qemu
     if [[ $(uname -m) = aarch64 ]] && ! grep -q "pid-sandbox" "$MAKECONF"; then
         echo 'FEATURES="-pid-sandbox"' >> "$MAKECONF"
     fi
@@ -410,7 +422,7 @@ prepare_portage()
     echo "sys-power/iasl ~*" >> $KEYWORDS
 
     # Enable some packages on 64-bit ARM (temporary, until enabled in Gentoo)
-    if [[ $TEGRABUILD ]]; then
+    if [[ $TEGRABUILD ]] || [[ $STAGE3ARCH = arm64 ]]; then
         local ACCEPT_PKGS
         ACCEPT_PKGS=(
             cross-aarch64-unknown-linux-gnu/gcc-12.2.0
@@ -432,7 +444,9 @@ prepare_portage()
         for PKG in ${ACCEPT_PKGS[*]}; do
             echo "=${PKG} **" >> /etc/portage/package.accept_keywords/tegra
         done
+    fi
 
+    if is_cross_compile; then
         # Enable rpc use flag, needed for rpcbind's dependency
         # crypt flag is needed for util-linux
         echo "cross-aarch64-unknown-linux-gnu/glibc rpc crypt static-libs" >> /etc/portage/package.use/tegra
@@ -448,6 +462,17 @@ prepare_portage()
         echo ">cross-aarch64-unknown-linux-gnu/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
     fi
 
+    # Setup split glibc symbols for valgrind and remote debugging
+    if [[ $TEGRABUILD ]]; then
+        mkdir -p "/etc/portage/package.env"
+        echo "sys-libs/glibc debug"         >  "/etc/portage/package.env/glibc"
+        echo "dev-util/valgrind debug"      >  "/etc/portage/package.env/valgrind"
+        mkdir -p "/etc/portage/env"
+        echo 'CFLAGS="${CFLAGS} -ggdb"'     >  "/etc/portage/env/debug"
+        echo 'CXXFLAGS="${CXXFLAGS} -ggdb"' >> "/etc/portage/env/debug"
+        echo 'FEATURES="$FEATURES splitdebug compressdebug"' >> "/etc/portage/env/debug"
+    fi
+
     # Patch uninitialized variable in syslinux
     local EBUILD=$PORTAGE/sys-boot/syslinux/syslinux-6.04_pre1-r5.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "bios-free-mem" "$EBUILD"; then
@@ -460,7 +485,7 @@ prepare_portage()
 
     # Patch cross-compilation failure in libtomcrypt
     local EBUILD=$PORTAGE/dev-libs/libtomcrypt/libtomcrypt-1.18.2-r4.ebuild
-    if [[ $TEGRABUILD ]] && [[ -f $EBUILD ]] && ! grep -q "cross.patch" "$EBUILD"; then
+    if is_cross_compile && [[ -f $EBUILD ]] && ! grep -q "cross.patch" "$EBUILD"; then
         boldecho "Patching $EBUILD"
         cp "$BUILDSCRIPTS/extra/libtomcrypt-cross.patch" $PORTAGE/dev-libs/libtomcrypt/files/
         sed -i "s/slibtool.patch$/slibtool.patch \"\${FILESDIR}\"\/\${PN}-cross.patch/" "$EBUILD"
@@ -498,7 +523,7 @@ prepare_portage()
 
     # Fix perf tool cross compilation
     local EBUILD=$PORTAGE/dev-util/perf/perf-5.19.ebuild
-    if ! grep -q cross_compile "$EBUILD"; then
+    if is_cross_compile && ! grep -q cross_compile "$EBUILD"; then
         boldecho "Patching $EBUILD"
         sed -i '/current-system-vm/ a\\tlocal cross_compile=""\n\t[[ $(tc-getCC) = $(tc-getBUILD_CC) ]] || cross_compile=CROSS_COMPILE=aarch64-unknown-linux-gnu-' "$EBUILD"
         sed -i '/tc-getNM/ a\\t        $cross_compile \\' "$EBUILD"
@@ -539,11 +564,13 @@ emerge_basic_packages()
 
     boldecho "Compiling basic host packages"
 
-    if ! emerge --quiet squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel sys-devel/bc less libtirpc rpcbind rpcsvc-proto dev-libs/glib; then
+    if ! emerge --quiet squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel sys-devel/bc less libtirpc rpcbind rpcsvc-proto dev-libs/glib lbzip2; then
         boldecho "Failed to emerge some packages"
         boldecho "Please complete installation manually"
         bash
     fi
+
+    [[ -z $TEGRABUILD ]] || USE="static-libs" emerge --quiet sys-libs/libxcrypt
 
     local KERNELPKG=gentoo-sources
     [[ $RCKERNEL = 1 ]] && KERNELPKG=git-sources
@@ -565,7 +592,7 @@ emerge_basic_packages()
 
 install_tegra_toolchain()
 {
-    [[ $TEGRABUILD ]] || return 0
+    is_cross_compile || return 0
 
     # Skip if the toolchains already exist
     local INDICATOR="/var/db/$TEGRAABI"
@@ -691,14 +718,31 @@ compile_kernel()
     genkernel --oldconfig --linuxrc="$BUILDSCRIPTS/linuxrc" --no-mountboot --no-zfs --no-btrfs "$MAKEOPTS" --all-ramdisk-modules --busybox-config="$BBCFG" ramdisk
 }
 
+need_host_package()
+{
+    local HOST_PACKAGES=(
+        sys-auth/libnss-nis
+    )
+
+    while [[ $# -gt 0 ]]; do
+        local PKG
+
+        for PKG in "${HOST_PACKAGES[@]}"; do
+            [[ $1 = $PKG ]] && return 0
+        done
+
+        shift
+    done
+
+    return 1
+}
+
 target_emerge()
 {
-    if [[ $TEGRABUILD && $NEWROOT != / ]]; then
-        if [[ $5 != sys-libs/glibc && $NEWROOT != "/usr/$TEGRAABI" ]]; then
-            echo "$TEGRAABI-emerge" --noreplace "$@"
+    if is_cross_compile && [[ $NEWROOT != / ]]; then
+        if need_host_package "$@"; then
             "$TEGRAABI-emerge" --noreplace "$@"
         fi
-        echo ROOT="$NEWROOT" SYSROOT="$NEWROOT" PORTAGE_CONFIGROOT="/usr/$TEGRAABI" "$TEGRAABI-emerge" "$@"
         ROOT="$NEWROOT" SYSROOT="$NEWROOT" PORTAGE_CONFIGROOT="/usr/$TEGRAABI" "$TEGRAABI-emerge" "$@"
     else
         ROOT="$NEWROOT" emerge "$@"
@@ -709,7 +753,7 @@ target_emerge()
         echo "Erasing news from $NEWROOT/$NEWS"
         echo -n > "$NEWROOT/$NEWS"
     fi
-    if [[ $TEGRABUILD ]] && test -s "/usr/$TEGRAABI/$NEWS"; then
+    if is_cross_compile && test -s "/usr/$TEGRAABI/$NEWS"; then
         echo "Erasing news from /usr/$TEGRAABI/$NEWS"
         echo -n > "/usr/$TEGRAABI/$NEWS"
     fi
@@ -810,9 +854,7 @@ build_newroot()
     ln -sf bin       "$NEWROOT/usr/sbin"
 
     # Prepare build configuration for Tegra target
-    if [[ $TEGRABUILD ]]; then
-        mkdir -p "$NEWROOT/etc/portage"
-    fi
+    is_cross_compile && mkdir -p "$NEWROOT/etc/portage"
 
     # Restore busybox config file
     local BUSYBOXCFG="$BUILDSCRIPTS/busybox-config"
@@ -828,15 +870,13 @@ build_newroot()
 
     # Setup directories for valgrind and for debug symbols
     if [[ $TEGRABUILD ]]; then
-        local NEWUSRLIB64="$NEWROOT/usr/lib64"
-        local NEWUSRLIBEXEC="$NEWROOT/usr/libexec"
         rm -rf /tiny/debug /tiny/valgrind
-        mkdir -p /tiny/debug/mnt
-        mkdir -p /tiny/valgrind
-        mkdir -p "$NEWUSRLIBEXEC"
+        mkdir -p /tiny/debug/mnt /tiny/valgrind
+        mkdir -p "$NEWROOT/usr/libexec"
         mkdir -p "$NEWROOT/usr/share"
-        ln -s /tiny/debug    "$NEWUSRLIB64/debug"
-        ln -s /tiny/valgrind "$NEWUSRLIBEXEC/valgrind"
+        ln -s /tiny/debug    "$NEWROOT/usr/lib64/debug"
+        ln -s /tiny/debug    "$NEWROOT/usr/lib/debug"
+        ln -s /tiny/valgrind "$NEWROOT/usr/libexec/valgrind"
     fi
 
     # Newer Portage requires that the target root (our NEWROOT) is set to
@@ -844,7 +884,7 @@ build_newroot()
     # is crossdev's own root, then into NEWROOT.  Preserve original SYSROOT here.
     # The purpose of installing packages into sysroot is to be able to build
     # some packages which have build-time dependencies.
-    if [[ $TEGRABUILD ]]; then
+    if is_cross_compile; then
         local SAVED_TEGRA_SYSROOT="/usr/${TEGRAABI}.tar.xz"
         if [[ -f $SAVED_TEGRA_SYSROOT ]]; then
             echo "Preparing sysroot..."
@@ -882,16 +922,14 @@ build_newroot()
     NEWROOT="${NEWROOT}-busybox" install_package busybox "make-symlinks mdev nfs savedconfig" --nodeps
     rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
     create_busybox_symlinks
-    [[ -z $TEGRABUILD ]] || prepare_libtool_for_libtomcrypt # WAR for cross compilation failure, dropbear dependency
+    is_cross_compile && prepare_libtool_for_libtomcrypt # WAR for cross compilation failure, dropbear dependency
     install_package dropbear "multicall"
     ignore_busybox_symlinks /usr/bin/bc
     install_package sys-devel/bc
     install_package net-wireless/wireless-tools
 
     # Install libxcrypt with static libs, needed for busybox
-    if [[ $TEGRABUILD ]]; then
-        NEWROOT="/usr/$TEGRAABI" install_package sys-libs/libxcrypt "static-libs"
-    fi
+    is_cross_compile && NEWROOT="/usr/$TEGRAABI" install_package sys-libs/libxcrypt "static-libs"
 
     # Install more basic packages
     install_package nano
@@ -900,8 +938,8 @@ build_newroot()
 
     # Install NFS utils
     install_package net-nds/rpcbind
-    if [[ -n $TEGRABUILD ]]; then
-        NEWROOT="/usr/$TEGRAABI" install_package sys-apps/util-linux
+    if [[ $TEGRABUILD ]]; then
+        is_cross_compile && NEWROOT="/usr/$TEGRAABI" install_package sys-apps/util-linux
         COLLISION_IGNORE="/bin /sbin /usr/bin /usr/sbin" install_package sys-apps/util-linux "" --nodeps
     fi
     install_package nfs-utils "" --nodeps
@@ -921,11 +959,12 @@ build_newroot()
     dropbearkey -t dss -f "$NEWROOT/etc/dropbear/dropbear_dss_host_key"
     dropbearkey -t rsa -f "$NEWROOT/etc/dropbear/dropbear_rsa_host_key"
     dropbearkey -t ecdsa -f "$NEWROOT/etc/dropbear/dropbear_ecdsa_host_key"
+    dropbearkey -t ed25519 -f "$NEWROOT/etc/dropbear/dropbear_ed25519_host_key"
     ( cd "$NEWROOT/usr/bin" && ln -s dbclient ssh )
     ( cd "$NEWROOT/usr/bin" && ln -s dbscp scp )
 
     # Copy libgcc and libstdc++ needed by some tools
-    if [[ $TEGRABUILD ]]; then
+    if is_cross_compile; then
         cp /usr/lib/gcc/"$TEGRAABI"/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWROOT/lib64"/
     else
         cp /usr/lib/gcc/*/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWROOT/lib64"/
@@ -943,10 +982,14 @@ build_newroot()
     rm -f "$NEWROOT/etc"/{init.d,conf.d}/busybox-*
     rm -rf "$NEWROOT/etc/systemd"
 
-    # Build setdomainname tool
+    # Build extra tools
+    local TOOL
     local GCC=gcc
-    [[ $TEGRABUILD ]] && GCC="$TEGRAABI-gcc"
-    "$GCC" -o "$NEWROOT/usr/bin/setdomainname" "$BUILDSCRIPTS/extra/setdomainname.c"
+    is_cross_compile && GCC="$TEGRAABI-gcc"
+    for TOOL in setdomainname modalias; do
+        echo ">>> Compiling $TOOL"
+        "$GCC" -O3 -Wall -Wextra -Wl,-s -o "$NEWROOT/usr/bin/$TOOL" "$BUILDSCRIPTS/extra/$TOOL.c"
+    done
 
     # Copy TinyLinux scripts
     local FILE
@@ -1339,7 +1382,7 @@ make_squashfs()
     (
         local CLASSDIR
         CLASSDIR="sys-devel"
-        [[ $TEGRABUILD ]] && CLASSDIR="cross-$TEGRAABI"
+        is_cross_compile && CLASSDIR="cross-$TEGRAABI"
         echo "TinyLinux version $VERSION"
         echo "Profile $PROFILE"
         echo "Built with "`find /var/db/pkg/"$CLASSDIR"/ -maxdepth 1 -name gcc-[0-9]* | sed "s/.*\/var\/db\/pkg\/$CLASSDIR\///"`
@@ -1379,6 +1422,7 @@ make_squashfs()
     MSQJOBS="1"
     [[ $JOBS ]] && MSQJOBS="$JOBS"
     cat >/tmp/excludelist <<-EOF
+	etc/dbus-1
 	etc/env.d
 	etc/environment.d
 	etc/portage
@@ -1394,19 +1438,20 @@ make_squashfs()
 	usr/lib*/*.o
 	usr/lib*/pkgconfig
 	usr/lib*/systemd
-        usr/lib*/valgrind/*.a
-        usr/share/aclocal
+	usr/lib*/valgrind/*.a
+	usr/share/aclocal
 	usr/share/doc
-        usr/share/et
-        usr/share/glib-2.0
+	usr/share/et
+	usr/share/glib-2.0
 	usr/share/gtk-doc
 	usr/share/i18n
+	usr/share/info
 	usr/share/locale/*
 	usr/share/man
 	usr/share/sounds
-        usr/share/ss
+	usr/share/ss
 	usr/share/X11
-        usr/share/zsh
+	usr/share/zsh
 	var
 	EOF
     find "$NEWROOT"/usr/include/ -mindepth 1 -maxdepth 1 | sed "s/^\/newroot\/// ; /^usr\/include\/python/d" >> /tmp/excludelist
@@ -1463,7 +1508,7 @@ compile_busybox()
     # Prepare busybox source
     tar_bz2 -xf "$BUSYBOX_PKG" -C "$BUILDDIR"
     cp "$BUILDSCRIPTS/tegra/busybox-config" "$BUILDDIR/$BUSYBOX"/.config
-    sed -i "/CONFIG_CROSS_COMPILER_PREFIX/s/=.*/=\"${TEGRAABI}-\"/" "$BUILDDIR/$BUSYBOX"/.config
+    is_cross_compile && sed -i "/CONFIG_CROSS_COMPILER_PREFIX/s/=.*/=\"${TEGRAABI}-\"/" "$BUILDDIR/$BUSYBOX"/.config
 
     # Compile busybox
     (
@@ -1525,9 +1570,11 @@ make_tegra_image()
     chmod 660 "$FILESYSTEM/dev/loop0"
 
     # Create symlinks
-    for DIR in bin sbin lib64 usr; do
-        ln -s mnt/squash/"$DIR" "$FILESYSTEM/$DIR"
-    done
+    ln -s mnt/squash/usr/bin   "$FILESYSTEM/bin"
+    ln -s mnt/squash/usr/bin   "$FILESYSTEM/sbin"
+    ln -s mnt/squash/usr/lib64 "$FILESYSTEM/lib"
+    ln -s mnt/squash/usr/lib64 "$FILESYSTEM/lib64"
+    ln -s mnt/squash/usr       "$FILESYSTEM/usr"
 
     # Create symlink to /sys/kernel/debug
     ln -s sys/kernel/debug "$FILESYSTEM/d"
@@ -1546,7 +1593,6 @@ make_tegra_image()
     unset PACKAGE
 
     # Clean up debug directory - leave only files we need
-    local LIBDIR=lib64
     local DEBUG_FILES=(
         ld-linux-aarch64.so*.debug
         libc.so*.debug
@@ -1557,11 +1603,11 @@ make_tegra_image()
     )
     rm -rf /tiny/debug.del
     mv /tiny/debug /tiny/debug.del
-    mkdir -p /tiny/debug/$LIBDIR
-    if [ -e /tiny/debug.del/$LIBDIR ]; then
+    mkdir -p /tiny/debug/lib64
+    if [ -e /tiny/debug.del/lib64 ]; then
         local DEBUG_FILE
         for DEBUG_FILE in "${DEBUG_FILES[@]}"; do
-            DEBUG_FILE=`find /tiny/debug.del/$LIBDIR/ -name "$DEBUG_FILE"`
+            DEBUG_FILE=`find /tiny/debug.del/lib64/ -name "$DEBUG_FILE"`
             [[ -z $DEBUG_FILE ]] || mv "$DEBUG_FILE" "${DEBUG_FILE/debug.del/debug}"
         done
     fi
@@ -1573,7 +1619,7 @@ make_tegra_image()
     # Package optional directories
     ( cd /tiny && tar_bz2 -cpf "$OUTDIR/debug.tar.bz2"    debug    )
     ( cd /tiny && tar_bz2 -cpf "$OUTDIR/valgrind.tar.bz2" valgrind )
-    ( cd "$NEWROOT" && tar_bz2 -cpf "$OUTDIR/lib.tar.bz2" --exclude=mdev --exclude=firmware --exclude=modules --exclude=libnv*so $LIBDIR )
+    ( cd "$NEWROOT" && tar_bz2 -cpf "$OUTDIR/lib.tar.bz2" --exclude=mdev --exclude=firmware --exclude=modules --exclude=libnv*so usr/lib64 )
 
     # Create initial ramdisk
     local INITRD

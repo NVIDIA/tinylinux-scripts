@@ -4,6 +4,14 @@ TinyLinux release history
  * Added /etc/sysctl.conf
  * Added initial support for WiFi
  * Added ps aux command in tinyinfo
+ * Improved logging for boot services
+ * Log mounted partitions in syslog
+ * Log loaded modules
+ * Add option to enable kernel log in syslog
+ * Add support for /etc/modules.blacklist
+ * Add /etc/coldplug which lists busses to scan
+ * Scan bus/platform in coldplug
+ * Kill lingering jobs spawned by services
 -------------------------------------------------------------------------------
 23.01
  * Updated kernel to 6.1.7

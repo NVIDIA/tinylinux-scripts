@@ -19,23 +19,30 @@ install_package sys-apps/kexec-tools "zlib"
 install_package sys-process/numactl
 install_package media-sound/sox "alsa ao"
 install_package sys-block/fio "numa zlib"
+emerge --quiet --noreplace dev-libs/json-c dev-util/cmake # Needed by nvme-cli, but missing dependency
 install_package sys-apps/nvme-cli "uuid"
 install_package sys-apps/ethtool
 install_package net-misc/iperf
 
 # bluez dependencies
-NEWROOT=/ install_package docbook-xml-dtd:4.4           # Host dependency for building dbus
-NEWROOT=/ install_package app-text/xmlto                # Host dependency for building dbus
-NEWROOT="/usr/$TEGRAABI" install_package sys-apps/dbus  # Host dependency for bluez
-install_package dev-libs/glib ""                        # Needed for bluez
+if is_cross_compile; then
+    NEWROOT=/ install_package docbook-xml-dtd:4.4           # Host dependency for building dbus
+    NEWROOT=/ install_package app-text/xmlto                # Host dependency for building dbus
+    NEWROOT="/usr/$TEGRAABI" install_package sys-apps/dbus  # Host dependency for bluez
+fi
+install_package dev-libs/glib "" # Needed for bluez
 
-emerge --quiet --noreplace dev-python/docutils # needed for bluez
+emerge --quiet --noreplace dev-python/docutils sys-apps/dbus # Needed for bluez
 install_package net-wireless/bluez deprecated "--nodeps" # Avoid pulling dbus
 
-NEWROOT="/usr/$TEGRAABI" PYTHON_TARGETS=python3_10 install_package dev-util/perf "zlib" # need deps to build perf
+if is_cross_compile; then
+    NEWROOT="/usr/$TEGRAABI" PYTHON_TARGETS=python${PYTHON_VER/./_} install_package dev-util/perf "zlib" # need deps to build perf
+else
+    PYTHON_TARGETS=python${PYTHON_VER/./_} USE="zlib" emerge --quiet --noreplace dev-util/perf # need deps to build perf
+fi
 install_package dev-libs/elfutils                       # Needed by perf
 install_package sys-libs/binutils-libs "" "--nodeps"    # Needed by perf
-PYTHON_TARGETS=python3_10 install_package dev-util/perf "zlib" "--nodeps"
+PYTHON_TARGETS=python${PYTHON_VER/./_} install_package dev-util/perf "zlib" "--nodeps"
 
 # Set timezone
 sed -i "/TZ/s/UTC/PST8PDT/" "$NEWROOT/etc/bash/bashrc"
@@ -45,5 +52,4 @@ install_into /etc/conf.d boot hostname
 rm -f "$NEWROOT/etc/autofs/auto.master"
 
 # Update mdev config
-echo "mods 0:30 660" >> "$NEWROOT/etc/mdev.conf"
 sed -i "/MODALIAS/s/:0/:30/" "$NEWROOT/etc/mdev.conf"

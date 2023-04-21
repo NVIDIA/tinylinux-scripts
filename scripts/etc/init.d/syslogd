@@ -1,14 +1,16 @@
 #!/usr/bin/rc
 
-# Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2009-2023, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 start()
 {
-    /usr/bin/syslogd
+    /usr/bin/syslogd $SYSLOGD_OPTIONS
+    [ "$KLOGD_ENABLED" != "1" ] || /usr/bin/klogd $KLOGD_OPTIONS
 }
 
 stop()
 {
+    /usr/bin/start-stop-daemon --stop --exec /usr/bin/klogd
     /usr/bin/start-stop-daemon --stop --exec /usr/bin/syslogd
 }

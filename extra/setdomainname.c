@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2009-2015, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2009-2023, NVIDIA CORPORATION.  All rights reserved.
  * See LICENSE file for details.
  */
 
 #include <unistd.h>
-#include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 int main(int argc, char* argv[])
 {
@@ -14,6 +15,11 @@ int main(int argc, char* argv[])
         printf("Usage: setdomainname <DOMAINNAME>\n");
         return 1;
     }
-    setdomainname(argv[1], strlen(argv[1]));
-    return 0;
+
+    if (setdomainname(argv[1], strlen(argv[1]))) {
+        perror(argv[1]);
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
 }

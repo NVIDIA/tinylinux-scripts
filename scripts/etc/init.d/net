@@ -27,11 +27,11 @@ WIRELESS_UP=""
 
 setup_wlan()
 {
-    [ -z "$WIRELESS_UP" ]] || return
-    [ -n "$WIRELESS_NETWORK" ]] || return
+    [ -z "$WIRELESS_UP" ] || return
+    [ -n "$WIRELESS_NETWORK" ] || return
     [ -d "/sys/class/net/$1/wireless" ] || return
 
-    echo -n " connecting $1 to $WIRELESS_NETWORK" >&2
+    info "connecting $1 to $WIRELESS_NETWORK"
     [ -z "$WIRELESS_PASSWORD" ] || WIRELESS_KEY="s:$WIRELESS_PASSWORD"
     iwconfig "$1" essid "$WIRELESS_NETWORK" key "$WIRELESS_KEY" mode "$WIRELESS_MODE"
 
@@ -80,7 +80,7 @@ start()
                     fi
 
                     FOUND_IFACE="$IIFACE"
-                    echo -n " auto-detected $FOUND_IFACE" >&2
+                    info "auto-detected $FOUND_IFACE"
                     break
                 fi
             done
@@ -88,8 +88,8 @@ start()
             # Break if the IFACE has been found
             [ -z $FOUND_IFACE ] || break
 
-            [ $LOOP = 1 ] && echo -n " waiting for link" >&2
-            [ $LOOP -gt 1 ] && echo -n "." >&2
+            [ $LOOP = 1 ] && info "waiting for link"
+            [ $LOOP -gt 1 ] && echo "." >&3
             sleep 0.5
             LOOP=$(($LOOP + 1))
         done
@@ -97,7 +97,7 @@ start()
         bring_down_ifaces "$IFACES_BROUGHT_UP" "$FOUND_IFACE"
 
         if [ -z "$FOUND_IFACE" ]; then
-            echo -n " no cable detected on$IFACES_BROUGHT_UP" >&2
+            error "no cable detected on$IFACES_BROUGHT_UP"
             return 1
         fi
         IFACE="$FOUND_IFACE"
@@ -105,18 +105,19 @@ start()
 
     # Wait for the network interface if it does not exist
     if [ ! -d "/sys/class/net/$IFACE" -a -n "$TIMEOUT" ]; then
-        echo -n " waiting for $IFACE" >&2
+        info "waiting for $IFACE"
         local LOOP=0
         while [ $LOOP -lt $((TIMEOUT * 2)) ]; do
             [ ! -d "/sys/class/net/$IFACE" ] || break
             LOOP=$(($LOOP + 1))
             sleep 0.5
-            echo -n "." >&2
+            echo "." >&3
         done
     fi
 
     # Bring up networking
     if [ -d "/sys/class/net/$IFACE" ]; then
+        logger -p 24.5 -t rc.net "Configuring $IFACE"
         if [ "$STATICIP" ]; then
             NETMASK=`echo "$STATICIP" | cut -f 2 -d '/'`
             STATICIP=`echo "$STATICIP" | cut -f 1 -d '/'`
@@ -124,7 +125,7 @@ start()
         fi
         setup_wlan "$IFACE"
         if [ "$STATICIP" ]; then
-            echo -n " static IP $STATICIP" >&2
+            info "static IP $STATICIP"
 
             # Set up IP
             ifconfig "$IFACE" "$STATICIP" netmask "$NETMASK"
@@ -146,20 +147,17 @@ start()
                 done
             fi
         else
-            echo -n " DHCP" >&2
+            info "DHCP"
             [ -f /etc/resolv.conf ] && rm /etc/resolv.conf
             ifconfig "$IFACE" up
-            if [ "$BACKGROUND_UDHCPC" = "1" ]; then
-                /usr/bin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS &
-            else
-                /usr/bin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS
-            fi
+            [ "$BACKGROUND_UDHCPC" = "1" ] && UDHCPC_OPTIONS="-b $UDHCPC_OPTIONS"
+            /usr/bin/udhcpc -i "$IFACE" -s "/etc/udhcpc.scripts" $UDHCPC_OPTIONS
         fi
 
         # Store the interface name to file
         echo "$IFACE" > "$SAVED_IFACE_FILE"
     else
-        echo -n " missing $IFACE" >&2
+        info "missing $IFACE"
         return 1
     fi
 }

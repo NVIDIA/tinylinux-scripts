@@ -34,7 +34,7 @@ mount -t devtmpfs devtmpfs /dev
 KERNEL_BOOT_TIME=$(awk '{print $1*1000}' /proc/uptime)
 
 # Prevent kernel logs from being sent to the console
-dmesg -n 1
+dmesg -n 3
 
 # Setup hotplug
 # Use modprobe from busybox to avoid genkernel's modprobe sript
