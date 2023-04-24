@@ -564,7 +564,7 @@ emerge_basic_packages()
 
     boldecho "Compiling basic host packages"
 
-    if ! emerge --quiet squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel sys-devel/bc less libtirpc rpcbind rpcsvc-proto dev-libs/glib lbzip2; then
+    if ! emerge --quiet --noreplace squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel sys-devel/bc less libtirpc rpcbind rpcsvc-proto dev-libs/glib lbzip2; then
         boldecho "Failed to emerge some packages"
         boldecho "Please complete installation manually"
         bash
@@ -574,8 +574,10 @@ emerge_basic_packages()
 
     local KERNELPKG=gentoo-sources
     [[ $RCKERNEL = 1 ]] && KERNELPKG=git-sources
+    local BOOTLOADERPKG=""
+    [[ $(uname -m) = x86_64 ]] && BOOTLOADERPKG="syslinux grub"
     if [[ -z $TEGRABUILD ]]; then
-        if ! USE=symlink emerge --quiet $KERNELPKG syslinux grub; then
+        if ! USE=symlink emerge --quiet $KERNELPKG $BOOTLOADERPKG; then
             boldecho "Failed to emerge some packages"
             boldecho "Please complete installation manually"
             bash
@@ -773,6 +775,7 @@ list_package_files()
 install_syslinux()
 {
     [[ $TEGRABUILD ]] && return 0
+    [[ $(uname -m) = x86_64 ]] || return 0
 
     local DESTDIR
     local SAVEROOT
@@ -1140,7 +1143,7 @@ prepare_installation()
 
     [[ $INSTALLEXISTED = 1 ]] && return 0
 
-    if [[ -z $TEGRABUILD ]]; then
+    if [[ -z $TEGRABUILD ]] && [[ $(uname -m) = x86_64 ]]; then
         mkdir -p "$INSTALL/syslinux"
         echo "default /tiny/kernel initrd=/tiny/initrd quiet" > "$INSTALL/syslinux/syslinux.cfg"
         get_legacy_syslinux_installer "$INSTALL"
@@ -1615,6 +1618,7 @@ make_tegra_image()
     rm -rf /tiny/debug.del
     mkdir -p /tiny/debug/mnt
     ln -s .. /tiny/debug/mnt/squash
+    ln -s lib64 /tiny/debug/lib
 
     # Package optional directories
     ( cd /tiny && tar_bz2 -cpf "$OUTDIR/debug.tar.bz2"    debug    )

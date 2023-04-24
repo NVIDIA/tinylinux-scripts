@@ -18,7 +18,12 @@ ignore_busybox_symlinks /usr/bin/bzip2 /usr/bin/bunzip2 /usr/bin/bzcat
 install_package perl "ithreads"
 ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read # Print news items from PERL
 install_package iasl
-install_package pmtools
+if [[ $(uname -m) = x86_64 ]]; then
+    install_package pmtools
+    install_package vbetool
+    install_package ipmitool "openipmi python"
+    install_package ipmiutil
+fi
 install_package sys-devel/gdb "client server"
 install_package dev-util/strace "aio"
 ignore_busybox_symlinks /usr/bin/xxd
@@ -27,12 +32,9 @@ install_package vim minimal --nodeps
 sed -i '/skip_defaults_vim/s/^/"/' "$NEWROOT"/etc/vim/vimrc
 install_package alsa-utils "ncurses libsamplerate"
 remove_gentoo_services alsasound
-install_package vbetool
 install_package net-nds/ypbind
 install_package net-fs/autofs "" "--nodeps"
 yes | ROOT=/newroot etc-update --automode -7 # Clean up autofs script changes
-install_package ipmitool "openipmi python"
-install_package ipmiutil
 install_package dmidecode
 ignore_busybox_symlinks /usr/bin/i2cdetect /usr/bin/i2cset /usr/bin/i2cdump /usr/bin/i2cget /usr/bin/i2ctransfer
 install_package sys-apps/i2c-tools "python"
@@ -70,7 +72,9 @@ install_package dev-python/pyocr "tesseract"
 mkdir -p /etc/portage/package.accept_keywords
 echo "dev-perl/DateTime-HiRes **" >> /etc/portage/package.accept_keywords/full
 install_package dev-perl/JSON
-install_package dev-perl/Getopt-Long-Descriptive
+if [[ $(uname -m) = x86_64 ]]; then
+    install_package dev-perl/Getopt-Long-Descriptive
+fi
 install_package dev-perl/DateTime-HiRes
 install_package dev-perl/Text-Iconv
 install_package dev-perl/Spreadsheet-ParseExcel
