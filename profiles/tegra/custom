@@ -1,7 +1,3 @@
-# Terminal on Tegra only goes to serial
-sed -i "/^tty.*getty/d" "$NEWROOT"/etc/inittab
-sed -i "/getty/s/38400/115200/ ; /getty/s/tty1/ttyS0/ ; /getty/s/-n/-L -n/" "$NEWROOT"/etc/inittab
-
 # Additional packages
 install_package sys-devel/gdb "client server xml"
 install_package dev-util/valgrind

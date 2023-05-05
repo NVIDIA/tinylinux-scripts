@@ -15,6 +15,7 @@ NFSSHARE=""
 NET="eth0"
 OVRCFG="1"
 COLDPLUG="1"
+TTY=""
 
 # Clear input and output
 exec >${CONSOLE} <${CONSOLE} 2>&1
@@ -46,19 +47,16 @@ chmod 755 /tmp/hotplug
 echo /tmp/hotplug > /proc/sys/kernel/hotplug
 
 # Allow overriding squash.bin location on the kernel command line
-parse_opt()
-{
-    echo "$1" | cut -f 2- -d '='
-}
-for ARG in `cat /proc/cmdline`; do
+for ARG in $(cat /proc/cmdline); do
     case "$ARG" in
-        squash\=*)        SQUASHFS_BIN=`parse_opt "$ARG"` ;;
-        partno\=*)        PARTNUMBER=`parse_opt "$ARG"` ;;
-        nfsshare\=*)      NFSSHARE=`parse_opt "$ARG"` ;;
-        net\=*)           NET=`parse_opt "$ARG"` ;;
-        ovrcfg\=*)        OVRCFG=`parse_opt "$ARG"` ;;
-        mount_timeout\=*) MNT_TIMEOUT=`parse_opt "$ARG"` ;;
+        squash\=*)        SQUASHFS_BIN="${ARG#*=}" ;;
+        partno\=*)        PARTNUMBER="${ARG#*=}" ;;
+        nfsshare\=*)      NFSSHARE="${ARG#*=}" ;;
+        net\=*)           NET="${ARG#*=}" ;;
+        ovrcfg\=*)        OVRCFG="${ARG#*=}" ;;
+        mount_timeout\=*) MNT_TIMEOUT="${ARG#*=}" ;;
         nocoldplug)       COLDPLUG="" ;;
+        console\=*)       TTY="${ARG#*=}" ;;
     esac
 done
 
@@ -108,10 +106,10 @@ while true; do
         fi
     else
         [ -z "$PARTNUMBER" ] || P_PARTNUMBER="p$PARTNUMBER"
-        for DEVFILE in `find /dev/ -name "[sh]d[a-z]${PARTNUMBER}*" \
+        for DEVFILE in $(find /dev/ -name "[sh]d[a-z]${PARTNUMBER}*" \
                                 -o -name "sr${PARTNUMBER}*"         \
                                 -o -name "mmcblk*${P_PARTNUMBER}*"  \
-                                -o -name "nvme*n*${P_PARTNUMBER}*"`; do
+                                -o -name "nvme*n*${P_PARTNUMBER}*"); do
             echo "$TRIEDDEVS" | grep -q "$DEVFILE\>" && continue
             mount "$DEVFILE" "${ROOTFS}/${MNTNV}" 2>/dev/null || continue
 
@@ -147,7 +145,7 @@ rm -f etc
 ln -s "${MNTNV}/home" home
 
 # Determine location of upper /etc filesystem for overlayfs
-CONFIG_DIR="${ROOTFS}/${MNTNV}/`dirname "$SQUASHFS_BIN"`"
+CONFIG_DIR="${ROOTFS}/${MNTNV}/$(dirname "$SQUASHFS_BIN")"
 
 # Mounts /etc using overlayfs
 mount_overlay()
@@ -256,6 +254,26 @@ fi
 
 # Copy resolv.conf
 [ "$NFSSHARE" ] && [ -f "/etc/resolv.conf" ] && cp /etc/resolv.conf etc/
+
+# Update configuration of TTY based on console= setting
+if [ "$TTY" != "" ] && grep -q "^::respawn:.*getty.*login_root\>" etc/inittab; then
+    TTY_OPTS="${TTY#*,}"
+    TTY="${TTY%%,*}"
+    if echo "$TTY" | grep -q "^tty"; then
+
+        BAUD="${TTY_OPTS%%,*}"
+        echo "$BAUD" | grep -q "^[0-9]\+$" || BAUD=115200
+
+        TERM=vt102
+        CARRIER_DETECT="-L "
+        if echo "$TTY" | grep -q "^tty[1-9]$"; then
+            TERM=linux
+            CARRIER_DETECT=""
+        fi
+
+        sed -i "/::respawn:.*getty.*login_root/s/.*/::respawn:\/usr\/bin\/getty ${CARRIER_DETECT}-n -l \/usr\/bin\/login_root $BAUD $TTY $TERM/" etc/inittab
+    fi
+fi
 
 # Create necessary directories
 mkdir dev
