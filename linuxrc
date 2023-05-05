@@ -14,6 +14,7 @@ SQUASHFS_BIN="tiny/squash.bin"
 NFSSHARE=""
 NET="eth0"
 OVRCFG="1"
+READONLY=""
 COLDPLUG="1"
 TTY=""
 
@@ -57,6 +58,7 @@ for ARG in $(cat /proc/cmdline); do
         mount_timeout\=*) MNT_TIMEOUT="${ARG#*=}" ;;
         nocoldplug)       COLDPLUG="" ;;
         console\=*)       TTY="${ARG#*=}" ;;
+        ro)               READONLY="-o ro" ;;
     esac
 done
 
@@ -111,11 +113,12 @@ while true; do
                                 -o -name "mmcblk*${P_PARTNUMBER}*"  \
                                 -o -name "nvme*n*${P_PARTNUMBER}*"); do
             echo "$TRIEDDEVS" | grep -q "$DEVFILE\>" && continue
-            mount "$DEVFILE" "${ROOTFS}/${MNTNV}" 2>/dev/null || continue
+            mount $READONLY "$DEVFILE" "${ROOTFS}/${MNTNV}" 2>/dev/null || continue
 
             TRIEDDEVS="$TRIEDDEVS $DEVFILE"
             if [ -f "${ROOTFS}/${MNTNV}/${SQUASHFS_BIN}" ] && mount_squash "$DEVFILE"; then
                 echo "Found root device ${DEVFILE}"
+                [ -z "$READONLY" ] || echo "Mounted ${DEVFILE} as read-only"
                 FOUNDDEV="${DEVFILE}"
                 break
             fi
@@ -150,28 +153,46 @@ CONFIG_DIR="${ROOTFS}/${MNTNV}/$(dirname "$SQUASHFS_BIN")"
 # Mounts /etc using overlayfs
 mount_overlay()
 {
-    mount -t overlay -o noatime,lowerdir="${ROOTFS}/${MNTSQUASH}/etc",upperdir="$1/etc",workdir="$1/work" overlay etc
+    mount -t overlay -o "noatime,lowerdir=$1,upperdir=$2,workdir=$3" overlay etc
 }
 
 # Mounts /etc overlayfs using upper filesystem from config file
 mount_overlay_from_config()
 {
     local ETCOVR
+    local LOWER
+    local UPPER
+    local WORK
     if [ -f "$CONFIG_DIR/config" ]; then
         ETCOVR="${ROOTFS}/${MNTETC}"
+        local RO=""
+        [ -z "$READONLY" ] || RO=",ro"
         mkdir -p "$ETCOVR"
-        mount -o loop "$CONFIG_DIR/config" "$ETCOVR" || return $?
+        mount -o "loop$RO" "$CONFIG_DIR/config" "$ETCOVR" || return $?
+
+        if [ -z "$READONLY" ]; then
+            # config is writeable
+            LOWER="${ROOTFS}/${MNTSQUASH}/etc"
+            UPPER="${ETCOVR}/etc"
+            WORK="${ETCOVR}/work"
+        else
+            # config is read-only
+            LOWER="${ETCOVR}/etc:${ROOTFS}/${MNTSQUASH}/etc"
+            UPPER="${ROOTFS}/tmp/etc/etc"
+            WORK="${ROOTFS}/tmp/etc/work"
+        fi
     else
-        ETCOVR=etc_overlay
-        mkdir -p "$ETCOVR"
         echo "Persistent configuration not found, storing configuration in tmpfs"
+        LOWER="${ROOTFS}/${MNTSQUASH}/etc"
+        UPPER="${ROOTFS}/tmp/etc/etc"
+        WORK="${ROOTFS}/tmp/etc/work"
     fi
 
-    mkdir -p "${ETCOVR}/etc" "${ETCOVR}/work"
+    mkdir -p "$UPPER" "$WORK"
 
     local RET
     RET=0
-    mount_overlay "${ETCOVR}" || RET=$?
+    mount_overlay "$LOWER" "$UPPER" "$WORK" || RET=$?
 
     [ $RET -eq 0 ] || umount "$ETCOVR"
 
@@ -181,6 +202,11 @@ mount_overlay_from_config()
 # Creates a clean configuration in upper filesystem
 restore_previous_config()
 {
+    if [ -n "$READONLY" ]; then
+        echo "Unable to restore configuration to a read-only filesystem"
+        return 1
+    fi
+
     echo "Restoring previous configuration"
 
     local ETCOVR
@@ -195,7 +221,7 @@ restore_previous_config()
 
     local RET
     RET=0
-    mount_overlay "${ETCOVR}" || RET=$?
+    mount_overlay "${ROOTFS}/${MNTSQUASH}/etc" "${ETCOVR}/etc" "${ETCOVR}/work" || RET=$?
 
     if [ $RET -ne 0 ]; then
         umount "$ETCOVR"
@@ -280,7 +306,7 @@ mkdir dev
 mkdir proc
 mkdir root
 mkdir sys
-mkdir tmp
+mkdir -p tmp
 chmod 1777 tmp
 mkdir -p var/tmp
 chmod 1777 var/tmp
