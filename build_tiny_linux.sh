@@ -73,7 +73,13 @@ while [[ $# -gt 1 ]]; do
                       *) die "Unrecognized arch - $ARCH" ;;
                   esac
                   ;;
+        --grub) USEGRUB=1 ;;
         --rc-kernel) RCKERNEL=1 ;;
+        --custom-kernel)
+            CUSTOMKERNEL="$1"
+            [[ -d $CUSTOMKERNEL ]] || die "Kernel directory $CUSTOMKERNEL does not exist"
+            shift
+            ;;
         *) die "Unrecognized option - $OPT" ;;
     esac
 done
@@ -115,6 +121,7 @@ VERSION="${VERSION:-$(date "+%y.%m.%d")}"
 [[ $REBUILDSQUASHFS  ]] && export REBUILDSQUASHFS
 [[ $KERNELMENUCONFIG ]] && export KERNELMENUCONFIG
 [[ $DEPLOY           ]] && export DEPLOY
+[[ $USEGRUB          ]] && export USEGRUB
 [[ $RCKERNEL         ]] && export RCKERNEL
 [[ $TEGRABUILD       ]] && export TEGRABUILD
 [[ $TEGRAABI         ]] && export TEGRAABI
@@ -266,6 +273,15 @@ copy_scripts()
         cp -r "$SCRIPTSDIR"/scripts  "$DESTDIR"
         cp -r "$SCRIPTSDIR"/extra    "$DESTDIR"
         [[ -z $TEGRABUILD ]] || cp -r "$SCRIPTSDIR"/tegra "$DESTDIR"
+    fi
+
+    # Copy custom kernel
+    if [[ -n $CUSTOMKERNEL ]]; then
+        boldecho "Copying custom kernel sources"
+        mkdir -p "$BUILDROOT/usr/src/linux-custom"
+        rsync -av --progress "$CUSTOMKERNEL"/ "$BUILDROOT/usr/src/linux-custom"
+        rm -f "$BUILDROOT/usr/src/linux"
+        ln -s linux-custom "$BUILDROOT/usr/src/linux"
     fi
 
     # Update TinyLinux version printed on boot
@@ -559,25 +575,43 @@ run_interactive()
 
 emerge_basic_packages()
 {
-    # Skip if the packages were already installed
-    [ ! -e /usr/src/linux ] || return 0
-
     boldecho "Compiling basic host packages"
 
-    if ! emerge --quiet --noreplace squashfs-tools zip pkgconfig dropbear dosfstools reiserfsprogs genkernel sys-devel/bc less libtirpc rpcbind rpcsvc-proto dev-libs/glib lbzip2; then
+    local SYSLINUX_PKG=""
+    [[ $(uname -m) = x86_64 ]] && SYSLINUX_PKG="syslinux"
+
+    local HOST_PKGS=(
+        dev-libs/glib
+        dosfstools
+        dropbear
+        genkernel
+        grub
+        lbzip2
+        less
+        libtirpc
+        pkgconfig
+        reiserfsprogs
+        rpcbind
+        rpcsvc-proto
+        squashfs-tools
+        sys-devel/bc
+        $SYSLINUX_PKG
+        zip
+    )
+    if ! emerge --quiet --noreplace ${HOST_PKGS[@]}; then
         boldecho "Failed to emerge some packages"
         boldecho "Please complete installation manually"
         bash
     fi
 
-    [[ -z $TEGRABUILD ]] || USE="static-libs" emerge --quiet sys-libs/libxcrypt
+    USE="static-libs" emerge --quiet --noreplace sys-libs/libxcrypt
 
-    local KERNELPKG=gentoo-sources
-    [[ $RCKERNEL = 1 ]] && KERNELPKG=git-sources
-    local BOOTLOADERPKG=""
-    [[ $(uname -m) = x86_64 ]] && BOOTLOADERPKG="syslinux grub"
-    if [[ -z $TEGRABUILD ]]; then
-        if ! USE=symlink emerge --quiet $KERNELPKG $BOOTLOADERPKG; then
+    # Skip the kernel on Tegra or if it is already installed
+    if [[ -z $TEGRABUILD ]] && [ ! -e /usr/src/linux ]; then
+        local KERNELPKG=gentoo-sources
+        [[ $RCKERNEL = 1 ]] && KERNELPKG=git-sources
+
+        if ! USE=symlink emerge --quiet $KERNELPKG; then
             boldecho "Failed to emerge some packages"
             boldecho "Please complete installation manually"
             bash
@@ -673,6 +707,8 @@ compile_kernel()
 
     # Skip compilation if kernel has already been built
     [ ! -f /boot/vmlinuz-* ] || [[ $REBUILDKERNEL = 1 ]] || return 0
+
+    [ -e /usr/src/linux ] && [[ $(readlink /usr/src/linux) = linux-custom ]] && boldecho "Using custom kernel sources"
 
     # Delete old kernel
     rm -rf /boot/vmlinuz-*
@@ -1014,6 +1050,11 @@ build_newroot()
         fi
     done
 
+    # Remove additional terminals on ARM
+    if [[ $TEGRABUILD ]] || [[ $(uname -m) = aarch64 ]]; then
+        sed -i "/^tty.*getty/d" "$NEWROOT"/etc/inittab
+    fi
+
     # Install syslinux so TinyLinux can reinstall itself
     install_syslinux
 
@@ -1143,7 +1184,8 @@ prepare_installation()
 
     [[ $INSTALLEXISTED = 1 ]] && return 0
 
-    if [[ -z $TEGRABUILD ]] && [[ $(uname -m) = x86_64 ]]; then
+    # Install syslinux bootloader
+    if [[ -z $TEGRABUILD ]] && [[ $(uname -m) = x86_64 ]] && [[ $USEGRUB != 1 ]]; then
         mkdir -p "$INSTALL/syslinux"
         echo "default /tiny/kernel initrd=/tiny/initrd quiet" > "$INSTALL/syslinux/syslinux.cfg"
         get_legacy_syslinux_installer "$INSTALL"
@@ -1152,25 +1194,39 @@ prepare_installation()
         mkdir -p "$EFI_BOOT"
         cp /usr/share/syslinux/efi64/syslinux.efi "$EFI_BOOT/bootx64.efi"
         cp /usr/share/syslinux/efi64/ldlinux.e64  "$EFI_BOOT"/
+    fi
 
-        # Prepare GRUB as an alternative
-        if [[ ! -f /grub.zip ]]; then
-            local MODULES=(
-                part_gpt
-                part_msdos
-                ext2
-                fat
-                exfat
-            )
-            rm -rf /grub
-            mkdir -p /grub/EFI/BOOT /grub/grub/x86_64-efi
-            grub-mkimage --directory '/usr/lib/grub/x86_64-efi' --prefix '(hd0,1)/grub' --output '/grub/EFI/BOOT/BOOTX64.EFI' --format 'x86_64-efi' --compression 'auto' "${MODULES[@]}"
-            cp /usr/lib/grub/x86_64-efi/*.mod /grub/grub/x86_64-efi
-            cat > /grub/grub/grub.cfg <<-EOF
+    # Prepare GRUB as an alternative
+    if [[ -z $TEGRABUILD ]]; then
+        local GRUB_MODULES=(
+            part_gpt
+            part_msdos
+            ext2
+            fat
+            exfat
+        )
+
+        local GRUBARCH="$(uname -m)"
+        if [[ $GRUBARCH = aarch64 ]]; then
+            GRUBARCH=arm64
+            USEGRUB=1
+        fi
+
+        local GRUBINSTALL="$INSTALL"
+        if [[ "$USEGRUB" != "1" ]]; then
+            GRUBINSTALL="/grub"
+            rm -rf "$GRUBINSTALL"
+        fi
+
+        mkdir -p "$GRUBINSTALL/EFI/BOOT" "$GRUBINSTALL/grub/$GRUBARCH-efi"
+        grub-mkimage --directory "/usr/lib/grub/$GRUBARCH-efi" --prefix '(hd0,1)/grub' --output "$GRUBINSTALL/EFI/BOOT/BOOTX64.EFI" --format "$GRUBARCH-efi" --compression 'auto' "${GRUB_MODULES[@]}"
+        cp /usr/lib/grub/$GRUBARCH-efi/*.mod "$GRUBINSTALL/grub/$GRUBARCH-efi"
+
+        cat > "$GRUBINSTALL/grub/grub.cfg" <<-EOF
 		set timeout=0
 		
 		insmod efi_gop
-		insmod efi_uga
+		$(test "$GRUBARCH" = "x86_64" && echo "insmod efi_uga")
 		
 		menuentry "TinyLinux" {
 		    insmod linux
@@ -1178,6 +1234,8 @@ prepare_installation()
 		    initrd /tiny/initrd
 		}
 		EOF
+
+        if [[ "$USEGRUB" != "1" ]]; then
             cd grub
             rm -f /grub.zip
             zip -9 -r -q /grub.zip *
