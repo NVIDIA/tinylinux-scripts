@@ -14,11 +14,11 @@ parse_opt()
 for ARG in `cat /proc/cmdline`; do
     #echo "Parsing option $ARG"
     case "$ARG" in
-        net\=*) IFACE=`parse_opt "$ARG"` ;;
-        staticip\=*) STATICIP=`parse_opt "$ARG"` ;;
-        gateway\=*) GATEWAY=`parse_opt "$ARG"` ;;
-        dns\=*) DNS=`parse_opt "$ARG" | sed "s/,/ /g"` ;;
-        dnsdomain\=*) DNSDOMAIN=`parse_opt "$ARG"` ;;
+        net\=*) IFACE="${ARG#*=}" ;;
+        staticip\=*) STATICIP="${ARG#*=}" ;;
+        gateway\=*) GATEWAY="${ARG#*=}" ;;
+        dns\=*) DNS="${ARG#*=}" ; DNS="${DNS//,/ }" ;;
+        dnsdomain\=*) DNSDOMAIN="${ARG#*=}" ;;
         nfsshare\=*) IFACE="none" ;; # DHCP already done
     esac
 done
@@ -89,7 +89,7 @@ start()
             [ -z $FOUND_IFACE ] || break
 
             [ $LOOP = 1 ] && info "waiting for link"
-            [ $LOOP -gt 1 ] && echo "." >&3
+            [ $LOOP -gt 1 ] && echo -n "." >&3
             sleep 0.5
             LOOP=$(($LOOP + 1))
         done
@@ -111,7 +111,7 @@ start()
             [ ! -d "/sys/class/net/$IFACE" ] || break
             LOOP=$(($LOOP + 1))
             sleep 0.5
-            echo "." >&3
+            echo -n "." >&3
         done
     fi
 
