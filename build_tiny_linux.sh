@@ -77,7 +77,9 @@ while [[ $# -gt 1 ]]; do
         --rc-kernel) RCKERNEL=1 ;;
         --custom-kernel)
             CUSTOMKERNEL="$1"
+            REBUILDKERNEL="1"
             [[ -d $CUSTOMKERNEL ]] || die "Kernel directory $CUSTOMKERNEL does not exist"
+            [[ -f $CUSTOMKERNEL/Makefile ]] || die "File $CUSTOMKERNEL/Makefile does not exist"
             shift
             ;;
         *) die "Unrecognized option - $OPT" ;;
