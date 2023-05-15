@@ -349,11 +349,6 @@ run_in_chroot()
     exit
 }
 
-is_cross_compile()
-{
-    [[ $TEGRABUILD && $(uname -m) != aarch64 ]]
-}
-
 check_env()
 {
     if [[ -f /var/lib/misc/extra ]]; then
@@ -440,10 +435,9 @@ prepare_portage()
     echo "sys-power/iasl ~*" >> $KEYWORDS
 
     # Enable some packages on 64-bit ARM (temporary, until enabled in Gentoo)
-    if [[ $TEGRABUILD ]] || [[ $STAGE3ARCH = arm64 ]]; then
+    if [[ $STAGE3ARCH = arm64 ]]; then
         local ACCEPT_PKGS
         ACCEPT_PKGS=(
-            cross-aarch64-unknown-linux-gnu/gcc-12.2.0
             dev-libs/libffi-3.2.1
             dev-util/valgrind-3.19.0
             net-dns/libidn2-2.0.5
@@ -462,22 +456,6 @@ prepare_portage()
         for PKG in ${ACCEPT_PKGS[*]}; do
             echo "=${PKG} **" >> /etc/portage/package.accept_keywords/tegra
         done
-    fi
-
-    if is_cross_compile; then
-        # Enable rpc use flag, needed for rpcbind's dependency
-        # crypt flag is needed for util-linux
-        echo "cross-aarch64-unknown-linux-gnu/glibc rpc crypt static-libs" >> /etc/portage/package.use/tegra
-
-        # Enable C++ (esp. libstdc++)
-        echo "cross-aarch64-unknown-linux-gnu/gcc cxx" >> /etc/portage/package.use/tegra
-
-        # Enable gold and plugins in binutils to fix binutils build failure
-        echo "cross-aarch64-unknown-linux-gnu/binutils gold plugins" >> /etc/portage/package.use/tegra
-
-        # Stick to the kernel we're officially using
-        local KERNELVER="4.9"
-        echo ">cross-aarch64-unknown-linux-gnu/linux-headers-$KERNELVER" >> /etc/portage/package.mask/tegra
     fi
 
     # Setup split glibc symbols for valgrind and remote debugging
@@ -501,17 +479,6 @@ prepare_portage()
         ebuild "$EBUILD" digest
     fi
 
-    # Patch cross-compilation failure in libtomcrypt
-    local EBUILD=$PORTAGE/dev-libs/libtomcrypt/libtomcrypt-1.18.2-r4.ebuild
-    if is_cross_compile && [[ -f $EBUILD ]] && ! grep -q "cross.patch" "$EBUILD"; then
-        boldecho "Patching $EBUILD"
-        cp "$BUILDSCRIPTS/extra/libtomcrypt-cross.patch" $PORTAGE/dev-libs/libtomcrypt/files/
-        sed -i "s/slibtool.patch$/slibtool.patch \"\${FILESDIR}\"\/\${PN}-cross.patch/" "$EBUILD"
-        sed -i '/LIBPATH=\|INCPATH=/s:\${ESYSROOT}::' "$EBUILD"
-        ebuild "$EBUILD" digest
-        cp /usr/bin/libtool /tmp/crosslibtool
-    fi
-
     # Patch compilation failure in autofs
     local EBUILD=$PORTAGE/net-fs/autofs/autofs-5.1.6.ebuild
     if [[ -f $EBUILD ]] && ! grep -q "gcc=strip" "$EBUILD"; then
@@ -528,31 +495,6 @@ prepare_portage()
         mkdir -p $PORTAGE/net-nds/ypbind
         mkdir -p /var/cache/distfiles
         cp "$BUILDSCRIPTS/extra/$SRC" "$EBUILD"
-        ebuild "$EBUILD" digest
-    fi
-
-    # Fix for gdb failure to cross-compile due to some bug in Gentoo
-    local EBUILD=$PORTAGE/sys-devel/gdb/gdb-12.1-r3.ebuild
-    if ! grep -q workaround "$EBUILD"; then
-        boldecho "Patching $EBUILD"
-        sed -i '/econf /s:^:[[ $CHOST = $CBUILD ]] || myconf+=( --libdir=/usr/$CHOST/lib64 ) # workaround\n:' "$EBUILD"
-        ebuild "$EBUILD" digest
-    fi
-
-    # Fix perf tool cross compilation
-    local EBUILD=$PORTAGE/dev-util/perf/perf-5.19.ebuild
-    if is_cross_compile && ! grep -q cross_compile "$EBUILD"; then
-        boldecho "Patching $EBUILD"
-        sed -i '/current-system-vm/ a\\tlocal cross_compile=""\n\t[[ $(tc-getCC) = $(tc-getBUILD_CC) ]] || cross_compile=CROSS_COMPILE=aarch64-unknown-linux-gnu-' "$EBUILD"
-        sed -i '/tc-getNM/ a\\t        $cross_compile \\' "$EBUILD"
-        ebuild "$EBUILD" digest
-    fi
-
-    # Fix iperf tool cross compilation
-    local EBUILD=$PORTAGE/net-misc/iperf/iperf-3.12.ebuild
-    if ! grep -q "newroot.*$TEGRAABI" "$EBUILD"; then
-        boldecho "Patching $EBUILD"
-        sed -i '/src_configure/ a\\tsed -i "/^LDFLAGS.*newroot/ s:newroot:usr/aarch64-unknown-linux-gnu:" src/Makefile' "$EBUILD"
         ebuild "$EBUILD" digest
     fi
 
@@ -626,73 +568,6 @@ emerge_basic_packages()
         # size of reserved chunk to to 16KB.
         sed -i '/^#define PERCPU_MODULE_RESERVE\>.*\<8\>/s/8/16/' /usr/src/linux/include/linux/percpu.h
     fi
-}
-
-install_tegra_toolchain()
-{
-    is_cross_compile || return 0
-
-    # Skip if the toolchains already exist
-    local INDICATOR="/var/db/$TEGRAABI"
-    [[ ! -f $INDICATOR ]] || return 0
-
-    boldecho "Building Tegra toolchain - $TEGRAABI"
-
-    # Build tools needed by the cross toolchain
-    if ! emerge --quiet --usepkg --buildpkg crossdev; then
-        boldecho "Failed to emerge some packages"
-        boldecho "Please complete installation manually"
-        bash
-    fi
-
-    # Hack for gcc or crossdev bug
-    grep -q "USE.*cxx" "$MAKECONF" || sed -i "/USE/s/\"$/ cxx\"/" "$MAKECONF"
-
-    # Hack for crossdev awk script bug
-    sed -i "/cross_init$/ s:cross_init:MAIN_REPO_PATH=$PORTAGE ; cross_init:" /usr/bin/emerge-wrapper
-
-    # Build cross toolchain
-    grep -q "PORTDIR_OVERLAY" "$MAKECONF" || echo "PORTDIR_OVERLAY=\"/usr/local/portage\"" >> "$MAKECONF"
-    sed -i "s/ -march=i.86//" "$MAKECONF"
-    mkdir -p "/usr/local/portage"
-    crossdev -S "$TEGRAABI"
-    emerge-wrapper --target "TEGRAABI" --init
-
-    # Install portage configuration
-    local CFGROOT="/usr/$TEGRAABI"
-    local PORTAGECFG="$CFGROOT/etc/portage"
-    (
-        [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
-        echo "PORTAGE_NICENESS=\"15\""
-        echo "USE=\"-* ipv6 ncurses readline syslog threads unicode \${ARCH}\""
-    ) >> "$CFGROOT/$MAKECONF"
-    local FILE
-    for FILE in package.use package.mask package.unmask package.accept_keywords savedconfig; do
-        rm -f "$PORTAGECFG/$FILE"
-        ln -s "/etc/portage/$FILE" "$PORTAGECFG/$FILE"
-    done
-    [ -e "$CFGROOT/tmp" ] || ln -s /tmp "$CFGROOT/tmp"
-    rm -f "$PORTAGECFG/make.profile"
-    local PROFILE_ARCH=arm64
-    local PROFILE=17.0
-    ln -s "$PORTAGE/profiles/default/linux/$PROFILE_ARCH/$PROFILE" "$PORTAGECFG/make.profile"
-
-    # Try to install as many stable packages as possible
-    if grep -q "ACCEPT_KEYWORDS.*~\($PROFILE_ARCH\|\\\${ARCH}\)" "$CFGROOT/$MAKECONF"; then
-        boldecho "Fixing ACCEPT_KEYWORDS: removing ~$PROFILE_ARCH"
-        sed -i "s/ \\?~$PROFILE_ARCH//; s/ \\?~\\\${ARCH}//" "$CFGROOT/$MAKECONF"
-    fi
-
-    # Setup split glibc symbols for valgrind and remote debugging
-    mkdir -p "$PORTAGECFG/package.env"
-    echo "sys-libs/glibc debug"         >  "$PORTAGECFG/package.env/glibc"
-    echo "dev-util/valgrind debug"      >  "$PORTAGECFG/package.env/valgrind"
-    mkdir -p "$PORTAGECFG/env"
-    echo 'CFLAGS="${CFLAGS} -ggdb"'     >  "$PORTAGECFG/env/debug"
-    echo 'CXXFLAGS="${CXXFLAGS} -ggdb"' >> "$PORTAGECFG/env/debug"
-    echo 'FEATURES="$FEATURES splitdebug compressdebug"' >> "$PORTAGECFG/env/debug"
-
-    touch "$INDICATOR"
 }
 
 compile_kernel()
@@ -779,23 +654,12 @@ need_host_package()
 
 target_emerge()
 {
-    if is_cross_compile && [[ $NEWROOT != / ]]; then
-        if need_host_package "$@"; then
-            "$TEGRAABI-emerge" --noreplace "$@"
-        fi
-        ROOT="$NEWROOT" SYSROOT="$NEWROOT" PORTAGE_CONFIGROOT="/usr/$TEGRAABI" "$TEGRAABI-emerge" "$@"
-    else
-        ROOT="$NEWROOT" emerge "$@"
-    fi
+    ROOT="$NEWROOT" emerge "$@"
 
     local NEWS="var/lib/gentoo/news/news-gentoo.unread"
     if test -s "$NEWROOT/$NEWS"; then
         echo "Erasing news from $NEWROOT/$NEWS"
         echo -n > "$NEWROOT/$NEWS"
-    fi
-    if is_cross_compile && test -s "/usr/$TEGRAABI/$NEWS"; then
-        echo "Erasing news from /usr/$TEGRAABI/$NEWS"
-        echo -n > "/usr/$TEGRAABI/$NEWS"
     fi
 }
 
@@ -848,13 +712,6 @@ remove_gentoo_services()
     done
 }
 
-prepare_libtool_for_libtomcrypt()
-{
-    # libtomcrypt (dependency of dropbear) fails to cross-compile
-    sed "s/x86_64-pc-linux-gnu/$TEGRAABI/g" < /usr/bin/libtool > /tmp/crosslibtool
-    chmod 755 /tmp/crosslibtool
-}
-
 record_dir_symlinks()
 {
     local SYMLINK
@@ -894,9 +751,6 @@ build_newroot()
     ln -sf usr/lib64 "$NEWROOT/lib64"
     ln -sf bin       "$NEWROOT/usr/sbin"
 
-    # Prepare build configuration for Tegra target
-    is_cross_compile && mkdir -p "$NEWROOT/etc/portage"
-
     # Restore busybox config file
     local BUSYBOXCFG="$BUILDSCRIPTS/busybox-config"
     local HOSTBUSYBOXCFGDIR=/etc/portage/savedconfig/sys-apps
@@ -918,25 +772,6 @@ build_newroot()
         ln -s /tiny/debug    "$NEWROOT/usr/lib64/debug"
         ln -s /tiny/debug    "$NEWROOT/usr/lib/debug"
         ln -s /tiny/valgrind "$NEWROOT/usr/libexec/valgrind"
-    fi
-
-    # Newer Portage requires that the target root (our NEWROOT) is set to
-    # either / or SYSROOT.  We install all packages into SYSROOT first, which
-    # is crossdev's own root, then into NEWROOT.  Preserve original SYSROOT here.
-    # The purpose of installing packages into sysroot is to be able to build
-    # some packages which have build-time dependencies.
-    if is_cross_compile; then
-        local SAVED_TEGRA_SYSROOT="/usr/${TEGRAABI}.tar.xz"
-        if [[ -f $SAVED_TEGRA_SYSROOT ]]; then
-            echo "Preparing sysroot..."
-            [[ -d /usr/$TEGRAABI/packages ]] && mv "/usr/$TEGRAABI/packages" "/usr/${TEGRAABI}-packages"
-            rm -rf "/usr/$TEGRAABI"
-            tar xJf "$SAVED_TEGRA_SYSROOT" -C /usr
-            [[ -d /usr/${TEGRAABI}-packages ]] && mv "/usr/${TEGRAABI}-packages" "/usr/$TEGRAABI/packages"
-        else
-            echo "Saving sysroot..."
-            tar cJf "$SAVED_TEGRA_SYSROOT" -C /usr --exclude="$TEGRAABI/packages" "$TEGRAABI"
-        fi
     fi
 
     # Install basic system packages
@@ -963,16 +798,12 @@ build_newroot()
     NEWROOT="${NEWROOT}-busybox" install_package busybox "make-symlinks mdev nfs savedconfig" --nodeps
     rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
     create_busybox_symlinks
-    is_cross_compile && prepare_libtool_for_libtomcrypt # WAR for cross compilation failure, dropbear dependency
     install_package dropbear "multicall"
     ignore_busybox_symlinks /usr/bin/bc
     install_package sys-devel/bc
     install_package net-wireless/wireless-tools
     install_package dev-libs/openssl
     ROOT="$NEWROOT" emerge --unmerge -q debianutils # Remove package pulled by openssl
-
-    # Install libxcrypt with static libs, needed for busybox
-    is_cross_compile && NEWROOT="/usr/$TEGRAABI" install_package sys-libs/libxcrypt "static-libs"
 
     # Install more basic packages
     install_package nano
@@ -982,7 +813,6 @@ build_newroot()
     # Install NFS utils
     install_package net-nds/rpcbind
     if [[ $TEGRABUILD ]]; then
-        is_cross_compile && NEWROOT="/usr/$TEGRAABI" install_package sys-apps/util-linux
         COLLISION_IGNORE="/bin /sbin /usr/bin /usr/sbin" install_package sys-apps/util-linux "" --nodeps
     fi
     install_package nfs-utils "" --nodeps
@@ -1007,11 +837,7 @@ build_newroot()
     ( cd "$NEWROOT/usr/bin" && ln -s dbscp scp )
 
     # Copy libgcc and libstdc++ needed by some tools
-    if is_cross_compile; then
-        cp /usr/lib/gcc/"$TEGRAABI"/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWROOT/lib64"/
-    else
-        cp /usr/lib/gcc/*/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWROOT/lib64"/
-    fi
+    cp /usr/lib/gcc/*/*/{libgcc_s.so.1,libstdc++.so.6} "$NEWROOT/lib64"/
 
     # Remove linuxrc script from busybox
     rm -rf "$NEWROOT/linuxrc"
@@ -1027,11 +853,9 @@ build_newroot()
 
     # Build extra tools
     local TOOL
-    local GCC=gcc
-    is_cross_compile && GCC="$TEGRAABI-gcc"
     for TOOL in setdomainname modalias; do
         echo ">>> Compiling $TOOL"
-        "$GCC" -O3 -Wall -Wextra -Wl,-s -o "$NEWROOT/usr/bin/$TOOL" "$BUILDSCRIPTS/extra/$TOOL.c"
+        gcc -O3 -Wall -Wextra -Wl,-s -o "$NEWROOT/usr/bin/$TOOL" "$BUILDSCRIPTS/extra/$TOOL.c"
     done
 
     # Copy TinyLinux scripts
@@ -1445,12 +1269,9 @@ make_squashfs()
 
     # Emit version information
     (
-        local CLASSDIR
-        CLASSDIR="sys-devel"
-        is_cross_compile && CLASSDIR="cross-$TEGRAABI"
         echo "TinyLinux version $VERSION"
         echo "Profile $PROFILE"
-        echo "Built with "`find /var/db/pkg/"$CLASSDIR"/ -maxdepth 1 -name gcc-[0-9]* | sed "s/.*\/var\/db\/pkg\/$CLASSDIR\///"`
+        echo "Built with "`find /var/db/pkg/sys-devel/ -maxdepth 1 -name gcc-[0-9]* | sed "s/.*\/var\/db\/pkg\/sys-devel\///"`
         echo ""
         echo "Installed packages:"
         [[ $TEGRABUILD ]] || echo "MODS kernel driver `get_mods_driver_version`"
@@ -1573,7 +1394,6 @@ compile_busybox()
     # Prepare busybox source
     tar_bz2 -xf "$BUSYBOX_PKG" -C "$BUILDDIR"
     cp "$BUILDSCRIPTS/tegra/busybox-config" "$BUILDDIR/$BUSYBOX"/.config
-    is_cross_compile && sed -i "/CONFIG_CROSS_COMPILER_PREFIX/s/=.*/=\"${TEGRAABI}-\"/" "$BUILDDIR/$BUSYBOX"/.config
 
     # Compile busybox
     (
@@ -1789,7 +1609,6 @@ check_env                   # Sanity check.
 prepare_portage             # Configure portage (make.conf, use flags, keywords, unmask packages, etc.).
 run_interactive             # [Optional] Enter interactive mode if -i was specified.
 emerge_basic_packages       # Build additional packages in buildroot.
-install_tegra_toolchain     # [Tegra only] Install cross toolchain
 compile_kernel              # Compile kernel. Can be forced with -k.
 build_newroot               # Build newroot, which is the actual TinyLinux. Can be forced with -r.
 prepare_installation        # Prepare /buildroot/install directory. Copy kernel, etc.
