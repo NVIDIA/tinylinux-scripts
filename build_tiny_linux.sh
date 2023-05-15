@@ -968,6 +968,8 @@ build_newroot()
     ignore_busybox_symlinks /usr/bin/bc
     install_package sys-devel/bc
     install_package net-wireless/wireless-tools
+    install_package dev-libs/openssl
+    ROOT="$NEWROOT" emerge --unmerge -q debianutils # Remove package pulled by openssl
 
     # Install libxcrypt with static libs, needed for busybox
     is_cross_compile && NEWROOT="/usr/$TEGRAABI" install_package sys-libs/libxcrypt "static-libs"

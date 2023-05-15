@@ -1,9 +1,6 @@
 # Install additional packages
 install_config /conf.d boot
 
-install_package dev-libs/openssl
-ROOT="$NEWROOT" emerge --unmerge -q debianutils
-
 install_package expat
 install_package =python-${PYTHON_VER}* "" "--nodeps"
 rm -rf "$NEWROOT"/usr/lib*/python*/test
@@ -17,6 +14,7 @@ perl-cleaner -q --all -- -q
 ignore_busybox_symlinks /usr/bin/bzip2 /usr/bin/bunzip2 /usr/bin/bzcat
 install_package perl "ithreads"
 ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read # Print news items from PERL
+
 install_package iasl
 if [[ $(uname -m) = x86_64 ]]; then
     install_package pmtools

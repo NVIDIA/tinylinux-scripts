@@ -6,7 +6,6 @@ install_package net-nds/ypbind
 install_package net-fs/autofs "" "--nodeps"
 COLLISION_IGNORE="/bin /usr/bin" install_package net-dialup/lrzsz
 install_package net-libs/libpcap ipv6
-install_package dev-libs/openssl "asm bindist tls-heartbeat zlib"
 emerge --quiet --noreplace dev-util/meson dev-util/ninja # needed for libdrm
 install_package x11-libs/libdrm
 install_package x11-libs/pixman
