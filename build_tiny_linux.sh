@@ -16,7 +16,7 @@ INSTALL="/install"
 SQUASHFS="/tiny/squash.bin"
 MAKECONF="/etc/portage/make.conf"
 NICE="ionice -c 3 nice -n 19"
-PYTHON_VER=3.10
+PYTHON_VER=3.11
 
 # Inherit TEGRAABI from parent process
 TEGRAABI="${TEGRAABI:-aarch64-unknown-linux-gnu}"
