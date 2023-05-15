@@ -1,0 +1,2 @@
+# Install additional packages
+install_package app-admin/sudo "" "--nodeps"

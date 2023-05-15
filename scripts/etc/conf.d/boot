@@ -3,7 +3,7 @@ modules
 sysctl
 mount
 hostname
-net.lo
 bash
+net.lo
 net
 commands

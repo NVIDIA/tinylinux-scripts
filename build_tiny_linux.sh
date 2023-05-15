@@ -1375,7 +1375,7 @@ pack_config()
     local MNT="$(mktemp -d -t etc.XXXXXX)"
     mount -o loop "$CONFIG_FILE" $MNT
     mkdir "$MNT"/{etc,work}
-    cp -a /mnt/etc/* $MNT/etc/
+    [[ -d /mnt/etc ]] && cp -a /mnt/etc/* $MNT/etc/
     umount $MNT
     rmdir $MNT
 }
