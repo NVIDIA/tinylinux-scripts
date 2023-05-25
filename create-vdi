@@ -1,0 +1,88 @@
+#!/bin/bash
+
+# Size of the created virtual drive, in MB
+IMAGE_SIZE_MB=256
+
+set -euo pipefail
+
+die()
+{
+    echo "$@" >&2
+    exit 1
+}
+
+runcmd()
+{
+    echo "% $@" >&2
+    "$@" || return $?
+}
+
+# Validate script arguments
+[[ $# -eq 1 ]] || [[ $# -eq 2 ]] || die "Usage: ${0##*/} <full.zip> [SIZE_IN_MB]"
+[[ -f $1 ]] || die "Error: File '$1' not found"
+[[ $# -lt 2 ]] || IMAGE_SIZE_MB="$2"
+
+# Check if the target file exists
+[[ -f TinyLinux.vdi ]] && die "Error: File 'TinyLinux.vdi' already exists"
+
+# Prepare sudo
+sudo true
+
+# Prepare working directory
+WORK=$(runcmd mktemp -d)
+echo "Working directory: $WORK"
+
+# Clean up on exit
+cleanup()
+{
+    [[ ${MOUNTED:-} ]] && sudo umount "$WORK"/tiny
+    [[ ${LOOP_DEV:-} ]] && sudo losetup -d "$LOOP_DEV"
+    [[ ! -d $WORK ]] || rm -rf "$WORK"
+}
+trap cleanup EXIT
+
+# Create directories
+runcmd mkdir -p "$WORK"/tiny
+
+# Create empty disk image file
+runcmd dd if=/dev/zero of="$WORK"/tiny.img bs=1M count="$IMAGE_SIZE_MB"
+
+# Mount the image file via loop device
+LOOP_DEV=$(runcmd sudo losetup -f --show "$WORK"/tiny.img)
+echo "Loop device: $LOOP_DEV"
+
+# Create ESP partition
+runcmd sudo parted -s "$LOOP_DEV" \
+    mklabel gpt \
+    mkpart boot fat32 512s 100% \
+    set 1 boot on \
+    set 1 esp on \
+    print
+runcmd sync
+
+# Make the new partition visible to the kernel
+runcmd sudo partx --show - "$LOOP_DEV"
+
+# Create FAT filesystem in the ESP partition
+runcmd sudo mkfs.vfat -n TINY "${LOOP_DEV}p1"
+runcmd sync
+
+# Mount the new partition
+runcmd sudo mount "${LOOP_DEV}p1" "$WORK"/tiny
+MOUNTED=1
+
+# Unpack TinyLinux
+runcmd sudo unzip "$1" -d "$WORK"/tiny
+runcmd sync
+
+# Unmount the partition
+runcmd sudo umount "$WORK"/tiny
+unset MOUNTED
+
+# Convert the raw image to a VDI image
+runcmd sudo VBoxManage convertfromraw "$LOOP_DEV" TinyLinux.vdi --format VDI
+runcmd sudo chown "$(id -u):$(id -g)" TinyLinux.vdi
+
+echo "---------------------"
+echo "Created TinyLinux.vdi"
+echo "---------------------"
