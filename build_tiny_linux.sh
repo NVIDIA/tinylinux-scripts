@@ -507,6 +507,16 @@ prepare_portage()
         cd -
         ebuild "$EBUILD" digest
     fi
+
+    # Patch busybox to avoid failing to copy symlinks
+    if grep -q "die.*copying" "$PORTAGE"/sys-apps/busybox/busybox*.ebuild; then
+        local EBUILD
+        for EBUILD in $(grep -l "die.*copying" "$PORTAGE"/sys-apps/busybox/busybox*.ebuild); do
+            boldecho "Patching $EBUILD"
+            sed -i '/die.*copying/s/die/echo/' "$EBUILD"
+            ebuild "$EBUILD" digest
+        done
+    fi
 }
 
 run_interactive()
@@ -792,10 +802,7 @@ build_newroot()
     ln -s libncursesw.so.6 "$NEWROOT"/lib64/libncursesw.so.5
     install_package pciutils
     rm -f "$NEWROOT/usr/share/misc"/*.gz # Remove compressed version of hwids
-    install_package busybox "mdev nfs pam savedconfig"
-    rm -rf "${NEWROOT}-busybox"
-    mkdir "${NEWROOT}-busybox" # workaround for busybox symlinks clashing with merged bin/sbin/lib
-    NEWROOT="${NEWROOT}-busybox" install_package busybox "make-symlinks mdev nfs savedconfig" --nodeps
+    install_package busybox "make-symlinks mdev nfs pam savedconfig"
     rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
     create_busybox_symlinks
     install_package dropbear "multicall"
