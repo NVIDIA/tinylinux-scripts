@@ -15,6 +15,9 @@ ignore_busybox_symlinks /usr/bin/bzip2 /usr/bin/bunzip2 /usr/bin/bzcat
 install_package perl "ithreads"
 ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read # Print news items from PERL
 
+install_package sys-block/thin-provisioning-tools
+install_package sys-fs/lvm2 "lvm thin" "--nodeps"
+
 install_package iasl
 if [[ $(uname -m) = x86_64 ]]; then
     install_package pmtools
