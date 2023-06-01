@@ -17,6 +17,7 @@ ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read # Print news items from PER
 
 install_package sys-block/thin-provisioning-tools
 install_package sys-fs/lvm2 "lvm thin" "--nodeps"
+remove_gentoo_services device-mapper dmeventd lvm lvm-monitoring lvmpolld
 
 install_package iasl
 if [[ $(uname -m) = x86_64 ]]; then
