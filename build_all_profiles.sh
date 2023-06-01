@@ -20,7 +20,7 @@ echo "Creating version $VERSION"
 mkdir "$VERSION"
 
 ls "`dirname $0`/profiles" | while read PROFILE; do
-    [ -e "`dirname $0`/profiles/$PROFILE/tegra" ] && continue # Skip Tegra profiles
+    [ -e "`dirname $0`/profiles/$PROFILE/skipdefault" ] && continue # Skip some profiles
     `dirname $0`/build_tiny_linux.sh -r -v "$VERSION" "$PROFILE"
     mv "buildroot/$PROFILE.zip" "$VERSION"
     sed "s/$/\r/" < "buildroot/newroot/etc/release" > "$VERSION/$PROFILE.txt"
