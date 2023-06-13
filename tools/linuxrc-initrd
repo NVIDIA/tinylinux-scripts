@@ -1,0 +1,114 @@
+#!/bin/sh
+
+# Copyright (c) 2023 NVIDIA CORPORATION.  All rights reserved.
+# See /etc/LICENSE file for details.
+
+VERSION=
+CONSOLE="/dev/console"
+ROOTFS="/mnt/root"
+MNTSQUASH="mnt/squash"
+SQUASHFS_BIN="tiny/squash.bin"
+
+# Clear input and output
+exec >${CONSOLE} <${CONSOLE} 2>&1
+
+# Display startup info
+echo -e "\033[1mBooting TinyLinux $VERSION\033[0m"
+
+# Mount basic filesystems
+mount -t proc     proc     /proc
+mount -t sysfs    sysfs    /sys
+mount -t devtmpfs devtmpfs /dev
+
+# Install busybox symbolic links
+/bin/busybox --install -s
+
+# Save kernel boot time for later
+KERNEL_BOOT_TIME=$(awk '{print $1*1000}' /proc/uptime)
+
+# Prevent kernel logs from being sent to the console
+dmesg -n 3
+
+# Setup hotplug
+# Use modprobe from busybox to avoid genkernel's modprobe sript
+# which does not process module aliases.
+echo '#!/bin/sh
+
+[ "$ACTION" = "add" ] && busybox modprobe "$MODALIAS"' > /tmp/hotplug
+chmod 755 /tmp/hotplug
+echo /tmp/hotplug > /proc/sys/kernel/hotplug
+
+# Create root filesystem
+mkdir -p "${ROOTFS}"
+mount -t tmpfs tmpfs "${ROOTFS}"
+
+# Mounts squashed root filesystem and checks TinyLinux version
+mount_squash()
+{
+    if ! mount -t squashfs -o loop,ro "${ROOTFS}/${SQUASHFS_BIN}" "${ROOTFS}/${MNTSQUASH}"; then
+        echo "Error: Failed to mount ${1}/${SQUASHFS_BIN}"
+        return 1
+    fi
+
+    # Check TinyLinux version in the squashed root filesystem
+    SQUASHFS_VERSION=$(head -n 1 "${ROOTFS}/${MNTSQUASH}/etc/release" | sed "s/.*version //")
+    if [ "$VERSION" != "$SQUASHFS_VERSION" ]; then
+        echo "Error: initrd version $VERSION does not match TinyLinux version $SQUASHFS_VERSION"
+        echo "       found in ${1}/${SQUASHFS_BIN}"
+        umount "${ROOTFS}/${MNTSQUASH}"
+        return 1
+    fi
+}
+
+# Mount squashed root filesystem
+mkdir -p "${ROOTFS}/${MNTSQUASH}" "${ROOTFS}/tiny"
+cp "/${SQUASHFS_BIN}" "${ROOTFS}/${SQUASHFS_BIN}"
+mount_squash || exec /bin/sh
+
+# Create symlinks to the squashed root filesystem
+cd "${ROOTFS}"
+ln -s "${MNTSQUASH}/usr" usr
+ln -s "${MNTSQUASH}/usr/bin" bin
+ln -s "${MNTSQUASH}/usr/bin" sbin
+ln -s "${MNTSQUASH}/usr/lib64" lib
+ln -s "${MNTSQUASH}/usr/lib64" lib64
+
+# Set up /etc
+rm -f etc
+mkdir etc
+cp -a "${ROOTFS}/${MNTSQUASH}"/etc/* etc/
+
+# Enable sshd
+echo "sshd" >> etc/conf.d/boot
+
+# Create necessary directories
+mkdir dev
+mkdir proc
+mkdir root
+mkdir sys
+mkdir tmp
+chmod 1777 tmp
+mkdir -p var/tmp
+chmod 1777 var/tmp
+mkdir var/log
+chmod 755 var/log
+
+# Create basic device nodes
+mknod dev/null c 1 3
+mknod dev/console c 5 1
+
+# Unmount filesystems
+umount /dev
+umount /sys
+rm /etc/mtab
+cp /proc/mounts /etc/mtab
+umount /proc
+
+# Store kernel boot time for reporting in /usr/bin/rc
+echo "$KERNEL_BOOT_TIME" > var/log/kernel_boot_time
+
+# Switch to the new root filesystem
+exec /bin/busybox switch_root -c /dev/console "${ROOTFS}" /usr/bin/init
+
+# Fallback - enter shell
+exec /bin/busybox sh

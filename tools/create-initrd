@@ -1,0 +1,64 @@
+#!/bin/bash
+
+set -euo pipefail
+
+die()
+{
+    echo "$@" >&2
+    exit 1
+}
+
+[[ $# -eq 1 ]] || die "Usage: ${0##*/} <full.zip>"
+
+FULL_ZIP_PATH="$1"
+
+[[ -f "$FULL_ZIP_PATH" ]] || die "Error: $FULL_ZIP_PATH does not exist!!!"
+
+for FILE in kernel initrd; do
+    [[ -f "$FILE" ]] && die "Error: File '$FILE' already exists!"
+done
+
+# Prime sudo
+[[ $(id -u) = 0 ]] || sudo true
+
+# Create working directory
+WORKDIR="$(mktemp -d)"
+echo "Using working directory $WORKDIR"
+test -d "$WORKDIR"
+
+# Clean up on exit
+on_failure()
+{
+    sudo rm -rf "$WORKDIR"
+}
+trap on_failure EXIT
+
+# Create directories
+mkdir -p "$WORKDIR/tiny" "$WORKDIR/initrd"
+
+# Unpack TinyLinux package
+unzip "$FULL_ZIP_PATH" -d "$WORKDIR/tiny"
+
+# Unpack initial ramdisk
+unxz < "$WORKDIR/tiny/tiny/initrd" | ( cd "$WORKDIR/initrd" && sudo cpio -i )
+
+# Preserve TinyLinux version
+VERSION="$(grep "^VERSION=" "$WORKDIR/initrd/init" | sed 's/.*=// ; s/"//g')"
+
+# Copy files to initial ramdisk
+sudo cp linuxrc-initrd "$WORKDIR/initrd/init"
+sudo mkdir "$WORKDIR/initrd/tiny"
+sudo cp "$WORKDIR/tiny/tiny/squash.bin" "$WORKDIR/initrd/tiny"/
+
+# Restore TinyLinux version
+sudo sed -i "s/^VERSION=.*/VERSION=\"$VERSION\"/" "$WORKDIR/initrd/init"
+
+# Compress initial ramdisk
+( cd "$WORKDIR"/initrd && sudo find . -print | sudo cpio --create --format=newc ) | xz -v -e --check=none -z -f -9 -T 0 > initrd
+
+# Copy the kernel
+cp "$WORKDIR"/tiny/tiny/kernel .
+
+echo ""
+echo "================================"
+echo "Created files: kernel initrd"
