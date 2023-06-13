@@ -8,6 +8,7 @@ CONSOLE="/dev/console"
 ROOTFS="/mnt/root"
 MNTSQUASH="mnt/squash"
 SQUASHFS_BIN="tiny/squash.bin"
+TTY=""
 
 # Clear input and output
 exec >${CONSOLE} <${CONSOLE} 2>&1
@@ -37,6 +38,13 @@ echo '#!/bin/sh
 [ "$ACTION" = "add" ] && busybox modprobe "$MODALIAS"' > /tmp/hotplug
 chmod 755 /tmp/hotplug
 echo /tmp/hotplug > /proc/sys/kernel/hotplug
+
+# Parse kernel command line
+for ARG in $(cat /proc/cmdline); do
+    case "$ARG" in
+        console\=*) TTY="${ARG#*=}" ;;
+    esac
+done
 
 # Create root filesystem
 mkdir -p "${ROOTFS}"
@@ -80,6 +88,26 @@ cp -a "${ROOTFS}/${MNTSQUASH}"/etc/* etc/
 
 # Enable sshd
 echo "sshd" >> etc/conf.d/boot
+
+# Update configuration of TTY based on console= setting
+if [ "$TTY" != "" ] && grep -q "^::respawn:.*getty.*login_root\>" etc/inittab; then
+    TTY_OPTS="${TTY#*,}"
+    TTY="${TTY%%,*}"
+    if echo "$TTY" | grep -q "^tty"; then
+
+        BAUD="${TTY_OPTS%%,*}"
+        echo "$BAUD" | grep -q "^[0-9]\+$" || BAUD=115200
+
+        TERM=vt102
+        CARRIER_DETECT="-L "
+        if echo "$TTY" | grep -q "^tty[1-9]$"; then
+            TERM=linux
+            CARRIER_DETECT=""
+        fi
+
+        sed -i "/::respawn:.*getty.*login_root/s/.*/::respawn:\/usr\/bin\/getty ${CARRIER_DETECT}-n -l \/usr\/bin\/login_root $BAUD $TTY $TERM/" etc/inittab
+    fi
+fi
 
 # Create necessary directories
 mkdir dev
