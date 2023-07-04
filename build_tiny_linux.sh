@@ -822,6 +822,7 @@ build_newroot()
     if [[ $TEGRABUILD ]]; then
         COLLISION_IGNORE="/bin /sbin /usr/bin /usr/sbin" install_package sys-apps/util-linux "" --nodeps
     fi
+    emerge --quiet --noreplace dev-libs/libevent # nfs-utils dependency
     install_package nfs-utils "" --nodeps
     remove_gentoo_services nfs nfsmount rpcbind rpc.statd
 
