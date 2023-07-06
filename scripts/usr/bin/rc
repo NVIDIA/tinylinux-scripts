@@ -442,6 +442,17 @@ elif [ "$1" = "sysinit" ]; then
     ln -s /proc/self/fd/1 /dev/stdout
     ln -s /proc/self/fd/2 /dev/stderr
 
+    # Create firmware directory if needed
+    VAR_FIRMWARE="$(readlink /lib/firmware)"
+    if [ "$VAR_FIRMWARE" = "/var/firmware" ]; then
+        # Use existing firmware directory, if present
+        if [ -d "$TINYLINUXDIR"/firmware ]; then
+            ln -s "$TINYLINUXDIR"/firmware /var/firmware
+        else
+            mkdir -p /var/firmware
+        fi
+    fi
+
     # Setup hotplug
     touch /dev/mdev.seq
     echo "/usr/bin/mdev" > /proc/sys/kernel/hotplug
@@ -481,10 +492,6 @@ elif [ "$1" = "boot" ]; then
         chmod 1777 /run/lock
     fi
     ln -s /run/lock /var/lock
-
-    # Create firmware directory if needed
-    VAR_FIRMWARE="$(readlink /lib/firmware)"
-    [ "$VAR_FIRMWARE" != "/var/firmware" ] || mkdir -p /var/firmware
 
     # Mount debug fs if it is available
     grep -q debugfs /proc/filesystems && [ -d /sys/kernel/debug ] && mount -t debugfs debugfs /sys/kernel/debug
