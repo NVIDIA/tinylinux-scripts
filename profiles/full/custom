@@ -41,7 +41,7 @@ install_package dmidecode
 ignore_busybox_symlinks /usr/bin/i2cdetect /usr/bin/i2cset /usr/bin/i2cdump /usr/bin/i2cget /usr/bin/i2ctransfer
 install_package sys-apps/i2c-tools "python"
 install_package app-arch/zstd # curl dependency (missing in curl ebuild)
-install_package net-misc/curl
+install_package net-misc/curl "ssl curl_ssl_openssl openssl zstd"
 install_package rsync
 install_package sys-apps/lm-sensors
 install_package smartmontools
