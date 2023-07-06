@@ -641,6 +641,42 @@ compile_kernel()
         sed -i -e "/\<${OPT%=*}\>/s/.*/$OPT/" "$BBCFG"
     done
     genkernel --oldconfig --linuxrc="$BUILDSCRIPTS/linuxrc" --no-mountboot --no-zfs --no-btrfs "$MAKEOPTS" --all-ramdisk-modules --busybox-config="$BBCFG" ramdisk
+
+    trim_initrd_modules
+}
+
+trim_initrd_modules()
+{
+    boldecho "Trimming initrd"
+
+    local NUM_INITRD="$(ls /boot | grep initramfs | wc -l)"
+    [[ $NUM_INITRD -ge 1 ]] || die "Missing /boot/initramfs"
+    [[ $NUM_INITRD -eq 1 ]] || die "Multiple /boot/initramfs files"
+
+    # Unpack initrd
+    local INITRD="$(ls /boot/initramfs*)"
+    rm -rf /tmp/initrd
+    mkdir /tmp/initrd
+    cd /tmp/initrd
+    unxz < "$INITRD" | cpio -i
+
+    # Delete unwanted modules
+    local MODULE_DIRS=(
+        kernel/drivers/media
+        kernel/drivers/net/wireless
+        kernel/drivers/usb/serial
+        kernel/net/wireless
+        kernel/sound
+    )
+    local DIR
+    for DIR in "${MODULE_DIRS[@]}"; do
+        rm -rf lib/modules/*gentoo*/"$DIR"
+    done
+
+    # Compress initrd
+    find . -print | cpio --create --format=newc | xz -v -e --check=none -z -f -9 -T 0 > "$INITRD"
+
+    cd -
 }
 
 need_host_package()
