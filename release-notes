@@ -1,5 +1,6 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+ * Updated MODS kernel driver to 4.19
  * Merged bin and sbin directories into usr/bin
  * Added /etc/sysctl.conf
  * Added initial support for WiFi
