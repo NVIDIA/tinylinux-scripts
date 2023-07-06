@@ -14,6 +14,9 @@ TinyLinux release history
  * Kill lingering jobs spawned by services
  * Added support for mounting /mnt/nv as read-only
  * Parse console= from kernel command line and update inittab
+ * Added basic support for manual mounting of LVM
+ * Added support for external firmware in /tiny/firmware
+ * Added requests Python module in full profile
 -------------------------------------------------------------------------------
 23.01
  * Updated kernel to 6.1.7
