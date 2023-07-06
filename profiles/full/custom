@@ -69,6 +69,7 @@ mkdir -p /etc/portage/package.accept_keywords
 echo "=dev-python/pyocr-0.8.3 **" >> /etc/portage/package.accept_keywords/full
 install_package app-arch/libarchive "zlib bzip2 e2fsprogs expat threads"
 install_package dev-python/pyocr "tesseract"
+install_package dev-python/requests
 
 # PERL modules
 mkdir -p /etc/portage/package.accept_keywords
