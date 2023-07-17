@@ -29,9 +29,6 @@ DNSDOMAIN=""
 # Options for udhcpc
 UDHCPC_OPTIONS="-b -S -O 119"
 
-# If set to 1, udhcpc will not wait for lease before backgrounding
-BACKGROUND_UDHCPC="1"
-
 # SSID of the network to connect to, used for wireless interfaces
 WIRELESS_NETWORK=""
 
