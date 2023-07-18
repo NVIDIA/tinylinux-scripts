@@ -1,5 +1,7 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+23.07
+ * Updated kernel to 6.4.3
  * Updated MODS kernel driver to 4.19
  * Merged bin and sbin directories into usr/bin
  * Added /etc/sysctl.conf
@@ -18,6 +20,7 @@ TinyLinux release history
  * Added basic support for manual mounting of LVM
  * Added support for external firmware in /tiny/firmware
  * Added requests Python module in full profile
+ * Added support for obtaining IP address from DHCP on multiple interfaces on startup
 -------------------------------------------------------------------------------
 23.01
  * Updated kernel to 6.1.7
