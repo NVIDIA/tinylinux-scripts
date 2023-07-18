@@ -864,6 +864,7 @@ build_newroot()
     emerge --quiet --noreplace dev-libs/libevent # nfs-utils dependency
     install_package nfs-utils "" --nodeps
     remove_gentoo_services nfs nfsmount rpcbind rpc.statd
+    rm "$NEWROOT/usr/bin/fsidd" # Remove due to lack of libevent and libsqlite3
 
     # Additional x86-specific packages
     if [[ -z $TEGRABUILD ]]; then
