@@ -26,6 +26,7 @@ install_package net-wireless/bluez deprecated "--nodeps" # Avoid pulling dbus
 PYTHON_TARGETS=python${PYTHON_VER/./_} USE="zlib" emerge --quiet --noreplace dev-util/perf # need deps to build perf
 install_package dev-libs/elfutils                       # Needed by perf
 install_package sys-libs/binutils-libs "" "--nodeps"    # Needed by perf
+install_package sys-libs/libcap                         # Needed by perf, missing dependency in ebuild
 PYTHON_TARGETS=python${PYTHON_VER/./_} install_package dev-util/perf "zlib" "--nodeps"
 
 # Set timezone
