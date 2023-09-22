@@ -838,12 +838,16 @@ build_newroot()
     ln -s libncursesw.so.6 "$NEWROOT"/lib64/libncursesw.so.5
     install_package pciutils
     rm -f "$NEWROOT/usr/share/misc"/*.gz # Remove compressed version of hwids
+
     install_package busybox "make-symlinks mdev nfs pam savedconfig"
     rm -rf "${NEWROOT}-busybox"
     mkdir "${NEWROOT}-busybox" # workaround for busybox symlinks clashing with merged bin/sbin/lib
     NEWROOT="${NEWROOT}-busybox" install_package busybox "make-symlinks mdev nfs savedconfig" --nodeps
     rm -f "$NEWROOT"/etc/portage/savedconfig/sys-apps/._cfg* # Avoid excess of portage messages
     create_busybox_symlinks
+    rm "$NEWROOT/usr/bin/env"
+    ln -s busybox "$NEWROOT/usr/bin/env"
+
     install_package dropbear "multicall"
     ignore_busybox_symlinks /usr/bin/bc
     install_package sys-devel/bc
