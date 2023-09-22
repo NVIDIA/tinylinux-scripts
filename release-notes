@@ -1,5 +1,9 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+23.09
+ * Updated kernel to 6.5.4
+ * Fixed symlinks /usr/bin/bzip2 and /usr/bin/env
+-------------------------------------------------------------------------------
 23.07
  * Updated kernel to 6.4.3
  * Updated MODS kernel driver to 4.19
