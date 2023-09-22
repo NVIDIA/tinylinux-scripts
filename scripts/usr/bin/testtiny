@@ -387,6 +387,19 @@ fi
 
 #==============================================================================
 
+start_test "symbolc links"
+BROKEN_LINKS=0
+for FILE in $(find /usr/bin -type l); do
+    if [[ ! -f $FILE && ! -d $FILE ]]; then
+        echo -n " $FILE"
+        BROKEN_LINKS=$(($BROKEN_LINKS + 1))
+    fi
+done
+[[ $BROKEN_LINKS = 0 ]] || fail_test "$BROKEN_LINKS broken links"
+end_test
+
+#==============================================================================
+
 start_test "shared libraries"
 MISSING_LIBS=0
 for FILE in $(find /usr/bin -type f); do
