@@ -34,7 +34,7 @@ if [[ $# -eq 0 || $1 = "-h" || $1 = "--help" ]]; then
     echo
     echo "Options:"
     echo "  -j N    Launch N jobs simultaneously"
-    echo "  -v VER  Put specified version name in the README file"
+    echo "  -v VER  Use specified version number"
     echo "  -r      Rebuild entire target filesystem"
     echo "  -i      Run interactive shell within the build environment"
     echo "  -k      Force rebuilding the kernel"
@@ -1129,7 +1129,7 @@ prepare_installation()
     COMMANDSFILE="$BUILDSCRIPTS/profiles/$PROFILE/commands"
     [[ ! -f $COMMANDSFILE ]] || cp "$COMMANDSFILE" "$INSTALL/tiny/commands"
 
-    cp "$BUILDSCRIPTS"/README "$INSTALL"/
+    cp "$BUILDSCRIPTS"/README.md "$INSTALL"/README
 }
 
 compile_driver()
