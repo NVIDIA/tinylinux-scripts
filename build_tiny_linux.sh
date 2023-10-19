@@ -264,6 +264,16 @@ copy_scripts()
 
         boldecho "Copying scripts to build environment"
 
+        # Check if submodules have been initialized
+        if [[ ! -f $SCRIPTSDIR/mods/Makefile ]]; then
+            echo "Error: mods/Makefile not found!"
+            echo
+            echo "Tip: Use the following commands to initialize submodules:"
+            echo "% git submodule init"
+            echo "% git submodule update"
+            exit 1
+        fi
+
         # Check access to the scripts
         [[ -f $SCRIPTSDIR/scripts/etc/inittab ]] || die "TinyLinux scripts are not available"
         [[ -d $SCRIPTSDIR/profiles/$PROFILE   ]] || die "Selected profile $PROFILE is not available"
@@ -1151,20 +1161,14 @@ install_mods()
     [[ $TEGRABUILD ]] && return 0
 
     local TMPMODS
-    local DRVPKG
-
-    # Skip if there is no driver package
-    DRVPKG="$BUILDSCRIPTS/mods/driver.tgz"
-    [[ -f $DRVPKG ]] || return 0
 
     # Install MODS kernel driver
     if [ ! -f /lib/modules/*/extra/mods.ko ]; then
         TMPMODS=/tmp/mods
         rm -rf "$TMPMODS"
         boldecho "Installing MODS kernel driver"
-        mkdir "$TMPMODS"
-        tar xzf "$DRVPKG" -C "$TMPMODS"
-        [[ ! -f $BUILDSCRIPTS/mods.tgz ]] || tar xzf "$TMPMODS"/driver.tgz -C "$TMPMODS"
+        mkdir -p "$TMPMODS"/driver
+        cp "$BUILDSCRIPTS"/mods/* "$TMPMODS"/driver
         compile_driver "$TMPMODS"/driver
         rm -rf "$TMPMODS"
 
@@ -1259,13 +1263,10 @@ pack_config()
 
 get_mods_driver_version()
 {
-    rm -rf /tmp/driver
-    tar xzf "$BUILDSCRIPTS/mods/driver.tgz" -C /tmp/
     local MAJOR
     local MINOR
-    MAJOR=`grep "define MODS_DRIVER_VERSION_MAJOR" /tmp/driver/mods.h | cut -f 3 -d ' '`
-    MINOR=`grep "define MODS_DRIVER_VERSION_MINOR" /tmp/driver/mods.h | cut -f 3 -d ' '`
-    rm -rf /tmp/driver
+    MAJOR=`grep "define MODS_DRIVER_VERSION_MAJOR" "$BUILDSCRIPTS"/mods/mods.h | cut -f 3 -d ' '`
+    MINOR=`grep "define MODS_DRIVER_VERSION_MINOR" "$BUILDSCRIPTS"/mods/mods.h | cut -f 3 -d ' '`
     printf "%d.%02d" "$MAJOR" "$MINOR"
 }
 
