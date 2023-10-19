@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
  * See LICENSE file for details.
  */
 

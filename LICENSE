@@ -3,7 +3,7 @@ This license applies to NVIDIA TinyLinux's own build and run scripts.
 Other components, such as Gentoo Linux build scripts, third-party
 software packages and patches are governed by their own licenses.
 
-Copyright (c) 2009-2016, NVIDIA CORPORATION.  All rights reserved.
+Copyright (c) 2009-2023, NVIDIA CORPORATION.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions

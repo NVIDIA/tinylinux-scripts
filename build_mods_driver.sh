@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Copyright (c) 2016-2023, NVIDIA CORPORATION.  All rights reserved.
 # See LICENSE file for details.
 
 set -e

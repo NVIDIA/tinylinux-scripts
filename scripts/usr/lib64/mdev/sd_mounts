@@ -1,6 +1,7 @@
 #!/usr/bin/sh
 
-# Copyright (c) 2009-2023, NVIDIA CORPORATION.  All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Copyright (c) 2009-2023, NVIDIA CORPORATION.  All rights reserved.
 # See /etc/LICENSE file for details.
 
 emit()
