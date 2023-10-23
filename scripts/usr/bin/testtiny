@@ -294,6 +294,12 @@ if [[ $PROFILE = full ]]; then
     echo -n " lzma"
     [[ $OUTPUT = "" ]] || fail_test "error"
 
+    python3 -c "import hashlib" > output.txt 2>&1 | true
+    check_exit_code ${PIPESTATUS[0]}
+    OUTPUT=$(cat output.txt)
+    echo -n " hashlib"
+    [[ $OUTPUT = "" ]] || fail_test "error"
+
     end_test
 fi
 

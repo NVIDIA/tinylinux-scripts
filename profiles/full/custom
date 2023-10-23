@@ -7,6 +7,7 @@ rm -rf "$NEWROOT"/usr/lib*/python*/test
 install_package dev-lang/python-exec
 NEWROOT=/ install_package app-eselect/eselect-python
 ROOT="$NEWROOT" eselect python set python${PYTHON_VER}
+install_package app-crypt/libb2 # Dependency needed for hashlib in Python
 
 USE=ithreads emerge --quiet --usepkg --buildpkg perl # Enable ithreads
 install_package perl-cleaner "" "--nodeps" # PERL pulls this, and this in turn pulls too much

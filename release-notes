@@ -1,5 +1,10 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+23.09.1
+ * Updated MODS kernel driver to 4.22
+ * Fixed loading hashlib module in Python
+ * Enabled more options in netcat
+-------------------------------------------------------------------------------
 23.09
  * Updated kernel to 6.5.4
  * Fixed symlinks /usr/bin/bzip2 and /usr/bin/env
