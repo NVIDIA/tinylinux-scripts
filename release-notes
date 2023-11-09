@@ -1,5 +1,11 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+23.09.3
+ * Enabled additional network drivers in the kernel
+-------------------------------------------------------------------------------
+23.09.2
+ * Updated kernel to 6.5.9
+-------------------------------------------------------------------------------
 23.09.1
  * Updated MODS kernel driver to 4.22
  * Fixed loading hashlib module in Python
