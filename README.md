@@ -311,19 +311,19 @@ To set up networking, perform the following steps:
 The networking configuration file `/etc/conf.d/net` contains the following
 settings:
 
-* net=auto - specifies which Ethernet interface should be configured.  `auto`
+* `net=auto` - specifies which Ethernet interface should be configured.  `auto`
   indicates that the networking service will look for the first interface
   which has cable connected.  This can be changed to a specific interface,
   such as `eth0`, so that only this interface is used.
 
-* staticip=192.168.0.1/255.255.255.0 - IP and netmask for static IP.  If it is
+* `staticip=192.168.0.1/255.255.255.0` - IP and netmask for static IP.  If it is
   not specified (empty), DHCP is used.
 
-* gateway=192.168.0.1 - default gateway (esp. useful with static IP).
+* `gateway=192.168.0.1` - default gateway (esp. useful with static IP).
 
-* dns=192.168.0.154,1.2.3.4 - list of DNS servers (comma-separated).
+* `dns=192.168.0.154,1.2.3.4` - list of DNS servers (comma-separated).
 
-* dnsdomain=somedomain.com - the DNS search domain.
+* `dnsdomain=somedomain.com` - the DNS search domain.
 
 SSH daemon
 ----------
@@ -363,6 +363,3 @@ Troubleshooting
 When trying to diagnose boot issues, edit `syslinux/syslinux.cfg` file which
 resides in the main directory of the installation drive, and remove the `quiet`
 option.  This will enable printing of all kernel messages during boot.
-
-
-vim:ft=markdown
