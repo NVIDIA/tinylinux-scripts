@@ -1,0 +1,5 @@
+NAME=TinyLinux
+ID=tinylinux
+PRETTY_NAME="NVIDIA TinyLinux"
+ANSI_COLOR="1;32"
+HOME_URL="https://github.com/NVIDIA/tinylinux-scripts"

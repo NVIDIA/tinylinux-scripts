@@ -86,6 +86,7 @@ ln -s "${MNTSQUASH}/usr/lib64" lib64
 rm -f etc
 mkdir etc
 cp -a "${ROOTFS}/${MNTSQUASH}"/etc/* etc/
+ln -sf os-release etc/initrd-release
 
 # Enable sshd
 echo "sshd" >> etc/conf.d/boot

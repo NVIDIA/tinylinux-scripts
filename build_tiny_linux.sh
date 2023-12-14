@@ -1332,6 +1332,8 @@ make_squashfs()
         [[ $TEGRABUILD ]] || find /var/db/pkg/sys-kernel/ -maxdepth 1 -name gentoo-sources-* -o -name git-sources-* | sed "s/.*\/var\/db\/pkg\///"
         find "$NEWROOT"/var/db/pkg/ -mindepth 2 -maxdepth 2 | sed "s/.*\/var\/db\/pkg\///" | sort
     ) > "$NEWROOT/etc/release"
+    echo "VERSION_ID=\"$VERSION\"" >> "$NEWROOT"/usr/lib64/os-release
+    ln -sf "../usr/lib64/os-release" "$NEWROOT"/etc/os-release
 
     # Copy release notes
     cp "$BUILDSCRIPTS"/{release-notes,LICENSE} "$NEWROOT"/etc/
