@@ -16,7 +16,10 @@ ignore_busybox_symlinks /usr/bin/bzip2 /usr/bin/bunzip2 /usr/bin/bzcat
 install_package perl "ithreads"
 ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read # Print news items from PERL
 
+# Manually install deps for lvm2 to avoid pulling in systemd
 install_package sys-block/thin-provisioning-tools
+NEWROOT=/ install_package dev-libs/libaio
+install_package dev-libs/libaio
 install_package sys-fs/lvm2 "lvm thin" "--nodeps"
 remove_gentoo_services device-mapper dmeventd lvm lvm-monitoring lvmpolld
 
