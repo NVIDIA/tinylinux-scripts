@@ -40,7 +40,6 @@ if [[ $# -eq 0 || $1 = "-h" || $1 = "--help" ]]; then
     echo "  -k      Force rebuilding the kernel"
     echo "  -q      Force recompressing squashfs"
     echo "  -m      Launch kernel menuconfig before compiling the kernel"
-    echo "  -d DEV  Deploy installation to device (e.g. /dev/sdx)"
     exit
 fi
 
@@ -66,7 +65,6 @@ while [[ $# -gt 1 ]]; do
         -k) REBUILDKERNEL="1" ;;
         -q) REBUILDSQUASHFS="1" ;;
         -m) KERNELMENUCONFIG="1" ; REBUILDKERNEL="1" ;;
-        -d) DEPLOY="$1" ; shift ;;
         --arch=*) ARCH="${OPT#--arch=}"
                   case "$ARCH" in
                       amd64|x86_64) [[ $STAGE3ARCH = amd64 ]] || die "Cannot cross-compile x86_64 from ARM" ;;
@@ -123,7 +121,6 @@ VERSION="${VERSION:-$(date "+%y.%m.%d")}"
 [[ $REBUILDKERNEL    ]] && export REBUILDKERNEL
 [[ $REBUILDSQUASHFS  ]] && export REBUILDSQUASHFS
 [[ $KERNELMENUCONFIG ]] && export KERNELMENUCONFIG
-[[ $DEPLOY           ]] && export DEPLOY
 [[ $USEGRUB          ]] && export USEGRUB
 [[ $RCKERNEL         ]] && export RCKERNEL
 [[ $TEGRABUILD       ]] && export TEGRABUILD
@@ -1615,44 +1612,6 @@ compress_final_package()
     boldecho "${BUILDROOT}/$FINALPACKAGE is ready"
 }
 
-deploy()
-{
-    [[ $TEGRABUILD ]] && return 0
-    [[ $DEPLOY     ]] || return 0
-
-    boldecho "Installing TinyLinux on $DEPLOY"
-    [ -b "$DEPLOY" ] || die "Block device $DEPLOY not found"
-    echo
-    fdisk -l "$DEPLOY"
-    echo
-    echo "Install? [y|n]"
-    local CHOICE
-    read CHOICE
-    if [[ $CHOICE != y ]]; then
-        echo "Installation skipped"
-        return 0
-    fi
-
-    mkfs.vfat -I -n TinyLinux "$DEPLOY"
-    sync
-    local UEVENT
-    ls /sys/bus/{pci,usb}/devices/*/uevent | while read UEVENT; do
-        echo add > "$UEVENT"
-    done
-    sync
-    sleep 1
-
-    local DESTDIR
-    DESTDIR=`mktemp -d`
-    mount "$DEPLOY" "$DESTDIR"
-    unzip -q "/$FINALPACKAGE" -d "$DESTDIR"
-    sync
-    syslinux "$DEPLOY"
-    sync
-    umount "$DESTDIR"
-    rmdir "$DESTDIR"
-}
-
 # Check privileges
 [[ `id -u` -eq 0 ]] || die "This script must be run with root privileges"
 
@@ -1675,4 +1634,3 @@ make_squashfs               # Create squashfs.bin from newroot. Can be forced wi
 compile_busybox             # [Tegra only] Compile busybox for startup.
 make_tegra_image            # [Tegra only] Create initial ramdisk for Tegra.
 compress_final_package      # [Not for Tegra] Build the zip package.
-deploy                      # [Not for Tegra] Install on a USB stick
