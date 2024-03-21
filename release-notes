@@ -1,5 +1,15 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+24.03
+ * Updated kernel to 6.8.1
+ * Updated MODS kernel driver to 4.24
+ * Coldplug hid bus
+ * Mount efivarfs on boot
+ * Added support for BOOTIF kernel command line arg
+ * Made kmsg readable to all users
+ * Added /etc/os-release
+ * Fixed lvm2 support
+-------------------------------------------------------------------------------
 23.09.3
  * Enabled additional network drivers in the kernel
 -------------------------------------------------------------------------------
