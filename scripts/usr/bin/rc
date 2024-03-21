@@ -452,6 +452,9 @@ elif [ "$1" = "sysinit" ]; then
             ln -s "$TINYLINUXDIR"/firmware /var/firmware
         else
             mkdir -p /var/firmware
+            if [ -d /lib/firmware.fixed ] && [ "$(ls /lib/firmware.fixed | wc -l)" != "0" ]; then
+                ln -s /lib/firmware.fixed/* /var/firmware/
+            fi
         fi
     fi
 

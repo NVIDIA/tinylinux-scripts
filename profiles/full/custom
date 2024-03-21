@@ -30,8 +30,8 @@ if [[ $(uname -m) = x86_64 ]]; then
     install_package ipmitool "openipmi python"
     install_package ipmiutil
 fi
-install_package sys-devel/gdb "client server"
-install_package dev-util/strace "aio"
+install_package dev-debug/gdb "client server"
+install_package dev-debug/strace "aio"
 ignore_busybox_symlinks /usr/bin/xxd
 install_package vim-core minimal
 install_package vim minimal --nodeps
@@ -61,7 +61,7 @@ ignore_busybox_symlinks /usr/bin/lzcat /usr/bin/lzma /usr/bin/unlzma /usr/bin/un
 install_package app-arch/xz-utils # Needed by lzma module in Python
 ignore_busybox_symlinks /usr/bin/partprobe
 install_package sys-block/parted "" --nodeps
-cp -a /lib64/lib{uuid,blkid}.so.* "$NEWROOT"/lib64/ # Needed by parted, but we don't want entire util-linux
+cp -a /usr/lib64/lib{uuid,blkid}.so.* "$NEWROOT"/lib64/ # Needed by parted, but we don't want entire util-linux
 install_package media-tv/v4l-utils "jpeg"
 
 install_package app-arch/lbzip2

@@ -1,7 +1,7 @@
 # Additional packages
-install_package sys-devel/gdb "client server xml"
-install_package dev-util/valgrind
-install_package dev-util/strace "aio"
+install_package dev-debug/gdb "client server xml"
+install_package dev-debug/valgrind
+install_package dev-debug/strace "aio"
 install_package net-nds/ypbind
 install_package net-fs/autofs "" "--nodeps"
 COLLISION_IGNORE="/bin /usr/bin" install_package net-dialup/lrzsz

@@ -237,6 +237,10 @@ unpack_packages()
     tar_bz2 -xpf "$PORTAGEPKG" -C "$BUILDROOT/var/db/repos"
     mv "$BUILDROOT/var/db/repos/portage" "${BUILDROOT}$PORTAGE"
 
+    # Prepare portage configuration
+    mkdir -p "$BUILDROOT/etc/portage/repos.conf"
+    cp "$BUILDROOT/usr/share/portage/config/repos.conf" "$BUILDROOT/etc/portage/repos.conf/gentoo.conf"
+
     # Unpack distfiles if available
     if [[ -f $DISTFILESPKG ]]; then
         boldecho "Unpacking distfiles"
@@ -372,7 +376,7 @@ prepare_portage()
     sed -i -e "/^MAKEOPTS/d ; /^PORTAGE_NICENESS/d ; /^USE/d ; /^GRUB_PLATFORMS/d" "$MAKECONF"
 
     (
-        [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS\""
+        [[ $JOBS ]] && echo "MAKEOPTS=\"-j$JOBS -l $JOBS\""
         echo 'PORTAGE_NICENESS="15"'
         echo "USE=\"-* ipv6 multicall ncurses readline syslog threads unicode python_targets_python${PYTHON_VER/./_} python_single_target_python${PYTHON_VER/./_}\""
         echo 'GRUB_PLATFORMS="efi-64"'
@@ -381,6 +385,11 @@ prepare_portage()
     # Needed in qemu
     if [[ $(uname -m) = aarch64 ]] && ! grep -q "pid-sandbox" "$MAKECONF"; then
         echo 'FEATURES="-pid-sandbox"' >> "$MAKECONF"
+    fi
+
+    # Enable binary packages
+    if ! grep -q "getbinpkg" "$MAKECONF"; then
+        echo 'FEATURES="$FEATURES getbinpkg"' >> "$MAKECONF"
     fi
 
     local KEYWORDS="/etc/portage/package.accept_keywords/tinylinux"
@@ -423,7 +432,7 @@ prepare_portage()
         "net-misc/dropbear pam"
         "sys-apps/hwids net pci usb"
         "sys-auth/pambase pam_krb5 nullok"
-        "sys-boot/syslinux bios efi"
+        "sys-boot/syslinux bios uefi"
         "sys-fs/quota rpc"
         "sys-fs/squashfs-tools lzma"
         "sys-libs/glibc crypt rpc"
@@ -525,6 +534,9 @@ prepare_portage()
             ebuild "$EBUILD" digest
         done
     fi
+
+    # Prepare GPG keys for binary packages
+    getuto
 }
 
 run_interactive()
@@ -618,7 +630,7 @@ compile_kernel()
     sed -i "/^DISKLABEL/s/yes/no/" /etc/genkernel.conf
 
     boldecho "Preparing kernel"
-    [[ $JOBS ]] && MAKEOPTS="--makeopts=-j$JOBS"
+    [[ $JOBS ]] && MAKEOPTS="--makeopts=-j$JOBS -l$JOBS"
     rm -rf /lib/{modules,firmware}
     cp "$BUILDSCRIPTS/kernel-config" /usr/src/linux/.config
 
@@ -828,6 +840,10 @@ build_newroot()
         ln -s /tiny/valgrind "$NEWROOT/usr/libexec/valgrind"
     fi
 
+    # Copy keys used for binary packages
+    mkdir -p "$NEWROOT/usr/share/openpgp-keys"
+    cp "/usr/share/openpgp-keys/gentoo-release.asc" "$NEWROOT/usr/share/openpgp-keys"/
+
     # Install basic system packages
     install_package sys-libs/glibc "" --nodeps # Latest glibc pulls deps!!!
     record_dir_symlinks # Record directory symlinks with glibc
@@ -861,7 +877,6 @@ build_newroot()
     install_package sys-devel/bc
     install_package net-wireless/wireless-tools
     install_package dev-libs/openssl
-    ROOT="$NEWROOT" emerge --unmerge -q debianutils # Remove package pulled by openssl
 
     # Install more basic packages
     install_package nano
@@ -874,16 +889,17 @@ build_newroot()
         COLLISION_IGNORE="/bin /sbin /usr/bin /usr/sbin" install_package sys-apps/util-linux "" --nodeps
     fi
     emerge --quiet --noreplace dev-libs/libevent # nfs-utils dependency
-    install_package nfs-utils "" --nodeps
+    install_package nfs-utils "nfsv3" --nodeps
     remove_gentoo_services nfs nfsmount rpcbind rpc.statd
     rm "$NEWROOT/usr/bin/fsidd" # Remove due to lack of libevent and libsqlite3
 
-    # Additional x86-specific packages
+    # Additional non-Tegra-specific packages
     if [[ -z $TEGRABUILD ]]; then
         install_package libusb-compat
         install_package numactl
         install_package efibootmgr
         install_package ntfs3g "fuse mount-ntfs ntfsprogs xattr" --nodeps # nodeps to avoid util-linux
+        install_package linux-firmware
         remove_gentoo_services netmount
     fi
 
@@ -1145,7 +1161,7 @@ compile_driver()
     DIR="$1"
 
     local MAKEOPTS
-    [[ $JOBS ]] && MAKEOPTS="-j$JOBS"
+    [[ $JOBS ]] && MAKEOPTS="-j$JOBS -l$JOBS"
 
     cd "$DIR"
     make -C /usr/src/linux M="$DIR" $MAKEOPTS modules
@@ -1283,7 +1299,6 @@ restore_newroot()
 make_squashfs()
 {
     local MSQJOBS
-    local EXCLUDE
 
     # Skip if squashfs already exists or if kernel hasn't been rebuilt
     [[ ! -f $INSTALL/$SQUASHFS || $REBUILDSQUASHFS = 1 || $REBUILDKERNEL = 1 ]] || return 0
@@ -1291,10 +1306,21 @@ make_squashfs()
     # Install kernel modules and firmware
     boldecho "Copying kernel modules"
     local NEWROOT_LIB="$NEWROOT/lib64"
-    rm -rf "$NEWROOT_LIB"/{modules,firmware}
+    rm -rf "$NEWROOT_LIB"/modules
     if [[ -z $TEGRABUILD ]]; then
         tar cp -C /lib modules | tar xp -C "$NEWROOT_LIB"/
-        ln -s /var/firmware "$NEWROOT_LIB"/firmware
+        [ -h "$NEWROOT_LIB"/firmware ] || ln -s /var/firmware "$NEWROOT_LIB"/firmware
+
+        rm -rf "$NEWROOT_LIB"/firmware.fixed
+        if [[ -d "$NEWROOT"/lib/firmware ]]; then
+            local KEEP_FIRMWARE=( isci mellanox )
+            local FIRMWARE
+            for FIRMWARE in "${KEEP_FIRMWARE[@]}"; do
+                [ -e "$NEWROOT/lib/firmware/$FIRMWARE" ] || continue
+                mkdir -p "$NEWROOT_LIB"/firmware.fixed
+                cp -a "$NEWROOT/lib/firmware/$FIRMWARE" "$NEWROOT_LIB"/firmware.fixed/
+            done
+        fi
     fi
 
     boldecho "Preparing squashfs"
@@ -1384,9 +1410,11 @@ make_squashfs()
 	usr/share/glib-2.0
 	usr/share/gtk-doc
 	usr/share/i18n
+	usr/share/include
 	usr/share/info
 	usr/share/locale/*
 	usr/share/man
+	usr/share/openpgp-keys
 	usr/share/sounds
 	usr/share/ss
 	usr/share/X11
@@ -1417,7 +1445,7 @@ compile_busybox()
     local BUILDDIR
     local MAKEOPTS
 
-    [[ $JOBS ]] && MAKEOPTS="-j$JOBS"
+    [[ $JOBS ]] && MAKEOPTS="-j$JOBS -l$JOBS"
 
     # Only for Tegra
     [[ $TEGRABUILD ]] || return 0
