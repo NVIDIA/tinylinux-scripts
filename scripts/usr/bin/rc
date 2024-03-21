@@ -436,6 +436,7 @@ elif [ "$1" = "sysinit" ]; then
     [ -d /dev/pts ] || mkdir -m 0755 /dev/pts
     [ -d /dev/shm ] || mkdir -m 1777 /dev/shm
     mount -t devpts -o "mode=0620,gid=5" devpts /dev/pts
+    [ -d /sys/firmware/efi/efivars ] && grep -q efivarfs /proc/filesystems && mount -t efivarfs efivarfs /sys/firmware/efi/efivars
 
     # Create symlinks used by shell's redirection
     ln -s /proc/self/fd /dev/fd
