@@ -14,6 +14,7 @@ MNTETC="mnt/etc"
 SQUASHFS_BIN="tiny/squash.bin"
 NFSSHARE=""
 NET="eth0"
+MAC=""
 OVRCFG="1"
 READONLY=""
 COLDPLUG="1"
@@ -55,6 +56,7 @@ for ARG in $(cat /proc/cmdline); do
         partno\=*)        PARTNUMBER="${ARG#*=}" ;;
         nfsshare\=*)      NFSSHARE="${ARG#*=}" ;;
         net\=*)           NET="${ARG#*=}" ;;
+        BOOTIF\=*)        MAC="${ARG#*=}" ;;
         ovrcfg\=*)        OVRCFG="${ARG#*=}" ;;
         mount_timeout\=*) MNT_TIMEOUT="${ARG#*=}" ;;
         nocoldplug)       COLDPLUG="" ;;
@@ -92,6 +94,34 @@ mount_squash()
     fi
 }
 
+find_net_dev_from_mac()
+{
+    # Skip if BOOTIF was not specified
+    [ -n "$MAC" ] || return 0
+
+    # Turn requested MAC address to lowercase
+    MAC=$(echo "$MAC" | tr '[A-Z]' '[a-z]')
+
+    local LOOP=0
+    while true; do
+        local IIFACE
+        for IIFACE in $(ls /sys/class/net); do
+            [ -f "/sys/class/net/$IIFACE/address" ] || continue
+            local CURMAC=$(cat "/sys/class/net/$IIFACE/address" | tr '[A-Z]' '[a-z]')
+            if [ "$CURMAC" = "$MAC" ]; then
+                NET="$IIFACE"
+                echo "Found network interface $NET with MAC address $MAC"
+                return 0
+            fi
+        done
+        [ $LOOP -eq 1 ] && echo "Waiting for network interface with MAC address $MAC"
+        LOOP=$(($LOOP + 1))
+        local WAITTIME=$(($(awk '{print $1*1000}' /proc/uptime) - $KERNEL_BOOT_TIME))
+        [ $WAITTIME -gt $((MNT_TIMEOUT * 1000)) ] && break
+    done
+    echo "Network interface with MAC address $MAC not found!"
+}
+
 # Mount non-volatile volume or NFS share
 mkdir -p "${ROOTFS}/${MNTNV}" "${ROOTFS}/${MNTSQUASH}"
 RETRYCOUNT=0
@@ -99,6 +129,7 @@ TRIEDDEVS=""
 FOUNDDEV=""
 while true; do
     if [ "$NFSSHARE" ]; then
+        find_net_dev_from_mac
         if [ -e "/sys/class/net/$NET" ]; then
             echo "Obtaining DHCP lease for $NET..."
             FOUNDDEV="$NET"

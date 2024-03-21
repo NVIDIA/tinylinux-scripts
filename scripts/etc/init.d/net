@@ -21,6 +21,7 @@ for ARG in `cat /proc/cmdline`; do
         dns\=*) DNS="${ARG#*=}" ; DNS="${DNS//,/ }" ;;
         dnsdomain\=*) DNSDOMAIN="${ARG#*=}" ;;
         nfsshare\=*) IFACE="none" ;; # DHCP already done
+        BOOTIF\=*) IFACEMAC=$(echo "${ARG#*=}" | tr '[A-Z]' '[a-z]') ;;
     esac
 done
 
@@ -69,8 +70,37 @@ bring_down_ifaces()
     done
 }
 
+get_iface_from_mac()
+{
+    local IFACEMAC="$1"
+    local LOOP=0
+    while [ $LOOP -lt $((TIMEOUT * 2)) ]; do
+        local IIFACE
+        for IIFACE in $(ls /sys/class/net); do
+            [ -f "/sys/class/net/$IIFACE/address" ] || continue
+            local CURMAC=$(cat "/sys/class/net/$IIFACE/address" | tr '[A-Z]' '[a-z]')
+            if [ "$CURMAC" = "$IFACEMAC" ]; then
+                IFACE="$IIFACE"
+                return 0
+            fi
+        done
+        [ -e "/sys/class/net/$IFACE" ] && break
+        LOOP=$((LOOP + 1))
+        info "waiting for $IFACEMAC"
+        sleep 0.5
+    done
+    return 1
+}
+
 start()
 {
+    TIMEOUT=${TIMEOUT:-1}
+
+    if [ -n "${IFACEMAC:-}" ] && ! get_iface_from_mac "$IFACEMAC"; then
+        error "interface not found"
+        return 1
+    fi
+
     if [ $IFACE = "auto" ]; then
         local LOOP=0
         local FOUND_IFACES
@@ -143,14 +173,8 @@ start()
 
     local NUM_IFACES=$(echo "$IFACE" | wc -w)
 
-    # Fail if interface explicitly requested by user does not exist
-    if [ $NUM_IFACES -eq 1 ] && [ ! -d "/sys/class/net/$IFACE" ]; then
-        info "missing $IFACE"
-        return 1
-    fi
-
     # Wait for the network interface if it does not exist
-    if [ $NUM_IFACES -eq 1 -a ! -d "/sys/class/net/$IFACE" -a -n "$TIMEOUT" ]; then
+    if [ $NUM_IFACES -eq 1 ] && [ ! -d "/sys/class/net/$IFACE" ]; then
         info "waiting for $IFACE"
         local LOOP=0
         while [ $LOOP -lt $((TIMEOUT * 2)) ]; do
@@ -159,6 +183,12 @@ start()
             sleep 0.5
             echo -n "." >&3
         done
+    fi
+
+    # Fail if interface explicitly requested by user does not exist
+    if [ $NUM_IFACES -eq 1 ] && [ ! -d "/sys/class/net/$IFACE" ]; then
+        info "missing $IFACE"
+        return 1
     fi
 
     # Bring up networking
