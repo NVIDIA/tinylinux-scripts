@@ -55,7 +55,8 @@ install_package app-misc/screen "" "--nodeps"
 ignore_busybox_symlinks /usr/bin/acpid
 install_package acpid
 yes | ROOT=/newroot etc-update --automode -7 # Clean up acpid script changes
-install_package app-admin/sudo "" "--nodeps"
+install_package app-crypt/libmd              # Needed by sudo
+install_package app-admin/sudo "" "--nodeps" # Avoid pulling in systemd
 install_package sys-apps/file "python zlib"
 ignore_busybox_symlinks /usr/bin/lzcat /usr/bin/lzma /usr/bin/unlzma /usr/bin/unxz /usr/bin/xz /usr/bin/xzcat
 install_package app-arch/xz-utils # Needed by lzma module in Python
