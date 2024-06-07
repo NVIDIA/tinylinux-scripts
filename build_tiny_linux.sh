@@ -905,7 +905,6 @@ build_newroot()
 
     # Finish installing dropbear
     mkdir "$NEWROOT/etc/dropbear"
-    dropbearkey -t dss -f "$NEWROOT/etc/dropbear/dropbear_dss_host_key"
     dropbearkey -t rsa -f "$NEWROOT/etc/dropbear/dropbear_rsa_host_key"
     dropbearkey -t ecdsa -f "$NEWROOT/etc/dropbear/dropbear_ecdsa_host_key"
     dropbearkey -t ed25519 -f "$NEWROOT/etc/dropbear/dropbear_ed25519_host_key"
