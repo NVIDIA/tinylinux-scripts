@@ -420,6 +420,8 @@ prepare_portage()
         "app-alternatives/bzip2 lbzip2"
         "app-alternatives/cpio gnu"
         "app-alternatives/gzip pigz"
+        "app-alternatives/tar gnu"
+        "app-arch/tar acl"
         "dev-lang/python xml ssl"
         "dev-libs/libtomcrypt libtommath"
         "dev-libs/libverto libev"
@@ -877,6 +879,7 @@ build_newroot()
     install_package sys-devel/bc
     install_package net-wireless/wireless-tools
     install_package dev-libs/openssl
+    COLLISION_IGNORE="/bin /usr/bin" install_package app-alternatives/tar
 
     # Install more basic packages
     install_package nano
