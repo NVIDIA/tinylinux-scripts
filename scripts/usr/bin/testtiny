@@ -421,4 +421,13 @@ end_test
 
 #==============================================================================
 
+start_test "locale"
+locale | grep -q "LC_CTYPE=.*en_US.utf8" || fail_test "incorrect $(locale)"
+for LOCALE_NAME in C.utf8 POSIX en_US.utf8; do
+    locale -a | grep -q "^$LOCALE_NAME\$" || fail_test "missing $LOCALE_NAME"
+done
+end_test
+
+#==============================================================================
+
 exit $EXITCODE

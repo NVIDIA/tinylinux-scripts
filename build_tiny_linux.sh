@@ -857,7 +857,7 @@ build_newroot()
     rm -rf "$NEWROOT"/usr/lib
     mkdir -p "$NEWROOT"/usr/lib
     ln -s usr/lib "$NEWROOT/lib"
-    ln -s /tiny/debug "$NEWROOT/usr/lib/debug"
+    [[ $TEGRABUILD ]] && ln -s /tiny/debug "$NEWROOT/usr/lib/debug"
 
     install_package ncurses
     ln -s libncurses.so.6  "$NEWROOT"/lib64/libncurses.so.5
@@ -998,6 +998,14 @@ build_newroot()
 
     # Create syslog.conf
     touch "$NEWROOT/etc/syslog.conf"
+
+    # Prepare locales
+    [[ -d "$NEWROOT"/usr/lib/locale ]] && die "Unexpected directory: $NEWROOT/usr/lib/locale"
+    [[ -d "$NEWROOT"/usr/lib64/locale ]] && die "Unexpected directory: $NEWROOT/usr/lib64/locale"
+    locale-gen -c "$BUILDSCRIPTS/locale.gen" -d "$NEWROOT"
+    if [[ -d "$NEWROOT"/usr/lib && -d "$NEWROOT"/usr/lib64 && -d "$NEWROOT"/usr/lib/locale && ! -d "$NEWROOT"/usr/lib64/locale ]]; then
+        mv "$NEWROOT"/usr/lib/locale "$NEWROOT"/usr/lib64/locale
+    fi
 }
 
 package_contents()
