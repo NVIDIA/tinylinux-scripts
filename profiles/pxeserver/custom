@@ -5,8 +5,8 @@ TINYDIR="tinysrv"
 install_package ipsvd
 
 # Install additional config files
-install_config / udhcpd.conf
-install_config /conf.d boot net tftpd
+install_into /etc udhcpd.conf
+install_into /etc/conf.d boot net tftpd
 
 # Install NFS exports
 install_into /etc exports

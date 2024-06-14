@@ -1,5 +1,5 @@
 # Install additional packages
-install_config /conf.d boot
+install_into /etc/conf.d boot
 
 install_package expat
 install_package =python-${PYTHON_VER}* "" "--nodeps"

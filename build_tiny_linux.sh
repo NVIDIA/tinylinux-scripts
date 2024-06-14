@@ -1217,17 +1217,6 @@ install_into()
     done
 }
 
-install_config()
-{
-    local DEST="/mnt/etc/$1"
-    mkdir -p "$DEST"
-    shift
-    while [[ $# -gt 0 ]]; do
-        cp "$BUILDSCRIPTS/profiles/$PROFILE/$1" "$DEST"
-        shift
-    done
-}
-
 remove_syslinux()
 {
     rm -f "$INSTALL/syslinux.exe"
