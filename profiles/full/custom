@@ -17,10 +17,9 @@ install_package perl "ithreads"
 ROOT="$NEWROOT" SYSROOT="$NEWROOT" eselect news read # Print news items from PERL
 
 # Manually install deps for lvm2 to avoid pulling in systemd
-install_package sys-block/thin-provisioning-tools
 NEWROOT=/ install_package dev-libs/libaio
 install_package dev-libs/libaio
-install_package sys-fs/lvm2 "lvm thin" "--nodeps"
+install_package sys-fs/lvm2 "lvm" "--nodeps"
 remove_gentoo_services device-mapper dmeventd lvm lvm-monitoring lvmpolld
 
 install_package iasl
@@ -63,7 +62,7 @@ install_package app-arch/xz-utils # Needed by lzma module in Python
 ignore_busybox_symlinks /usr/bin/partprobe
 install_package sys-block/parted "" --nodeps
 cp -a /usr/lib64/lib{uuid,blkid}.so.* "$NEWROOT"/lib64/ # Needed by parted, but we don't want entire util-linux
-install_package media-tv/v4l-utils "jpeg"
+install_package media-libs/libv4l "jpeg"
 install_package app-misc/tmux "vim-syntax"
 
 install_package app-arch/lbzip2
