@@ -17,7 +17,7 @@ INSTALL="/install"
 SQUASHFS="/tiny/squash.bin"
 MAKECONF="/etc/portage/make.conf"
 NICE="ionice -c 3 nice -n 19"
-PYTHON_VER=3.11
+PYTHON_VER=3.12
 
 # Inherit TEGRAABI from parent process
 TEGRAABI="${TEGRAABI:-aarch64-unknown-linux-gnu}"
@@ -42,6 +42,13 @@ if [[ $# -eq 0 || $1 = "-h" || $1 = "--help" ]]; then
     echo "  -m      Launch kernel menuconfig before compiling the kernel"
     exit
 fi
+
+# Use COW if available
+REAL_CP=$(which cp)
+cp()
+{
+    "$REAL_CP" --reflink=auto "$@"
+}
 
 # Auto-detect number of CPUs
 JOBS="${JOBS:-$(grep -c ^processor /proc/cpuinfo)}"
@@ -1185,11 +1192,11 @@ install_mods()
 
     local TMPMODS
 
-    # Install MODS kernel driver
+    # Install mods kernel driver
     if [ ! -f /lib/modules/*/extra/mods.ko ]; then
         TMPMODS=/tmp/mods
         rm -rf "$TMPMODS"
-        boldecho "Installing MODS kernel driver"
+        boldecho "Installing mods kernel driver"
         mkdir -p "$TMPMODS"/driver
         cp "$BUILDSCRIPTS"/mods/* "$TMPMODS"/driver
         compile_driver "$TMPMODS"/driver
@@ -1350,7 +1357,7 @@ make_squashfs()
         echo "Built with "`find /var/db/pkg/sys-devel/ -maxdepth 1 -name gcc-[0-9]* | sed "s/.*\/var\/db\/pkg\/sys-devel\///"`
         echo ""
         echo "Installed packages:"
-        [[ $TEGRABUILD ]] || echo "MODS kernel driver `get_mods_driver_version`"
+        [[ $TEGRABUILD ]] || echo "mods kernel driver `get_mods_driver_version`"
         [[ $TEGRABUILD ]] || find /var/db/pkg/sys-kernel/ -maxdepth 1 -name gentoo-sources-* -o -name git-sources-* | sed "s/.*\/var\/db\/pkg\///"
         find "$NEWROOT"/var/db/pkg/ -mindepth 2 -maxdepth 2 | sed "s/.*\/var\/db\/pkg\///" | sort
     ) > "$NEWROOT/etc/release"
@@ -1654,7 +1661,7 @@ emerge_basic_packages       # Build additional packages in buildroot.
 compile_kernel              # Compile kernel. Can be forced with -k.
 build_newroot               # Build newroot, which is the actual TinyLinux. Can be forced with -r.
 prepare_installation        # Prepare /buildroot/install directory. Copy kernel, etc.
-install_mods                # Install MODS kernel driver.
+install_mods                # Install mods kernel driver.
 install_extra_packages      # Install additional profile-specific packages. Runs the custom script.
 pack_config                 # Create persistent configuration file
 make_squashfs               # Create squashfs.bin from newroot. Can be forced with -q.

@@ -268,13 +268,13 @@ if [[ $PROFILE = full ]]; then
     check_exit_code ${PIPESTATUS[0]}
     OUTPUT=$(cat output.txt)
     echo -n " ${OUTPUT#Python }"
-    [[ $OUTPUT =~ ^Python.3.11 ]] || fail_test "incorrect"
+    [[ $OUTPUT =~ ^Python.3.12 ]] || fail_test "incorrect"
 
     python3 --version > output.txt 2>&1 | true
     check_exit_code ${PIPESTATUS[0]}
     OUTPUT=$(cat output.txt)
     echo -n " ${OUTPUT#Python }"
-    [[ $OUTPUT =~ ^Python.3.11 ]] || fail_test "incorrect"
+    [[ $OUTPUT =~ ^Python.3.12 ]] || fail_test "incorrect"
 
     python3 -c "import xml" > output.txt 2>&1 | true
     check_exit_code ${PIPESTATUS[0]}
