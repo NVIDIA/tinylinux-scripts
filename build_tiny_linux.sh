@@ -1128,8 +1128,10 @@ prepare_installation()
         )
 
         local GRUBARCH="$(uname -m)"
+        local BLNAME="BOOTX64.EFI"
         if [[ $GRUBARCH = aarch64 ]]; then
             GRUBARCH=arm64
+            BLNAME="BOOTAA64.EFI"
             USEGRUB=1
         fi
 
@@ -1140,7 +1142,7 @@ prepare_installation()
         fi
 
         mkdir -p "$GRUBINSTALL/EFI/BOOT" "$GRUBINSTALL/grub/$GRUBARCH-efi"
-        grub-mkimage --directory "/usr/lib/grub/$GRUBARCH-efi" --prefix '(hd0,1)/grub' --output "$GRUBINSTALL/EFI/BOOT/BOOTX64.EFI" --format "$GRUBARCH-efi" --compression 'auto' "${GRUB_MODULES[@]}"
+        grub-mkimage --directory "/usr/lib/grub/$GRUBARCH-efi" --prefix '/grub' --output "$GRUBINSTALL/EFI/BOOT/$BLNAME" --format "$GRUBARCH-efi" --compression 'auto' "${GRUB_MODULES[@]}"
         cp /usr/lib/grub/$GRUBARCH-efi/*.mod "$GRUBINSTALL/grub/$GRUBARCH-efi"
 
         cat > "$GRUBINSTALL/grub/grub.cfg" <<-EOF
