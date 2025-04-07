@@ -18,7 +18,7 @@ MAC=""
 OVRCFG="1"
 READONLY=""
 COLDPLUG="1"
-TTY=""
+CONSOLE_TTYS=""
 
 # Clear input and output
 exec >${CONSOLE} <${CONSOLE} 2>&1
@@ -60,7 +60,7 @@ for ARG in $(cat /proc/cmdline); do
         ovrcfg\=*)        OVRCFG="${ARG#*=}" ;;
         mount_timeout\=*) MNT_TIMEOUT="${ARG#*=}" ;;
         nocoldplug)       COLDPLUG="" ;;
-        console\=*)       TTY="${ARG#*=}" ;;
+        console\=*)       CONSOLE_TTYS="$CONSOLE_TTYS ${ARG#*=}" ;;
         ro)               READONLY="-o ro" ;;
     esac
 done
@@ -314,22 +314,33 @@ fi
 [ "$NFSSHARE" ] && [ -f "/etc/resolv.conf" ] && cp /etc/resolv.conf etc/
 
 # Update configuration of TTY based on console= setting
-if [ "$TTY" != "" ] && grep -q "^::respawn:.*getty.*login_root\>" etc/inittab; then
-    TTY_OPTS="${TTY#*,}"
-    TTY="${TTY%%,*}"
-    if echo "$TTY" | grep -q "^tty"; then
+if [ "$CONSOLE_TTYS" != "" ] && grep -q "^::respawn:.*getty.*login_root\>" etc/inittab; then
+    RESPAWN=""
+    for TTY in $CONSOLE_TTYS; do
+        TTY_OPTS="${TTY#*,}"
+        TTY="${TTY%%,*}"
+        if echo "$TTY" | grep -q "^tty"; then
 
-        BAUD="${TTY_OPTS%%,*}"
-        echo "$BAUD" | grep -q "^[0-9]\+$" || BAUD=115200
+            BAUD="${TTY_OPTS%%,*}"
+            echo "$BAUD" | grep -q "^[0-9]\+$" || BAUD=115200
 
-        TERM=vt102
-        CARRIER_DETECT="-L "
-        if echo "$TTY" | grep -q "^tty[1-9]$"; then
-            TERM=linux
-            CARRIER_DETECT=""
+            TERM=vt102
+            CARRIER_DETECT="-L "
+            if echo "$TTY" | grep -q "^tty[1-9]$"; then
+                TERM=linux
+                CARRIER_DETECT=""
+            fi
+
+            [ "$RESPAWN" ] && RESPAWN="$RESPAWN\\n"
+            RESPAWN="$RESPAWN::respawn:\\/usr\\/bin\\/getty ${CARRIER_DETECT}-n -l \\/usr\\/bin\\/login_root $BAUD $TTY $TERM"
         fi
-
-        sed -i "/::respawn:.*getty.*login_root/s/.*/::respawn:\/usr\/bin\/getty ${CARRIER_DETECT}-n -l \/usr\/bin\/login_root $BAUD $TTY $TERM/" etc/inittab
+    done
+    if [ "$RESPAWN" ]; then
+        REPLACE_MATCH="::respawn:.*getty.*login_root"
+        # Delete duplicate respawn lines
+        sed -i "/$REPLACE_MATCH/{ x; /^$/! { x; d }; x; h; p; d }" etc/inittab
+        # Replace existing respawn line
+        sed -i "/$REPLACE_MATCH/s/.*/$RESPAWN/" etc/inittab
     fi
 fi
 
