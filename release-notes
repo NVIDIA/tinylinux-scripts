@@ -1,5 +1,10 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+25.06
+ * Updated kernel to 6.15.2
+ * Updated MODS kernel driver to 4.31
+ * Changed default install filesystem to btrfs
+-------------------------------------------------------------------------------
 24.06
  * Updated kernel to 6.9.4
  * Added GNU tar
