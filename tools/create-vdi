@@ -45,7 +45,7 @@ trap cleanup EXIT
 runcmd mkdir -p "$WORK"/tiny
 
 # Create empty disk image file
-runcmd dd if=/dev/zero of="$WORK"/tiny.img bs=1M count="$IMAGE_SIZE_MB"
+runcmd truncate -s "${IMAGE_SIZE_MB}M" "$WORK"
 
 # Mount the image file via loop device
 LOOP_DEV=$(runcmd sudo losetup -f --show "$WORK"/tiny.img)
@@ -54,7 +54,7 @@ echo "Loop device: $LOOP_DEV"
 # Create ESP partition
 runcmd sudo parted -s "$LOOP_DEV" \
     mklabel gpt \
-    mkpart boot fat32 512s 100% \
+    mkpart ESP fat32 512s 100% \
     set 1 boot on \
     set 1 esp on \
     print

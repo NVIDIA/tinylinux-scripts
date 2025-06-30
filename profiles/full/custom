@@ -65,6 +65,9 @@ cp -a /usr/lib64/lib{uuid,blkid}.so.* "$NEWROOT"/lib64/ # Needed by parted, but 
 install_package media-libs/libv4l "jpeg"
 install_package app-misc/tmux "vim-syntax"
 
+install_package lzo # btrfs-progs dependency
+install_package btrfs-progs "convert zstd" "--nodeps" # Avoid pulling in util-linux
+
 install_package app-arch/lbzip2
 rm "$NEWROOT/usr/bin/bzip2"
 ln -s lbzip2 "$NEWROOT/usr/bin/bzip2"

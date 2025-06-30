@@ -23,6 +23,28 @@ The following profiles are available, each of them packaged individually:
 Installation
 ============
 
+From Linux - UEFI boot
+---------------------------------
+
+This method can be performed from another Linux distribution or from within
+NVIDIA TinyLinux after it is already booted.
+
+After determining the location of the target drive, run:
+
+    installtiny /dev/sdx
+
+Replace /dev/sdx with the actual drive where you want to install
+NVIDIA TinyLinux.
+
+The new partitions created this way are only accessible from Linux.
+
+The `installtiny` script formats the target drive with GUID partition table
+(GPT) and creates two partitions.  The first, boot partition is formatted with
+FAT32 and contains the syslinux bootloader, kernel and initrd.  The second
+partition is formatted with F2FS by default (or ReiserFS if selected with
+the optional -r argument) and contains the `tiny` folder.
+
+
 From Windows - UEFI boot on a USB stick
 ---------------------------------------
 
@@ -116,25 +138,6 @@ It is recommended to unpack NVIDIA TinyLinux into its own partition.
 It is also recommended to have only one copy of NVIDIA TinyLinux in the system,
 otherwise the boot script may become confused and problems with booting will
 occur.
-
-From NVIDIA TinyLinux - UEFI boot
----------------------------------
-
-After determining the location of the target drive, run:
-
-    installtiny /dev/sdx
-
-Replace /dev/sdx with the actual drive where you want to install
-NVIDIA TinyLinux.
-
-The new partitions created this way are only accessible from Linux.
-
-The `installtiny` script formats the target drive with GUID partition table
-(GPT) and creates two partitions.  The first, boot partition is formatted with
-FAT32 and contains the syslinux bootloader, kernel and initrd.  The second
-partition is formatted with F2FS by default (or ReiserFS if selected with
-the optional -r argument) and contains the `tiny` folder.
-
 
 Disk contents
 =============

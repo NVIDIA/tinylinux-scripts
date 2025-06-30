@@ -544,6 +544,14 @@ prepare_portage()
         done
     fi
 
+    # Patch ipsvd compilation failure with newer gcc
+    local EBUILD="$PORTAGE/net-misc/ipsvd/ipsvd-1.0.0-r3.ebuild"
+    if ! grep -q incompatible-pointer-types "$EBUILD"; then
+        boldecho "Patching $EBUILD"
+        sed -i '/CFLAGS.*conf-cc/s/CFLAGS}/& -Wno-incompatible-pointer-types/' "$EBUILD"
+        ebuild "$EBUILD" digest
+    fi
+
     # Prepare GPG keys for binary packages
     getuto
 }
@@ -561,7 +569,7 @@ emerge_basic_packages()
     boldecho "Compiling basic host packages"
 
     local SYSLINUX_PKG=""
-    [[ $(uname -m) = x86_64 ]] && SYSLINUX_PKG="syslinux"
+    [[ $(uname -m) = x86_64 ]] && SYSLINUX_PKG="dev-lang/nasm syslinux"
 
     local HOST_PKGS=(
         dev-libs/glib
@@ -573,7 +581,7 @@ emerge_basic_packages()
         less
         libtirpc
         pkgconfig
-        reiserfsprogs
+        btrfs-progs
         rpcbind
         rpcsvc-proto
         squashfs-tools
@@ -669,7 +677,7 @@ compile_kernel()
     for OPT in "${BUSYBOX_OPTS[@]}"; do
         sed -i -e "/\<${OPT%=*}\>/s/.*/$OPT/" "$BBCFG"
     done
-    genkernel --oldconfig --linuxrc="$BUILDSCRIPTS/linuxrc" --no-mountboot --no-zfs --no-btrfs "$MAKEOPTS" --all-ramdisk-modules --busybox-config="$BBCFG" ramdisk
+    genkernel --oldconfig --linuxrc="$BUILDSCRIPTS/linuxrc" --no-mountboot --no-zfs "$MAKEOPTS" --all-ramdisk-modules --busybox-config="$BBCFG" ramdisk
 
     trim_initrd_modules
 }
@@ -1172,6 +1180,7 @@ prepare_installation()
     [[ ! -f $COMMANDSFILE ]] || cp "$COMMANDSFILE" "$INSTALL/tiny/commands"
 
     cp "$BUILDSCRIPTS"/README.md "$INSTALL"/README
+    cp "$BUILDSCRIPTS"/scripts/usr/bin/installtiny "$INSTALL"/installtiny
 }
 
 compile_driver()
@@ -1509,7 +1518,7 @@ make_tegra_image()
     local OUTDIR=/aarch64
     rm -rf "$OUTDIR"
     mkdir "$OUTDIR"
-     
+
     # Create directory where the image is assembled
     local PACKAGE="/mnt/root"
     local FILESYSTEM="$PACKAGE/filesystem"
