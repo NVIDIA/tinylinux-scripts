@@ -1,5 +1,9 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+25.06.1
+ * Added openpyxl in full profile
+ * Enabled PCIEAER_INJECT in the kernel
+-------------------------------------------------------------------------------
 25.06
  * Updated kernel to 6.15.2
  * Updated MODS kernel driver to 4.31
