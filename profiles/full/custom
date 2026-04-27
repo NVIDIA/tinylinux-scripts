@@ -66,6 +66,7 @@ install_package sys-block/parted "" --nodeps
 cp -a /usr/lib64/lib{uuid,blkid,udev}.so.* "$NEWROOT"/lib64/ # Copy additional libs
 install_package media-libs/libv4l "jpeg"
 install_package app-misc/tmux "vim-syntax"
+install_package app-misc/jq
 
 COLLISION_IGNORE="/bin /usr/bin" install_package net-dialup/lrzsz
 install_package net-libs/libpcap ipv6
