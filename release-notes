@@ -1,12 +1,27 @@
 TinyLinux release history
 -------------------------------------------------------------------------------
+26.05
+ * Updated kernel to 7.0.3
+ * Updated mods driver to 4.35
+ * Added new packages in full profile
+   - bluez
+   - ethtool
+   - fio
+   - iperf
+   - jq
+   - kexec-tools
+   - nvme-cli
+   - sox
+   - stress-ng
+   - usbutils
+-------------------------------------------------------------------------------
 25.06.1
  * Added openpyxl in full profile
  * Enabled PCIEAER_INJECT in the kernel
 -------------------------------------------------------------------------------
 25.06
  * Updated kernel to 6.15.2
- * Updated MODS kernel driver to 4.31
+ * Updated mods driver to 4.31
  * Changed default install filesystem to btrfs
 -------------------------------------------------------------------------------
 24.06
@@ -16,11 +31,11 @@ TinyLinux release history
  * Enabled a UTF-8 locale by default
 -------------------------------------------------------------------------------
 24.03.1
- * Updated MODS kernel driver to 4.25
+ * Updated mods driver to 4.25
 -------------------------------------------------------------------------------
 24.03
  * Updated kernel to 6.8.1
- * Updated MODS kernel driver to 4.24
+ * Updated mods driver to 4.24
  * Coldplug hid bus
  * Mount efivarfs on boot
  * Added support for BOOTIF kernel command line arg
@@ -35,7 +50,7 @@ TinyLinux release history
  * Updated kernel to 6.5.9
 -------------------------------------------------------------------------------
 23.09.1
- * Updated MODS kernel driver to 4.22
+ * Updated mods driver to 4.22
  * Fixed loading hashlib module in Python
  * Enabled more options in netcat
 -------------------------------------------------------------------------------
@@ -45,7 +60,7 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 23.07
  * Updated kernel to 6.4.3
- * Updated MODS kernel driver to 4.19
+ * Updated mods driver to 4.19
  * Merged bin and sbin directories into usr/bin
  * Added /etc/sysctl.conf
  * Added initial support for WiFi
@@ -67,14 +82,14 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 23.01
  * Updated kernel to 6.1.7
- * Updated MODS kernel driver to 4.13
+ * Updated mods driver to 4.13
 -------------------------------------------------------------------------------
 22.06.1
  * Enabled mpt3sas driver in the kernel
 -------------------------------------------------------------------------------
 22.06
  * Updated kernel to 5.18.1
- * Updated MODS kernel driver to 4.9
+ * Updated mods driver to 4.9
  * Enabled Intel IOMMU support in the Linux kernel
 -------------------------------------------------------------------------------
 22.03.1
@@ -82,7 +97,7 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 22.03
  * Updated kernel to 5.16.16
- * Updated MODS kernel driver to 4.8
+ * Updated mods driver to 4.8
  * Added kernel workaround for some Micron NVMe SSDs
  * Added fio, nvme-cli, iperf, ethtool in tegra profile
  * Added perf tool in tegra profile
@@ -92,18 +107,18 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 21.07
  * Updated kernel to 5.13.1
- * Updated MODS kernel driver to 4.6
+ * Updated mods driver to 4.6
  * Improved rc enable/disable commands
  * Increased default sshd buffer size to 1MB to speed up scp
  * Added v4l-utils and pyocr in full profile
  * Removed f2fs-utils from full profile
 -------------------------------------------------------------------------------
 20.10.1
- * Updated MODS kernel driver to 4.1
+ * Updated mods driver to 4.1
 -------------------------------------------------------------------------------
 20.10
  * Updated kernel to 5.9.1
- * Updated MODS kernel driver to 4.0
+ * Updated mods driver to 4.0
  * Added /var/lock directory
  * Added lzma used by Python
  * Updated commands service to use tty and root login when executing script
@@ -117,13 +132,13 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 20.07
  * Updated kernel to 5.7.7
- * Updated MODS kernel driver to 3.98
+ * Updated mods driver to 3.98
  * Added ability to auto-detect active network interfaces
  * Re-enabled kernel log on UART in tegra profile
 -------------------------------------------------------------------------------
 20.01
  * Updated kernel to 5.4.11
- * Updated MODS kernel driver to 3.96
+ * Updated mods driver to 3.96
  * Improved installtiny script to support UEFI (only), MMC and NVMe
  * Added support for F2FS, now used by default in installtiny script
  * Added parted, i2c-tools and file tools in full profile
@@ -141,7 +156,7 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 19.08
  * Updated kernel to 5.2.8
- * Updated MODS kernel driver to 3.94
+ * Updated mods driver to 3.94
  * Enabled support for booting from CD/DVD
  * Downgraded openssl to 1.0
  * Enabled pulling domain name from DHCP
@@ -155,7 +170,7 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 19.02
  * Updated kernel to 4.20.6
- * Updated MODS kernel driver to 3.91
+ * Updated mods driver to 3.91
  * Enabled pcspkr driver in the kernel
  * Enabled i915 driver in the kernel
  * Added support for boot order override
@@ -180,7 +195,7 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 18.07
  * Updated kernel to 4.17.4
- * Updated MODS kernel driver to 3.87
+ * Updated mods driver to 3.87
  * Added Python 3.6 in full profile
  * Removable devices are no longer mounted with sync option, require unmount
  * Network service net now waits for eth device to appear
@@ -190,12 +205,12 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 18.02
  * Updated kernel to 4.15.4
- * Updated MODS kernel driver to 3.81
+ * Updated mods driver to 3.81
  * Fixed UEFI boot issue in syslinux bootloader on some systems
 -------------------------------------------------------------------------------
 17.10
  * Updated kernel to 4.13.5
- * Updated MODS kernel driver to 3.78
+ * Updated mods driver to 3.78
  * Added libstdc++.so in tegra profile
  * Added /etc/modules with a list of modules to load on boot
  * Added bc tool
@@ -204,18 +219,18 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 17.04
  * Updated kernel to 4.10.8
- * Updated MODS kernel driver to 3.71
+ * Updated mods driver to 3.71
  * Added ipmitool and dmidecode in full profile
 -------------------------------------------------------------------------------
 17.02
  * Updated kernel to 4.9.7
- * Updated MODS kernel driver to 3.68
+ * Updated mods driver to 3.68
  * Added ypbind and autofs in full profile
  * Fixed UEFI boot issue in syslinux bootloader on some systems
 -------------------------------------------------------------------------------
 16.10
  * Updated kernel to 4.8
- * Updated MODS kernel driver to 3.67
+ * Updated mods driver to 3.67
  * Removed legacy /mnt/dos symlink, use /mnt/nv instead
  * Added /home -> /mnt/nv/home symlink
  * Changed initial dir after boot to /home instead of /mnt/nv/home
@@ -235,7 +250,7 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 16.02
  * Updated kernel to 4.4.1
- * Updated MODS kernel driver to 3.66
+ * Updated mods driver to 3.66
  * Added vbetool in the full profile
  * Enabled suspend to RAM in kernel config
  * Added bluez and rfkill in tegra profile
@@ -248,20 +263,20 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 15.07
  * Updated kernel to 4.1.2
- * Updated MODS kernel driver to 3.63
+ * Updated mods driver to 3.63
  * Bumped max number of CPUs to 256
  * Added vim in full profile
  * Added libpcap in tegra profile
 -------------------------------------------------------------------------------
 15.02
  * Updated kernel to 3.19.0
- * Updated MODS kernel driver to 3.58
+ * Updated mods driver to 3.58
  * Added support for UEFI boot
  * Updated PERL to version 5.20 in the full profile
 -------------------------------------------------------------------------------
 14.12
  * Updated kernel to 3.17.5
- * Updated MODS kernel driver to 3.56
+ * Updated mods driver to 3.56
  * Fixed running MODS from commands script in PXE boot environment
 -------------------------------------------------------------------------------
 14.09.2
@@ -269,7 +284,7 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 14.09
  * Updated kernel to 3.16.1
- * Updated MODS kernel driver to 3.49
+ * Updated mods driver to 3.49
  * Added support for service dependencies
  * Remove stale /var/run/* files from previous boot
  * Wait for host to be reachable in netmount
@@ -286,7 +301,7 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 13.11
  * Updated kernel to 3.12
- * Updated MODS kernel driver to 3.36
+ * Updated mods driver to 3.36
  * Updated bashrc so set PATH correctly for remote logins
  * Compile Ethernet and storage drivers as modules
  * Speed up obtaining lease from DHCP during NFS boot
@@ -296,7 +311,7 @@ TinyLinux release history
 13.06
  * Updated kernel to 3.9
  * Removed mount.cifs. Use mount -t cifs instead
- * Updated MODS kernel driver to 3.34
+ * Updated mods driver to 3.34
  * Updated iasl in full profile to 20130117-r1
 -------------------------------------------------------------------------------
 12.08.1
@@ -304,7 +319,7 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 12.08
  * Updated kernel to 3.5
- * Updated MODS kernel driver to 3.30
+ * Updated mods driver to 3.30
  * Fixed hangs when trying to mount extended partition introduced in 12.07
  * Added mount.cifs command for mounting Windows shares
  * Updated sd_mounts script to avoid attempting to automount partitions twice
@@ -343,7 +358,7 @@ TinyLinux release history
 -------------------------------------------------------------------------------
 11.11
  * Upgraded kernel to 3.1.1
- * Updated MODS kernel driver to 3.23
+ * Updated mods driver to 3.23
  * Added gdb to full profile
  * Added mount and netmount services to support automatic fstab mounting
  * Added threads support to Python
