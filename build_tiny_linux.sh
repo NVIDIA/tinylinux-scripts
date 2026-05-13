@@ -551,6 +551,9 @@ prepare_portage()
     local EBUILD="$PORTAGE/net-misc/ipsvd/ipsvd-1.0.0-r3.ebuild"
     if ! grep -q incompatible-pointer-types "$EBUILD"; then
         boldecho "Patching $EBUILD"
+        mkdir -p "$PORTAGE/net-misc/ipsvd/files"
+        cp "$BUILDSCRIPTS/extra/ipsvd.patch" "$PORTAGE/net-misc/ipsvd/files"/
+        sed -i "s/PATCHES=(/PATCHES=( \"\${FILESDIR}\"\/\${PN}.patch/" "$EBUILD"
         sed -i '/CFLAGS.*conf-cc/s/CFLAGS}/& -Wno-incompatible-pointer-types/' "$EBUILD"
         ebuild "$EBUILD" digest
     fi

@@ -1,0 +1,450 @@
+--- a/src/alloc.c
++++ b/src/alloc.c
+@@ -23,11 +23,10 @@ unsigned int n;
+   return x;
+ }
+ 
+-void alloc_free(x)
+-char *x;
++void alloc_free(void *x)
+ {
+-  if (x >= space)
+-    if (x < space + SPACE)
++  if ((char *)x >= space)
++    if ((char *)x < space + SPACE)
+       return; /* XXX: assuming that pointers are flat */
+   free(x);
+ }
+--- a/src/alloc.h
++++ b/src/alloc.h
+@@ -3,8 +3,8 @@
+ #ifndef ALLOC_H
+ #define ALLOC_H
+ 
+-extern /*@null@*//*@out@*/char *alloc();
+-extern void alloc_free();
+-extern int alloc_re();
++/*@null@*//*@out@*/char *alloc(unsigned int n);
++void alloc_free(void *x);
++int alloc_re(char **x, unsigned int m, unsigned int n);
+ 
+ #endif
+--- a/src/buffer.c
++++ b/src/buffer.c
+@@ -2,7 +2,7 @@
+ 
+ #include "buffer.h"
+ 
+-void buffer_init(buffer *s,int (*op)(),int fd,char *buf,unsigned int len)
++void buffer_init(buffer *s,BUFFER_OP op,int fd,char *buf,unsigned int len)
+ {
+   s->x = buf;
+   s->fd = fd;
+--- a/src/buffer.h
++++ b/src/buffer.h
+@@ -3,19 +3,23 @@
+ #ifndef BUFFER_H
+ #define BUFFER_H
+ 
++#include <stdlib.h>
++
++typedef ssize_t (*BUFFER_OP)(int, const void*, size_t);
++
+ typedef struct buffer {
+   char *x;
+   unsigned int p;
+   unsigned int n;
+   int fd;
+-  int (*op)();
++  BUFFER_OP op;
+ } buffer;
+ 
+-#define BUFFER_INIT(op,fd,buf,len) { (buf), 0, (len), (fd), (op) }
++#define BUFFER_INIT(op,fd,buf,len) { (buf), 0, (len), (fd), (BUFFER_OP)(op) }
+ #define BUFFER_INSIZE 8192
+ #define BUFFER_OUTSIZE 8192
+ 
+-extern void buffer_init(buffer *,int (*)(),int,char *,unsigned int);
++extern void buffer_init(buffer *,BUFFER_OP,int,char *,unsigned int);
+ 
+ extern int buffer_flush(buffer *);
+ extern int buffer_put(buffer *,const char *,unsigned int);
+--- a/src/buffer_get.c
++++ b/src/buffer_get.c
+@@ -4,7 +4,7 @@
+ #include "byte.h"
+ #include "error.h"
+ 
+-static int oneread(int (*op)(),int fd,char *buf,unsigned int len)
++static int oneread(BUFFER_OP op,int fd,char *buf,unsigned int len)
+ {
+   int r;
+ 
+--- a/src/buffer_put.c
++++ b/src/buffer_put.c
+@@ -5,7 +5,7 @@
+ #include "byte.h"
+ #include "error.h"
+ 
+-static int allwrite(int (*op)(),int fd,const char *buf,unsigned int len)
++static int allwrite(BUFFER_OP op,int fd,const char *buf,unsigned int len)
+ {
+   int w;
+ 
+--- a/src/byte.h
++++ b/src/byte.h
+@@ -3,12 +3,12 @@
+ #ifndef BYTE_H
+ #define BYTE_H
+ 
+-extern unsigned int byte_chr();
+-extern unsigned int byte_rchr();
+-extern void byte_copy();
+-extern void byte_copyr();
+-extern int byte_diff();
+-extern void byte_zero();
++unsigned int byte_chr(const char *s, unsigned int n, int c);
++unsigned int byte_rchr(const char *s, unsigned int n, int c);
++void byte_copy(char *to, unsigned int n, const char *from);
++void byte_copyr(char *to, unsigned int n, const char *from);
++int byte_diff(const char *s, unsigned int n, const char *t);
++void byte_zero(void *s, unsigned int n);
+ 
+ #define byte_equal(s,n,t) (!byte_diff((s),(n),(t)))
+ 
+--- a/src/byte_chr.c
++++ b/src/byte_chr.c
+@@ -2,10 +2,7 @@
+ 
+ #include "byte.h"
+ 
+-unsigned int byte_chr(s,n,c)
+-char *s;
+-register unsigned int n;
+-int c;
++unsigned int byte_chr(const char *s, unsigned int n, int c)
+ {
+   register char ch;
+   register char *t;
+--- a/src/byte_copy.c
++++ b/src/byte_copy.c
+@@ -2,10 +2,7 @@
+ 
+ #include "byte.h"
+ 
+-void byte_copy(to,n,from)
+-register char *to;
+-register unsigned int n;
+-register char *from;
++void byte_copy(char *to, unsigned int n, const char *from)
+ {
+   for (;;) {
+     if (!n) return; *to++ = *from++; --n;
+--- a/src/byte_cr.c
++++ b/src/byte_cr.c
+@@ -2,10 +2,7 @@
+ 
+ #include "byte.h"
+ 
+-void byte_copyr(to,n,from)
+-register char *to;
+-register unsigned int n;
+-register char *from;
++void byte_copyr(char *to, unsigned int n, const char *from)
+ {
+   to += n;
+   from += n;
+--- a/src/byte_diff.c
++++ b/src/byte_diff.c
+@@ -2,10 +2,7 @@
+ 
+ #include "byte.h"
+ 
+-int byte_diff(s,n,t)
+-register char *s;
+-register unsigned int n;
+-register char *t;
++int byte_diff(const char *s, unsigned int n, const char *t)
+ {
+   for (;;) {
+     if (!n) return 0; if (*s != *t) break; ++s; ++t; --n;
+--- a/src/byte_rchr.c
++++ b/src/byte_rchr.c
+@@ -2,10 +2,7 @@
+ 
+ #include "byte.h"
+ 
+-unsigned int byte_rchr(s,n,c)
+-char *s;
+-register unsigned int n;
+-int c;
++unsigned int byte_rchr(const char *s, unsigned int n, int c)
+ {
+   register char ch;
+   register char *t;
+--- a/src/byte_zero.c
++++ b/src/byte_zero.c
+@@ -1,9 +1,8 @@
+ #include "byte.h"
+ 
+-void byte_zero(s,n)
+-char *s;
+-register unsigned int n;
++void byte_zero(void *ptr, unsigned int n)
+ {
++  char* s = (char *)ptr;
+   for (;;) {
+     if (!n) break; *s++ = 0; --n;
+     if (!n) break; *s++ = 0; --n;
+--- a/src/chkshsgr.c
++++ b/src/chkshsgr.c
+@@ -1,10 +1,11 @@
+ /* Public domain. */
+ 
+ #include <unistd.h>
++#include <grp.h>
+ 
+ int main()
+ {
+-  short x[4];
++  gid_t x[4];
+ 
+   x[0] = x[1] = 0;
+   if (getgroups(1,x) == 0) if (setgroups(1,x) == -1) _exit(1);
+--- a/src/pathexec_run.c
++++ b/src/pathexec_run.c
+@@ -5,6 +5,7 @@
+ #include "str.h"
+ #include "env.h"
+ #include "pathexec.h"
++#include <unistd.h>
+ 
+ static stralloc tmp;
+ 
+@@ -15,7 +16,7 @@ void pathexec_run(const char *file,const char * const *argv,const char * const *
+   int savederrno;
+ 
+   if (file[str_chr(file,'/')]) {
+-    execve(file,argv,envp);
++    execve(file,(char **)argv,(char **)envp);
+     return;
+   }
+ 
+@@ -32,7 +33,7 @@ void pathexec_run(const char *file,const char * const *argv,const char * const *
+     if (!stralloc_cats(&tmp,file)) return;
+     if (!stralloc_0(&tmp)) return;
+ 
+-    execve(tmp.s,argv,envp);
++    execve(tmp.s,(char **)argv,(char **)envp);
+     if (errno != error_noent) {
+       savederrno = errno;
+       if ((errno != error_acces) && (errno != error_perm) && (errno != error_isdir)) return;
+--- a/src/prot.c
++++ b/src/prot.c
+@@ -3,7 +3,7 @@
+ #include "hasshsgr.h"
+ #include "prot.h"
+ 
+-int prot_gid(int gid)
++int prot_gid(gid_t gid)
+ {
+ #ifdef HASSHORTSETGROUPS
+   short x[2];
+@@ -15,7 +15,7 @@ int prot_gid(int gid)
+   return setgid(gid); /* _should_ be redundant, but on some systems it isn't */
+ }
+ 
+-int prot_uid(int uid)
++int prot_uid(uid_t uid)
+ {
+   return setuid(uid);
+ }
+--- a/src/prot.h
++++ b/src/prot.h
+@@ -3,7 +3,10 @@
+ #ifndef PROT_H
+ #define PROT_H
+ 
+-extern int prot_gid(int);
+-extern int prot_uid(int);
++#include <unistd.h>
++#include <grp.h>
++
++extern int prot_gid(gid_t);
++extern int prot_uid(uid_t);
+ 
+ #endif
+--- a/src/select.h2
++++ b/src/select.h2
+@@ -8,6 +8,5 @@
+ #include <sys/types.h>
+ #include <sys/time.h>
+ #include <sys/select.h>
+-extern int select();
+ 
+ #endif
+--- a/src/sig.c
++++ b/src/sig.c
+@@ -11,5 +11,5 @@ int sig_int = SIGINT;
+ int sig_pipe = SIGPIPE;
+ int sig_term = SIGTERM;
+ 
+-void (*sig_defaulthandler)() = SIG_DFL;
+-void (*sig_ignorehandler)() = SIG_IGN;
++void (*sig_defaulthandler)(int) = SIG_DFL;
++void (*sig_ignorehandler)(int) = SIG_IGN;
+--- a/src/sig.h
++++ b/src/sig.h
+@@ -11,10 +11,10 @@ extern int sig_int;
+ extern int sig_pipe;
+ extern int sig_term;
+ 
+-extern void (*sig_defaulthandler)();
+-extern void (*sig_ignorehandler)();
++extern void (*sig_defaulthandler)(int);
++extern void (*sig_ignorehandler)(int);
+ 
+-extern void sig_catch(int,void (*)());
++extern void sig_catch(int,void (*)(int));
+ #define sig_ignore(s) (sig_catch((s),sig_ignorehandler))
+ #define sig_uncatch(s) (sig_catch((s),sig_defaulthandler))
+ 
+--- a/src/sig_catch.c
++++ b/src/sig_catch.c
+@@ -4,7 +4,7 @@
+ #include "sig.h"
+ #include "hassgact.h"
+ 
+-void sig_catch(int sig,void (*f)())
++void sig_catch(int sig,void (*f)(int))
+ {
+ #ifdef HASSIGACTION
+   struct sigaction sa;
+--- a/src/tcpsvd.c
++++ b/src/tcpsvd.c
+@@ -2,6 +2,7 @@
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <unistd.h>
++#include <grp.h>
+ #include "dns.h"
+ #include "socket.h"
+ #include "ip4.h"
+@@ -72,7 +73,7 @@ struct uidgid ugid;
+ static char seed[128];
+ char bufnum[FMT_ULONG];
+ struct sockaddr_in socka;
+-int socka_size;
++socklen_t socka_size;
+ unsigned int phcc =0;
+ 
+ static stralloc sa ={0};
+@@ -125,14 +126,14 @@ void connection_status() {
+   out(bufnum); flush("\n");
+ }
+ 
+-void sig_term_handler() {
++void sig_term_handler(int a) {
+   if (phccmax) ipsvd_phcc_free();
+   if (verbose) {
+     out(INFO); flush("sigterm received, exit.\n");
+   }
+   _exit(0);
+ }
+-void sig_child_handler() {
++void sig_child_handler(int a) {
+   int wstat;
+   int i;
+ 
+--- a/src/tryflock.c
++++ b/src/tryflock.c
+@@ -4,7 +4,7 @@
+ #include <sys/file.h>
+ #include <fcntl.h>
+ 
+-main()
++int main()
+ {
+   flock(0,LOCK_EX | LOCK_UN | LOCK_NB);
+ }
+--- a/src/trysgact.c
++++ b/src/trysgact.c
+@@ -2,7 +2,7 @@
+ 
+ #include <signal.h>
+ 
+-main()
++int main()
+ {
+   struct sigaction sa;
+   sa.sa_handler = 0;
+--- a/src/trysgprm.c
++++ b/src/trysgprm.c
+@@ -2,7 +2,7 @@
+ 
+ #include <signal.h>
+ 
+-main()
++int main()
+ {
+   sigset_t ss;
+ 
+--- a/src/trywaitp.c
++++ b/src/trywaitp.c
+@@ -3,7 +3,7 @@
+ #include <sys/types.h>
+ #include <sys/wait.h>
+ 
+-main()
++int main()
+ {
+   waitpid(0,0,0);
+ }
+--- a/src/udpsvd.c
++++ b/src/udpsvd.c
+@@ -52,7 +52,7 @@ struct uidgid ugid;
+ 
+ static char seed[128];
+ struct sockaddr_in socka;
+-int socka_size =sizeof(socka);
++socklen_t socka_size =sizeof(socka);
+ char bufnum[FMT_ULONG];
+ int s;
+ 
+@@ -79,7 +79,7 @@ void discard(char *m0, char *m1) {
+   strerr_die6sys(111, DROP, "discard data: ", m0, ": ", m1, ": ");
+ }
+ 
+-void sig_term_handler() {
++void sig_term_handler(int) {
+   if (verbose) {
+     out(INFO); flush("sigterm received, exit.\n");
+   }
+--- a/src/wait.h
++++ b/src/wait.h
+@@ -3,10 +3,10 @@
+ #ifndef WAIT_H
+ #define WAIT_H
+ 
+-extern int wait_pid();
+-extern int wait_nohang();
+-extern int wait_stop();
+-extern int wait_stopnohang();
++int wait_pid(int *wstat, int pid);
++int wait_nohang(int*);
++int wait_stop();
++int wait_stopnohang();
+ 
+ #define wait_crashed(w) ((w) & 127)
+ #define wait_exitcode(w) ((w) >> 8)
+--- a/src/wait_pid.c
++++ b/src/wait_pid.c
+@@ -7,7 +7,7 @@
+ 
+ #ifdef HASWAITPID
+ 
+-int wait_pid(wstat,pid) int *wstat; int pid;
++int wait_pid(int *wstat, int pid)
+ {
+   int r;
+ 
